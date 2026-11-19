@@ -573,4 +573,4 @@ The tests cover the policy edges as well as the happy path: unknown callers, cal
 
 Version 0.1.0. In daily use on a small fleet of Proxmox, macOS and Linux machines with AI agents; the Proxmox scripts are the most tested path.
 
-No license yet: all rights reserved by the author until one is chosen.
+Released under the [MIT license](LICENSE).
