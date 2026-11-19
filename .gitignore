@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+dist/
+.claude/
+.superpowers/
+*.bak-*
+.DS_Store

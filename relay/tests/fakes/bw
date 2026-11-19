@@ -1,0 +1,152 @@
+#!/bin/bash
+# Fake Bitwarden CLI. State lives in the JSON file named by $FAKE_BW_STATE (the "server").
+# Like the real CLI, each data dir ($BITWARDENCLI_APPDATA_DIR) reads its own local copy of the
+# items (fake-bw-snapshot.json there): copied from the shared state on first use and on every
+# `sync`; create/edit/delete change the shared state and the writer's copy. Without a usable
+# data dir, list/get read the shared state directly.
+if [ -n "$FAKE_BW_ENVDUMP" ]; then
+    compgen -e | sort | tr '\n' ' ' >> "$FAKE_BW_ENVDUMP"
+    echo >> "$FAKE_BW_ENVDUMP"
+fi
+exec python3 -c '
+import base64, json, os, sys
+
+args = sys.argv[1:]
+path = os.environ.get("FAKE_BW_STATE", "")
+
+
+def load():
+    with open(path) as f:
+        return json.load(f)
+
+
+def save(state):
+    with open(path, "w") as f:
+        json.dump(state, f)
+
+
+APPDIR = os.environ.get("BITWARDENCLI_APPDATA_DIR", "")
+SNAP = os.path.join(APPDIR, "fake-bw-snapshot.json") if APPDIR else ""
+
+
+def save_snap(items):
+    if not SNAP:
+        return None
+    try:
+        with open(SNAP, "w") as f:
+            json.dump(items, f)
+    except OSError:
+        return None
+    return items
+
+
+def load_snap(state):
+    """Local item list of this data dir (None without a usable data dir)."""
+    if not SNAP:
+        return None
+    try:
+        with open(SNAP) as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return save_snap(state.get("items", []))
+    except (OSError, ValueError):
+        return None
+
+
+def view(state):
+    snap = load_snap(state)
+    return snap if snap is not None else state.get("items", [])
+
+
+def write(state, change):
+    """Apply change(items) -> items to the shared state and to the copy of this data dir."""
+    snap = load_snap(state)
+    state["items"] = change(state.get("items", []))
+    save(state)
+    if snap is not None:
+        save_snap(change(snap))
+
+
+def edit(item_id, new):
+    def change(items):
+        out = []
+        for i in items:
+            if i["id"] == item_id:
+                i = dict(i, **new)
+                i["id"] = item_id
+            out.append(i)
+        return out
+    return change
+
+
+def opt(name):
+    return args[args.index(name) + 1] if name in args else None
+
+
+def out(obj):
+    print(json.dumps(obj))
+
+
+if args and args[0] == "encode":
+    sys.stdout.write(base64.b64encode(sys.stdin.buffer.read()).decode() + "\n")
+    sys.exit(0)
+
+state = load()
+if " ".join(args[:2]) in state.get("fail", []) or (args and args[0] in state.get("fail", [])):
+    sys.stderr.write("fake bw failure\n")
+    sys.exit(1)
+
+cmd = args[0] if args else ""
+sub = " ".join(args[:2])
+if cmd == "status":
+    out({"status": state.get("status", "locked")})
+elif sub == "list organizations":
+    out(state.get("orgs", []))
+elif sub == "list collections":
+    org = opt("--organizationid")
+    out([c for c in state.get("collections", []) if org is None or c.get("organizationId") == org])
+elif sub == "list items":
+    org, col = opt("--organizationid"), opt("--collectionid")
+    items = view(state)
+    if org is not None:
+        items = [i for i in items if i.get("organizationId") == org]
+    if col is not None:
+        items = [i for i in items if col in i.get("collectionIds", [])]
+    out(items)
+elif sub == "get item":
+    for i in view(state):
+        if i["id"] == args[2]:
+            out(i)
+            break
+    else:
+        sys.stderr.write("Not found.\n")
+        sys.exit(1)
+elif sub == "create item":
+    item = json.loads(base64.b64decode(args[2] if len(args) > 2 else sys.stdin.read()))
+    state["seq"] = state.get("seq", 0) + 1
+    item["id"] = "item-%d" % state["seq"]
+    write(state, lambda items: items + [item])
+    out(item)
+elif sub == "edit item":
+    new = json.loads(base64.b64decode(args[3] if len(args) > 3 else sys.stdin.read()))
+    if not any(i["id"] == args[2] for i in state.get("items", [])):
+        sys.stderr.write("Not found.\n")
+        sys.exit(1)
+    write(state, edit(args[2], new))
+    out(next(i for i in state["items"] if i["id"] == args[2]))
+elif sub == "delete item":
+    write(state, lambda items: [i for i in items if i["id"] != args[2]])
+elif cmd == "unlock":
+    state["status"] = "unlocked"
+    save(state)
+    sys.stdout.write("fake-session")
+elif cmd == "lock":
+    state["status"] = "locked"
+    save(state)
+elif cmd == "sync":
+    save_snap(state.get("items", []))
+    print("Syncing complete.")
+else:
+    sys.stderr.write("fake bw: unsupported command\n")
+    sys.exit(2)
+' "$@"

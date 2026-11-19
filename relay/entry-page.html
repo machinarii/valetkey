@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Credential entry</title>
+<style>
+  :root { color-scheme: light dark; --fg: #1d1d1f; --bg: #f5f5f7; --card: #fff; --muted: #6e6e73;
+          --line: #d2d2d7; --accent: #0a5cd5; --warn: #9a5b00; --ok: #1a7f37; }
+  @media (prefers-color-scheme: dark) {
+    :root { --fg: #f5f5f7; --bg: #1c1c1e; --card: #2c2c2e; --muted: #a1a1a6; --line: #48484a;
+            --accent: #5ea0ff; --warn: #f0b04a; --ok: #4ac26b; }
+  }
+  body { margin: 0; padding: 16px; background: var(--bg); color: var(--fg);
+         font: 16px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 40rem; margin: 0 auto; }
+  h1 { font-size: 1.4rem; margin: 0.5rem 0 1rem; }
+  h2 { font-size: 1.05rem; margin: 1.5rem 0 0.5rem; color: var(--muted); }
+  ul { list-style: none; padding: 0; margin: 0; }
+  li { background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+       padding: 14px 16px; margin: 0 0 12px; }
+  .name { font-weight: 600; font-family: ui-monospace, Menlo, monospace; word-break: break-all; }
+  .meta, .empty { color: var(--muted); font-size: 0.9rem; }
+  .purpose { margin: 6px 0; }
+  .flag { color: var(--warn); font-size: 0.9rem; margin: 6px 0; }
+  .result { background: var(--card); border-left: 4px solid var(--ok); border-radius: 8px;
+            padding: 10px 14px; font-weight: 600; word-break: break-word; }
+  label { display: block; margin: 10px 0 4px; }
+  input[type=password], textarea { box-sizing: border-box; width: 100%; font: inherit;
+         padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px;
+         background: var(--bg); color: var(--fg); }
+  textarea { min-height: 8rem; font-family: ui-monospace, Menlo, monospace; }
+  button { min-height: 44px; margin-top: 10px; padding: 0 20px; font: inherit; font-weight: 600;
+           color: #fff; background: var(--accent); border: 0; border-radius: 10px; }
+  button.secondary { color: var(--accent); background: transparent; border: 1px solid var(--accent); }
+  /* The value form's button: full width on a phone, at the right on a wider screen. */
+  button.submit { display: block; width: 100%; }
+  @media (min-width: 600px) { button.submit { width: auto; min-width: 11rem; margin-left: auto; } }
+  /* While the value is being stored (the page swaps when the broker answers). */
+  button:disabled { opacity: 0.7; }
+  .spin { display: none; width: 14px; height: 14px; margin-right: 8px; vertical-align: -2px;
+          border: 2px solid rgba(255, 255, 255, 0.4); border-top-color: #fff; border-radius: 50%;
+          animation: spin 0.8s linear infinite; }
+  form.busy .spin { display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .spin { animation: none; border-top-color: rgba(255, 255, 255, 0.4); } }
+</style>
+</head>
+<body>
+<main>
+<h1>Credential entry</h1>
+{{result}}
+{{pending}}
+</main>
+<script>
+  // On submit: show the button as busy and refuse a second press. The value still goes
+  // with this submission; the button has no name, so disabling it changes nothing sent.
+  // A value form's button also says "Saving…": storing takes several seconds, and the spinner
+  // alone says nothing to a screen reader or with reduced motion.
+  document.addEventListener('submit', function (e) {
+    var form = e.target;
+    form.classList.add('busy');
+    var button = form.querySelector('button[type=submit]');
+    if (!button) return;
+    button.disabled = true;
+    if (button.classList.contains('submit')) button.lastChild.textContent = 'Saving…';
+  });
+</script>
+</body>
+</html>

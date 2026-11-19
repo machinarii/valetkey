@@ -1,0 +1,55 @@
+#!/bin/bash
+# Usage: sudo relay-check [local|infra|entry]
+# Per relay user: unlocked/locked; for local/infra, ok/FAIL per item in each collection of
+# org.json and per routes entry of that org; the collections each account sees (compare them
+# with the web vault: a nested collection the account was not given shows up only there).
+# Then the units' state and the front door's last audit lines. Names only, never ids or values.
+#
+# A read relay that is running is checked with its own session (/run/relay-<org>/bw.env): a
+# second `bw unlock` as the same user would replace that session and lock the running relay.
+set -uo pipefail
+[ "$(id -u)" = 0 ] || { echo "Run with sudo." >&2; exit 1; }
+libexec=/usr/local/libexec/relay
+case ${1:-all} in
+  local|infra|entry) names=$1 ;;
+  all) names="local infra entry" ;;
+  *) echo "usage: relay-check [local|infra|entry]" >&2; exit 2 ;;
+esac
+
+rc=0
+for n in $names; do
+  user=relay-$n home=/var/lib/relay-$n
+  echo "== relay-$n"
+  if [ ! -f "/etc/credstore.encrypted/bw-unlock-$n" ]; then
+    echo "relay-$n: locked (no unlock credential: sudo relay-login $n <email>)"; rc=1; continue
+  fi
+  if [ ! -f "$home/org.json" ]; then
+    echo "relay-$n: no org.json (sudo relay-login $n <email>)"; rc=1; continue
+  fi
+  inner=(/usr/bin/python3 -I "$libexec/vault-info.py" check "$n"
+         --routes /etc/relay/routes.toml --org-ids "$home/org.json")
+  run=(systemd-run --quiet --wait --pipe --collect -p "User=$user" -p "WorkingDirectory=$home"
+       -E "HOME=$home" -E "BITWARDENCLI_APPDATA_DIR=$home/bw-cli")
+  if [ "$n" != entry ] && systemctl is-active --quiet "relay-$n.service" && [ -f "/run/relay-$n/bw.env" ]; then
+    out=$("${run[@]}" -p "EnvironmentFile=/run/relay-$n/bw.env" "${inner[@]}"); r=$?
+  else
+    out=$("${run[@]}" -p "LoadCredentialEncrypted=bw-unlock-$n" \
+          "$libexec/with-bw-session" "bw-unlock-$n" "${inner[@]}" --lock); r=$?
+  fi
+  if [ -z "$out" ]; then
+    echo "relay-$n: locked (unlock failed; re-run: sudo relay-login $n <email>)"
+  else
+    printf '%s\n' "$out"
+  fi
+  [ "$r" = 0 ] || rc=1
+done
+
+echo "== units"
+for u in relay-local relay-infra relay-entry relay-front relay-cert.timer; do
+  s=$(systemctl is-active "$u" 2>/dev/null); [ -n "$s" ] || s=unknown
+  printf '%-18s %s\n' "$u" "$s"
+  [ "$s" = active ] || rc=1
+done
+echo "== relay-front, last 15 lines"
+journalctl -u relay-front -n 15 --no-pager -o cat
+exit $rc

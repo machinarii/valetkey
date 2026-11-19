@@ -1,0 +1,17 @@
+#!/bin/bash
+# Run by relay-cert.service (root), weekly and from install.sh broker: fetches the Tailscale HTTPS
+# certificate for this machine into /var/lib/relay/tls (group relay-front, mode 640) and restarts
+# relay-front if it is running. Needs HTTPS Certificates enabled in the tailnet.
+set -euo pipefail
+umask 027
+tls=/var/lib/relay/tls
+dns=$(tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//')
+[ -n "$dns" ] && [ "$dns" != null ] || { echo "relay-cert: no tailnet DNS name" >&2; exit 1; }
+install -d -o root -g relay-front -m 750 "$tls"
+tailscale cert --cert-file "$tls/cert.pem.new" --key-file "$tls/key.pem.new" "$dns" >/dev/null
+chgrp relay-front "$tls/cert.pem.new" "$tls/key.pem.new"
+chmod 640 "$tls/cert.pem.new" "$tls/key.pem.new"
+mv -f "$tls/cert.pem.new" "$tls/cert.pem"
+mv -f "$tls/key.pem.new" "$tls/key.pem"
+systemctl try-restart relay-front.service
+echo "relay-cert: certificate for $dns"

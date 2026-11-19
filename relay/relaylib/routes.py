@@ -1,0 +1,234 @@
+"""Load and validate /etc/relay/routes.toml and entry.toml."""
+import re
+import urllib.parse
+import tomllib
+from dataclasses import dataclass, field
+from pathlib import Path
+
+ORGS = ("local", "infra")
+NAME_RE = re.compile(r"\A[a-z0-9]+(-[a-z0-9]+)*\Z")
+PROJECT_NAME_RE = re.compile(r"\A[a-z0-9]+(-[a-z0-9]+)*-(dev|qa|prod)\Z")
+BACKUP_RE = re.compile(r"-backup-[0-9]{8}\Z")
+ROUTE_NAME_RE = re.compile(r"\A[a-z0-9][a-z0-9-]{0,62}\Z")
+RESERVED_ROUTES = ("value", "check", "refresh", "names", "v1", "backups")
+PATTERN_RE = re.compile(r"\A(\*-)?[a-z0-9-]+\Z")
+
+
+class RoutesError(Exception):
+    pass
+
+
+def validate_item_name(name, project):
+    """Error text for an invalid Vaultwarden item name, or None."""
+    if BACKUP_RE.search(name):
+        return "name ends in -backup-YYYYMMDD, which is reserved for replaced items"
+    if project is not None:
+        if not PROJECT_NAME_RE.match(name):
+            return "project item names must be lowercase words joined by '-' and end in -dev|qa|prod"
+    elif not NAME_RE.match(name):
+        return "item names must be lowercase letters, digits and single '-' between words"
+    return None
+
+
+def match_item(name, patterns):
+    """True if name equals a pattern or matches a '*-suffix' glob ('*' only as leading wildcard)."""
+    for p in patterns:
+        if p.startswith("*-"):
+            if name.endswith(p[1:]) and len(name) > len(p) - 1:
+                return True
+        elif "*" not in p and name == p:
+            return True
+    return False
+
+
+@dataclass
+class ApiRoute:
+    name: str
+    org: str
+    item: str
+    upstream: str
+    auth: str
+    methods: list
+    paths: list
+    nodes: list
+
+
+@dataclass
+class ValueRoute:
+    name: str
+    org: str
+    item: str
+    nodes: list
+
+
+@dataclass
+class ProjectRoute:
+    name: str
+    org: str
+    nodes: list
+    items: list
+
+
+@dataclass
+class Routes:
+    api: dict = field(default_factory=dict)
+    values: dict = field(default_factory=dict)
+    projects: dict = field(default_factory=dict)
+    agent_nodes: list = field(default_factory=list)
+    trusted_value_nodes: list = field(default_factory=list)
+
+    def may_read_values(self, node):
+        return node in self.trusted_value_nodes and node not in self.agent_nodes
+
+    def validate_owners(self, owners):
+        if set(owners) & set(self.agent_nodes):
+            raise RoutesError("agent_nodes must not also be owner_nodes")
+
+    def for_org(self, org):
+        def pick(d):
+            return {k: v for k, v in d.items() if v.org == org}
+        return Routes(pick(self.api), pick(self.values), pick(self.projects),
+                      list(self.agent_nodes), list(self.trusted_value_nodes))
+
+
+@dataclass
+class EntryConfig:
+    owner_nodes: list
+    tailnet_name: str
+
+
+def _fail(kind, name, problem):
+    raise RoutesError(f"[{kind}.{name}] {problem}")
+
+
+def _common(kind, name, e):
+    if not isinstance(e, dict):
+        _fail(kind, name, "must be a table")
+    if not ROUTE_NAME_RE.match(name):
+        _fail(kind, name, "bad route name (lowercase letters, digits, '-', max 63 chars)")
+    if name in RESERVED_ROUTES:
+        _fail(kind, name, f"route name '{name}' is reserved")
+    org = e.get("org")
+    if org not in ORGS:
+        _fail(kind, name, f"unknown org {org!r} (expected one of {', '.join(ORGS)})")
+    nodes = e.get("nodes")
+    if not isinstance(nodes, list) or not nodes or not all(isinstance(n, str) and n for n in nodes):
+        _fail(kind, name, "nodes must be a non-empty list of machine names")
+    return org, nodes
+
+
+def _item(kind, name, e):
+    item = e.get("item")
+    if not isinstance(item, str):
+        _fail(kind, name, "item is required")
+    base = item[:-len("/notes")] if item.endswith("/notes") else item
+    err = validate_item_name(base, None)
+    if err:
+        _fail(kind, name, f"bad item name {item!r}: {err}")
+    return item
+
+
+def _str_list(kind, name, e, key):
+    v = e.get(key)
+    if not isinstance(v, list) or not v or not all(isinstance(x, str) and x for x in v):
+        _fail(kind, name, f"{key} must be a non-empty list of strings")
+    return v
+
+
+def canonical_api_path(path):
+    """Fail closed on paths proxies/upstreams can interpret differently.
+
+    Decode once for policy, reject encoded separators, nested escapes and dot segments.
+    Ordinary percent-encoded UTF-8 and spaces remain usable in resource identifiers.
+    """
+    if not isinstance(path, str) or not path.startswith("/"):
+        return None
+    if re.search(r"%(?![0-9a-fA-F]{2})|%(?:2f|5c|25)", path, re.I):
+        return None
+    try:
+        decoded = urllib.parse.unquote(path, errors="strict")
+    except UnicodeError:
+        return None
+    if (any(ord(c) < 32 or ord(c) == 127 for c in decoded)
+            or any(c in decoded for c in "\\;?#%") or "//" in decoded
+            or any(s in (".", "..") for s in decoded.split("/"))):
+        return None
+    return decoded
+
+
+def api_path_allowed(path, paths):
+    decoded = canonical_api_path(path)
+    if decoded is None:
+        return False
+    # A prefix without a trailing slash allows the exact endpoint and its children,
+    # never a sibling such as /emails-admin for /emails.
+    return any(decoded == p or decoded.startswith(p if p.endswith("/") else p + "/")
+               for p in paths)
+
+
+def load_routes(path):
+    with open(path, "rb") as f:
+        conf = tomllib.load(f)
+    routes = Routes()
+    security = conf.get("security", {})
+    if not isinstance(security, dict) or set(security) - {"agent_nodes", "trusted_value_nodes"}:
+        raise RoutesError("security: expected agent_nodes and trusted_value_nodes only")
+    for key in ("agent_nodes", "trusted_value_nodes"):
+        nodes = security.get(key, [])
+        if not isinstance(nodes, list) or not all(
+                isinstance(n, str) and ROUTE_NAME_RE.fullmatch(n) for n in nodes):
+            raise RoutesError(f"security: {key} must be a list of lowercase machine names")
+        setattr(routes, key, list(nodes))
+    if set(routes.agent_nodes) & set(routes.trusted_value_nodes):
+        raise RoutesError("agent_nodes must not also be trusted_value_nodes")
+    for name, e in conf.get("api", {}).items():
+        org, nodes = _common("api", name, e)
+        upstream = e.get("upstream")
+        try:
+            up = urllib.parse.urlsplit(upstream) if isinstance(upstream, str) else None
+            valid = (up and up.scheme == "https" and up.hostname and up.port in (None, 443)
+                     and up.username is None and up.path in ("", "/")
+                     and not up.query and not up.fragment
+                     and not any(c.isspace() or ord(c) < 32 for c in upstream))
+        except ValueError:
+            valid = False
+        if not valid:
+            _fail("api", name, "upstream must be an https:// origin on port 443, without userinfo, path or query")
+        auth = e.get("auth")
+        if (not isinstance(auth, str) or auth.count("{}") != 1
+                or any(c in auth.replace("{}", "") for c in "{}\r\n")):
+            _fail("api", name, "auth must be a string containing {}")
+        paths = _str_list("api", name, e, "paths")
+        if any(canonical_api_path(p) != p or "%" in p or "*" in p for p in paths):
+            _fail("api", name, "paths must be canonical absolute paths without escapes or wildcards")
+        methods = _str_list("api", name, e, "methods")
+        if any(m not in ("GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS") for m in methods):
+            _fail("api", name, "unsupported HTTP method")
+        routes.api[name] = ApiRoute(name, org, _item("api", name, e), upstream, auth,
+                                    methods, paths, nodes)
+    for name, e in conf.get("value", {}).items():
+        org, nodes = _common("value", name, e)
+        routes.values[name] = ValueRoute(name, org, _item("value", name, e), nodes)
+    for name, e in conf.get("project", {}).items():
+        org, nodes = _common("project", name, e)
+        items = _str_list("project", name, e, "items")
+        for pat in items:
+            if not PATTERN_RE.match(pat):
+                _fail("project", name, f"bad items entry {pat!r}")
+        routes.projects[name] = ProjectRoute(name, org, nodes, items)
+    for r in (*routes.values.values(), *routes.projects.values()):
+        if set(r.nodes) & set(routes.agent_nodes):
+            raise RoutesError(f"route {r.name}: agent_nodes cannot be granted raw-value routes")
+    return routes
+
+
+def load_entry_config(path):
+    with open(path, "rb") as f:
+        conf = tomllib.load(f)
+    owners = conf.get("owner_nodes")
+    tailnet = conf.get("tailnet_name")
+    if not isinstance(owners, list) or not owners or not all(isinstance(n, str) for n in owners):
+        raise RoutesError("entry config: owner_nodes must be a non-empty list")
+    if not isinstance(tailnet, str) or not tailnet:
+        raise RoutesError("entry config: tailnet_name is required")
+    return EntryConfig(list(owners), tailnet)

@@ -1,0 +1,17 @@
+#!/bin/bash
+# Fake tailscale CLI. whois answers come from $FAKE_WHOIS (JSON map ip -> DNS name).
+case "$1" in
+    whois)
+        exec python3 -c '
+import json, os, sys
+name = json.loads(os.environ.get("FAKE_WHOIS", "{}")).get(sys.argv[-1])
+if name is None:
+    sys.stderr.write("fake tailscale: no match for IP\n")
+    sys.exit(1)
+print(json.dumps({"Node": {"Name": name}}))
+' "$@"
+        ;;
+    ip) echo 100.64.0.99 ;;
+    status) echo '{"Self":{"DNSName":"broker.test.ts.net."}}' ;;
+    *) echo "fake tailscale: unsupported" >&2; exit 2 ;;
+esac

@@ -1,0 +1,57 @@
+# valetkey routes: which machine may use which credential. Names only; every value lives in
+# Vaultwarden. Installed to /etc/relay/routes.toml by `install.sh broker` (only if absent).
+# After editing /etc/relay/routes.toml run `sudo relay-routes install`.
+#
+# Every entry has `org` ("local" or "infra") and `nodes`: the Tailscale machine names allowed to
+# call it (checked with `tailscale whois`, so nothing is stored on the client).
+#
+#   local  credentials used on your own network and machines (home lab, personal tools)
+#   infra  credentials of deployed projects, one nested collection per project
+#
+# [api.<route>]   https://<broker>/<org>/<route>/<path>  ->  <upstream>/<path>
+#   The relay drops the caller's Authorization/Cookie headers and sends `auth` with a placeholder;
+#   fnox proxy swaps in the real value only for this upstream host, these methods and paths.
+#   item     Vaultwarden item name (add "/notes" for a value stored in Notes)
+#   paths    path prefixes allowed under the route, e.g. "/v1/" (fnox gets "/v1/**")
+#   The caller never holds the key. Prefer this over [value].
+#
+# [value.<name>]  GET https://<broker>/<org>/value/<name>  ->  the raw value
+#   Only for consumers that must hold the value itself (a VM service, a push URL, an SSH key).
+#
+# [project.<name>]  items of a deployed project the listed nodes may read through fnox
+#   items    item names or "*-suffix" globs, e.g. "*-shop-qa"
+#
+# Route names may not be: value, check, refresh, names, v1, backups.
+
+# Raw reads require BOTH this trusted-consumer policy and a route. Never trust an agent node.
+[security]
+agent_nodes = ["devbox", "bot1"]
+trusted_value_nodes = ["app-shop", "monitor"]
+
+# A trusted deployed web shop consumer; no agents or agent-controlled code run here.
+[project.shop]
+org   = "infra"
+nodes = ["app-shop"]
+items = ["*-shop-qa", "*-shop-prod"]
+
+# The agent calls a narrow Stripe route through the broker and never receives the key.
+[api.stripe-shop]
+org      = "local"
+item     = "stripe-api-key-shop-live"
+upstream = "https://api.stripe.com"
+auth     = "Bearer {}"
+methods  = ["GET"]
+paths    = ["/v1/balance"]
+nodes    = ["devbox"]
+
+# A monitoring push URL that one machine's heartbeat must hold itself.
+[value.kuma-push-devbox]
+org   = "local"
+item  = "kuma-push-devbox"
+nodes = ["monitor"]
+
+# A token held by a trusted service, never by its agent callers.
+[value.agent-ingest-token]
+org   = "local"
+item  = "agent-ingest-token"
+nodes = ["app-shop"]

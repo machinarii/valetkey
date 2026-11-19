@@ -1,0 +1,11 @@
+# Installed by valetkey (install.sh broker).
+[Unit]
+Description=Renew the credential relay's Tailscale certificate weekly
+
+[Timer]
+OnCalendar=weekly
+Persistent=true
+RandomizedDelaySec=1h
+
+[Install]
+WantedBy=timers.target

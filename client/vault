@@ -1,0 +1,98 @@
+#!/usr/bin/env python3
+"""Minimal `vault` shim for fnox's vault provider.
+
+Answers exactly `vault kv get -field=<field> <project>/<name>` with
+GET $VAULT_ADDR/<project>/value/<name>[/<field>]. Nothing else is supported.
+VAULT_ADDR must be https:// (plain http only to 127.0.0.1/localhost); proxy variables are
+ignored and redirects are errors.
+VAULT_TOKEN is ignored: identity is the Tailscale machine.
+A dropped connection or timeout (never an HTTP status) is retried once after 0.3 s.
+"""
+import os
+import re
+import socket
+import sys
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+
+PART = re.compile(r"^[A-Za-z0-9._-]+$")
+FIELD = re.compile(r"^[A-Za-z0-9_]+$")
+LOOPBACK = ("127.0.0.1", "localhost")  # plain http only for tests on this machine
+
+
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    """A redirect is an error (HTTPError with the 3xx code), never followed."""
+
+    def redirect_request(self, *a, **kw):
+        return None
+
+
+# No proxies from the environment and no redirects: tailnet traffic goes straight to the broker.
+OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
+
+
+RETRY_DELAY = 0.3
+TRANSIENT = (urllib.error.URLError, ConnectionError, socket.timeout, TimeoutError)
+
+
+def fetch(url):
+    """Body of url; one retry after a connection error or timeout, none after an HTTP status."""
+    for attempt in (1, 2):
+        try:
+            with OPENER.open(url, timeout=10) as r:
+                return r.read()
+        except urllib.error.HTTPError:
+            raise
+        except TRANSIENT:
+            if attempt == 2:
+                raise
+            time.sleep(RETRY_DELAY)
+
+
+def fail(msg):
+    sys.stderr.write(msg + "\n")
+    sys.exit(2)
+
+
+def good_addr(addr):
+    try:
+        u = urllib.parse.urlsplit(addr)
+        host = u.hostname
+        u.port  # a malformed port raises ValueError
+    except ValueError:
+        return False
+    if not host or u.username is not None or u.query or u.fragment:
+        return False
+    return u.scheme == "https" or (u.scheme == "http" and host in LOOPBACK)
+
+
+def main(argv):
+    if len(argv) != 4 or argv[:2] != ["kv", "get"] or not argv[2].startswith("-field="):
+        fail("unsupported")
+    field = argv[2][len("-field="):]
+    project, sep, name = argv[3].partition("/")
+    if not sep or not FIELD.match(field) or not PART.match(project) or not PART.match(name):
+        fail("unsupported")
+    base = os.environ.get("VAULT_ADDR", "").rstrip("/")
+    if not base:
+        fail("relay error no VAULT_ADDR")
+    if not good_addr(base):
+        fail("relay error bad VAULT_ADDR")
+    url = f"{base}/{project}/value/{name}" + ("" if field == "value" else f"/{field}")
+    try:
+        body = fetch(url)
+    except urllib.error.HTTPError as e:
+        if e.code in (403, 404):
+            fail(f"No value found at {project}/{name}")
+        fail(f"relay error {e.code}")
+    except Exception as e:  # timeouts, DNS, TLS: reason class only
+        reason = getattr(e, "reason", e)
+        fail(f"relay error {type(reason).__name__}")
+    sys.stdout.buffer.write(body)
+    sys.stdout.buffer.flush()
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])

@@ -1,0 +1,191 @@
+#!/usr/bin/env python3
+"""relay: ask the credential relay about names and request new ones (no values ever pass through here)."""
+import argparse
+import json
+import os
+from pathlib import Path
+import socket
+import sys
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+
+def _relay_url():
+    """Broker URL: $RELAY_URL, else the first line of ~/.config/valetkey/relay-url (written by
+    `install.sh client --relay-url ...`). Empty if neither is set."""
+    url = os.environ.get("RELAY_URL", "").strip()
+    if not url:
+        cfg = os.path.join(os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config"),
+                           "valetkey", "relay-url")
+        try:
+            with open(cfg, encoding="utf-8") as f:
+                url = f.readline().strip()
+        except OSError:
+            url = ""
+    return url.rstrip("/")
+
+
+BASE = _relay_url()
+NO_URL = ("no broker URL: set RELAY_URL=https://broker.<tailnet>.ts.net or run "
+          "`install.sh client --relay-url https://broker.<tailnet>.ts.net`")
+
+
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    """A redirect is an error (HTTPError with the 3xx code), never followed."""
+
+    def redirect_request(self, *a, **kw):
+        return None
+
+
+# No proxies from the environment and no redirects: tailnet traffic goes straight to the broker.
+OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
+
+
+RETRY_DELAY = 0.3
+TRANSIENT = (urllib.error.URLError, ConnectionError, socket.timeout, TimeoutError)
+
+
+def call(method, path, body=None, retry=False):
+    """(status, text). Network failures exit 1 with a one-line reason; bodies are only returned, never printed here.
+
+    retry (idempotent GETs only): one more attempt after 0.3 s on a connection error or timeout,
+    never after an HTTP status.
+    """
+    if not good_addr(BASE):
+        sys.exit("relay: bad RELAY_URL (https:// required; HTTP allowed only on loopback for tests)")
+    data = json.dumps(body).encode() if body is not None else None
+    for attempt in (1, 2):
+        req = urllib.request.Request(BASE + path, data=data, method=method)
+        if data is not None:
+            req.add_header("Content-Type", "application/json")
+        try:
+            with OPENER.open(req, timeout=15) as r:
+                return r.status, r.read().decode("utf-8", "replace")
+        except urllib.error.HTTPError as e:
+            return e.code, e.read().decode("utf-8", "replace")
+        except TRANSIENT as e:
+            if retry and attempt == 1:
+                time.sleep(RETRY_DELAY)
+                continue
+            sys.exit(f"relay: cannot reach broker ({type(getattr(e, 'reason', e)).__name__})")
+        except Exception as e:
+            sys.exit(f"relay: cannot reach broker ({type(getattr(e, 'reason', e)).__name__})")
+
+
+def one_line(text):
+    return (text.strip().splitlines() or [""])[0][:200]
+
+
+def good_addr(addr):
+    if any(c.isspace() or ord(c) < 32 for c in addr):
+        return False
+    try:
+        u = urllib.parse.urlsplit(addr)
+        u.port
+        return bool(u.hostname and u.username is None and not u.query and not u.fragment
+                    and (u.scheme == "https" or (u.scheme == "http" and u.hostname in ("127.0.0.1", "localhost"))))
+    except ValueError:
+        return False
+
+
+def cmd_guide(a):
+    """Offline instructions: no network, vault access, or credential inspection."""
+    root = Path(__file__).resolve().parent.parent
+    for path in (root / "agents/credential-rules.md", root / "share/valetkey/credential-rules.md"):
+        if path.is_file():
+            print(path.read_text(encoding="utf-8"), end="")
+            return 0
+    sys.exit("relay: guidance missing; reinstall the client or read agents/credential-rules.md")
+
+
+def cmd_check(a):
+    status, text = call("GET", f"/{a.org}/check?names=" + ",".join(urllib.parse.quote(n, safe="") for n in a.names),
+                          retry=True)
+    if status != 200:
+        sys.exit(f"relay: check failed ({status})")
+    try:
+        res = json.loads(text)
+    except ValueError:
+        sys.exit("relay: check failed (bad response)")
+    if not isinstance(res, dict) or any(v not in ("ok", "missing", "not-allowed") for v in res.values()):
+        sys.exit("relay: check failed (bad response)")
+    bad = False
+    for n in a.names:
+        st = res.get(n, "missing")
+        print(f"{st}  {n}")
+        bad = bad or st != "ok"
+    return 1 if bad else 0
+
+
+def cmd_backups(a):
+    """Dates of <name>'s backups, newest first; each is read like the item, as <name>-backup-<date>."""
+    status, text = call("GET", f"/{a.org}/backups/{urllib.parse.quote(a.name, safe='')}", retry=True)
+    if status in (403, 404):
+        sys.exit(f"relay: {one_line(text)} ({status})")
+    if status != 200:
+        sys.exit(f"relay: backups failed ({status})")
+    try:
+        dates = json.loads(text)["backups"]
+    except (ValueError, KeyError, TypeError):
+        sys.exit("relay: backups failed (bad response)")
+    print("\n".join(str(d) for d in dates) if dates else "no backups")
+    return 0
+
+
+def cmd_request(a):
+    status, text = call("POST", "/entry/v1/requests", {
+        "name": a.name, "org": a.org, "project": a.project,
+        "field": "notes" if a.notes else "password", "purpose": a.purpose, "replace": a.replace})
+    if status != 201:
+        print(one_line(text) if status in (400, 409, 429) else f"relay: request failed ({status})")
+        return 1
+    r = json.loads(text)
+    print(f"request {r['id']} ({r['status']})")
+    print(f"Enter it with: vault-entry {r['id']}   or   {BASE}/entry — your choice")
+    return 0
+
+
+def cmd_status(a):
+    status, text = call("GET", f"/entry/v1/requests/{urllib.parse.quote(a.id, safe='')}")
+    if status != 200:
+        sys.exit(f"relay: status failed ({status})")
+    r = json.loads(text)
+    print(r["status"])
+    if r.get("result"):
+        print(r["result"])
+    return 0
+
+
+def main():
+    p = argparse.ArgumentParser(prog="relay")
+    sub = p.add_subparsers(dest="cmd", required=True)
+    g = sub.add_parser("guide", help="print offline credential safety rules for agent memory")
+    g.set_defaults(fn=cmd_guide)
+    c = sub.add_parser("check")
+    c.add_argument("org")
+    c.add_argument("names", nargs="+")
+    c.set_defaults(fn=cmd_check)
+    b = sub.add_parser("backups")
+    b.add_argument("org")
+    b.add_argument("name")
+    b.set_defaults(fn=cmd_backups)
+    r = sub.add_parser("request")
+    r.add_argument("name")
+    r.add_argument("--org", required=True, choices=["local", "infra"])
+    r.add_argument("--project")
+    r.add_argument("--purpose", required=True)
+    r.add_argument("--notes", action="store_true")
+    r.add_argument("--replace", action="store_true")
+    r.set_defaults(fn=cmd_request)
+    s = sub.add_parser("status")
+    s.add_argument("id")
+    s.set_defaults(fn=cmd_status)
+    a = p.parse_args()
+    if a.cmd != "guide" and not BASE:
+        sys.exit(f"relay: {NO_URL}")
+    sys.exit(a.fn(a))
+
+
+if __name__ == "__main__":
+    main()

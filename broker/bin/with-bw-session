@@ -1,0 +1,41 @@
+#!/bin/bash
+# Usage (systemd units, User=relay-<org>): with-bw-session <credential-name> <command> [args...]
+# Unlocks bw with $CREDENTIALS_DIRECTORY/<credential-name> (LoadCredentialEncrypted=), syncs, and
+# execs the command with BW_SESSION set. In a unit with RuntimeDirectory=, it also writes
+# $RUNTIME_DIRECTORY/bw.env (mode 600: BW_SESSION, BITWARDENCLI_APPDATA_DIR) for the relay's
+# --bw-env-file, so the relay itself can run without BW_SESSION in its environment:
+#   with-bw-session bw-unlock-infra fnox ... proxy run -- env -u BW_SESSION relay_read.py ...
+# With no [[proxy.rules]] in the fnox config it skips `fnox proxy run` (see below).
+# Never prints the session.
+set -euo pipefail
+cred=${1:?usage: with-bw-session <credential-name> <command> [args...]}
+shift
+[ $# -gt 0 ] || { echo "with-bw-session: no command" >&2; exit 2; }
+BW_SESSION=$(bw unlock --raw --passwordfile "${CREDENTIALS_DIRECTORY:?}/$cred")
+[ -n "$BW_SESSION" ] || { echo "with-bw-session: unlock returned no session" >&2; exit 1; }
+export BW_SESSION
+bw sync >/dev/null
+if [ -n "${RUNTIME_DIRECTORY:-}" ]; then
+  umask 077
+  tmp="$RUNTIME_DIRECTORY/bw.env.tmp"
+  printf 'BW_SESSION=%s\nBITWARDENCLI_APPDATA_DIR=%s\n' "$BW_SESSION" "${BITWARDENCLI_APPDATA_DIR:?}" > "$tmp"
+  mv -f "$tmp" "$RUNTIME_DIRECTORY/bw.env"
+fi
+
+# `fnox ... -c <api.toml> proxy run -- <relay...>` with no [[proxy.rules]] in api.toml (an org
+# without [api.*] routes): run the relay directly, without a proxy it would never use.
+if [ "$(basename "$1")" = fnox ]; then
+  args=("$@") cfg='' rest=()
+  for ((i = 0; i < ${#args[@]}; i++)); do
+    case ${args[i]} in
+      -c) cfg=${args[i+1]:-} ;;
+      --) rest=("${args[@]:i+1}"); break ;;
+    esac
+  done
+  if [ -n "$cfg" ] && [ -f "$cfg" ] && [ ${#rest[@]} -gt 0 ] && \
+     [ "$(grep -c '^\[\[proxy\.rules\]\]' "$cfg" || true)" = 0 ]; then
+    unset HTTPS_PROXY https_proxy HTTP_PROXY http_proxy SSL_CERT_FILE
+    exec "${rest[@]}"
+  fi
+fi
+exec "$@"

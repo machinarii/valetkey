@@ -1,0 +1,57 @@
+# Installed by valetkey (install.sh broker). Read relay for local-org on 127.0.0.1:8441 (behind relay-front).
+# with-bw-session unlocks bw as relay-local and writes /run/relay-local/bw.env (BW_SESSION) for the
+# relay's --bw-env-file; fnox proxy run gets BW_SESSION for its bitwarden provider ([api.*]
+# routes in api.toml), and env -u keeps it out of the relay process's environment.
+[Unit]
+Description=Credential relay, local-org (read)
+After=network-online.target tailscaled.service
+Wants=network-online.target
+# Not configured yet (relay-login local, relay-routes install): stay inactive, don't crash-loop.
+ConditionPathExists=/etc/credstore.encrypted/bw-unlock-local
+ConditionPathExists=/var/lib/relay-local/api.toml
+ConditionPathExists=/var/lib/relay-local/org.json
+
+[Service]
+User=relay-local
+Group=relay-local
+WorkingDirectory=/usr/local/libexec/relay
+RuntimeDirectory=relay-local
+RuntimeDirectoryMode=0700
+LoadCredentialEncrypted=bw-unlock-local
+LoadCredentialEncrypted=relay-loopback
+Environment=HOME=/var/lib/relay-local BITWARDENCLI_APPDATA_DIR=/var/lib/relay-local/bw-cli
+Environment=FNOX_CONFIG_DIR=/var/lib/relay-local/fnox-global FNOX_DAEMON=off
+ExecStart=/usr/local/libexec/relay/with-bw-session bw-unlock-local \
+  /usr/local/bin/fnox --no-daemon -c /var/lib/relay-local/api.toml proxy run -- \
+  env -u BW_SESSION -u FNOX_BW_SESSION -u CREDENTIALS_DIRECTORY \
+  /usr/bin/python3 -I /usr/local/libexec/relay/relay_read.py --org local \
+  --routes /etc/relay/routes.toml --port 8441 --org-ids /var/lib/relay-local/org.json \
+  --loopback-secret-file %d/relay-loopback --entry-url http://127.0.0.1:8443 \
+  --bw-env-file /run/relay-local/bw.env
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+LockPersonality=yes
+# Decrypted items and the bw session live in this process: never in a core file on disk.
+LimitCORE=0
+UMask=0077
+ProtectProc=invisible
+ProtectKernelLogs=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+SystemCallArchitectures=native
+ReadWritePaths=/var/lib/relay-local
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

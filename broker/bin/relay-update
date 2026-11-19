@@ -1,0 +1,246 @@
+#!/bin/bash
+# Usage: sudo relay-update setup https://github.com/<owner>/<repo>.git [branch]   (public repository)
+#        sudo relay-update setup git@github.com:<owner>/<repo>.git [branch]       (private repository)
+#        sudo relay-update install
+#        sudo relay-update rollback
+# Updates the broker's valetkey code from its repository, from the broker's own console only.
+# Nothing on the network can start an install: anyone who can push to the repository would
+# otherwise run code as root here.
+#
+# setup    once. An https address (a public repository) needs no key: it only writes
+#          /etc/relay/update.env. A git@ address (a private repository) makes a read-only
+#          deploy key (private half encrypted with systemd-creds), prints
+#          the public half to add on GitHub, records GitHub's SSH host key, writes
+#          /etc/relay/update.env (names only).
+# install  fetches the branch, shows what would change and waits for "yes". Then: checks
+#          /etc/relay with the new parser, keeps a copy of the installed code, runs the new
+#          install.sh broker, waits until the relay ports that listened before listen again,
+#          and puts the previous code back if they do not. Nothing from the repository is run
+#          before the "yes".
+# rollback puts back the code the last install replaced, for an update that starts but misbehaves.
+set -euo pipefail
+umask 077
+usage="usage: relay-update setup <https://github.com/|git@github.com:><owner>/<repo>.git [branch] | install | rollback"
+
+# RELAY_UPDATE_ROOT (tests only): a directory used in place of /. sudo does not pass it on.
+root=${RELAY_UPDATE_ROOT:-}
+[ -n "$root" ] || [ "$(id -u)" = 0 ] || { echo "Run with sudo." >&2; exit 1; }
+conf=$root/etc/relay/update.env
+known=$root/etc/relay/update-known-hosts
+cred=$root/etc/credstore.encrypted/relay-update-key
+state=$root/var/lib/relay/update
+libexec=$root/usr/local/libexec/relay
+sbin=$root/usr/local/sbin
+units=$root/etc/systemd/system
+repo=$state/repo.git
+backup=$state/backup
+marker=$state/in-progress
+START_WAIT=${RELAY_START_WAIT:-90}
+PORTS="8441 8442 8443 443"
+
+ok()   { echo "ok    $*"; }
+fail() { echo "FAIL  $*" >&2; exit 1; }
+git_() { git -c core.hooksPath=/dev/null "$@"; }
+
+listening() {
+  # Not `ss | grep -q`: under pipefail, grep leaving early can kill ss and read as "not listening".
+  local out
+  out=$(ss -ltn 2>/dev/null) || true
+  grep -q ":$1 " <<< "$out"
+}
+
+healthy() {  # every port in $1 listens, and still does 3 s later
+  local want=$1 p i
+  for ((i = 0; i < START_WAIT; i++)); do
+    for p in $want; do listening "$p" || { sleep 1; continue 2; }; done
+    sleep 3
+    for p in $want; do listening "$p" || continue 2; done
+    return 0
+  done
+  return 1
+}
+
+restore() {  # the installed code becomes exactly what $backup holds
+  [ -d "$backup/libexec" ] || fail "no copy of the previous code in $backup"
+  set +e  # best effort to the end: stopping half-way would leave neither version in place
+  rm -rf "$libexec"
+  cp -a "$backup/libexec" "$libexec"
+  find "$sbin" "$units" -maxdepth 1 \( -type f -o -type l \) -name 'relay-*' -delete
+  cp -a "$backup/sbin/." "$sbin/"
+  cp -a "$backup/units/." "$units/"
+  systemctl daemon-reload
+  # api.toml was written by the new generator: let the previous one write it again.
+  "$sbin/relay-routes" install
+  systemctl restart relay-entry.service relay-front.service
+  rm -f "$marker"
+  set -e
+}
+
+cmd_setup() {
+  local url=${1:-} branch=${2:-main} tmp
+  [[ $url =~ ^(https://github\.com/|git@github\.com:)[A-Za-z0-9._-]+/[A-Za-z0-9._-]+\.git$ ]] \
+    || fail "repository must look like https://github.com/<owner>/<repo>.git (public) or git@github.com:<owner>/<repo>.git (private)"
+  [[ $branch =~ ^[A-Za-z0-9._/-]+$ ]] || fail "bad branch name"
+  if [[ $url == https://* ]]; then  # public repository: nothing to authenticate with, TLS names the host
+    command -v git >/dev/null || fail "git missing: sudo apt-get install -y git"
+    install -d -m 700 "$state"
+    printf 'UPDATE_REPO=%s\nUPDATE_BRANCH=%s\n' "$url" "$branch" > "$conf"
+    chmod 644 "$conf"
+    ok "$conf written (no deploy key: the repository is read over https)"
+    echo "Then: sudo relay-update install"
+    return 0
+  fi
+  for c in git ssh ssh-keygen ssh-keyscan systemd-creds; do
+    command -v "$c" >/dev/null || fail "$c missing: sudo apt-get install -y git openssh-client"
+  done
+  tmp=$(mktemp -d -p /run relay-update.XXXXXX)
+  trap "rm -rf '$tmp'" EXIT  # expanded now: tmp is local and gone by the time the script exits
+  if [ -f "$cred" ]; then
+    systemd-creds decrypt --name=relay-update-key "$cred" "$tmp/key"
+    ssh-keygen -y -f "$tmp/key" > "$tmp/key.pub"
+    ok "kept the existing deploy key"
+  else
+    ssh-keygen -q -t ed25519 -N '' -C relay-update -f "$tmp/key"
+    install -d -m 700 "$(dirname "$cred")"
+    systemd-creds encrypt --name=relay-update-key "$tmp/key" "$cred"
+    chmod 600 "$cred"
+    ok "deploy key made; private half encrypted in $cred"
+  fi
+  ssh-keyscan -t ed25519 github.com 2>/dev/null > "$tmp/known"
+  [ -s "$tmp/known" ] || fail "could not read GitHub's SSH host key (is port 22 to github.com open?)"
+  install -m 644 "$tmp/known" "$known"
+  printf 'UPDATE_REPO=%s\nUPDATE_BRANCH=%s\n' "$url" "$branch" > "$tmp/conf"
+  install -m 644 "$tmp/conf" "$conf"
+  install -d -m 700 "$state"
+  ok "$conf written"
+  echo
+  echo "1. Add this public key on GitHub: the repository's Settings, Deploy keys, Add deploy key."
+  echo "   Leave \"Allow write access\" off."
+  echo
+  cat "$tmp/key.pub"
+  echo
+  echo "2. Compare this fingerprint with the Ed25519 one GitHub publishes"
+  echo "   (docs.github.com: \"GitHub's SSH key fingerprints\"). If it differs, stop."
+  echo
+  ssh-keygen -lf "$known"
+  echo
+  echo "3. Then: sudo relay-update install"
+}
+
+cmd_install() {
+  local url='' branch=main key val tmp new cur short answer='' staged before count epoch_new epoch_cur
+  [ -f "$conf" ] || fail "not set up: sudo relay-update setup https://github.com/<owner>/<repo>.git"
+  while IFS='=' read -r key val; do  # read, never sourced
+    case $key in UPDATE_REPO) url=$val ;; UPDATE_BRANCH) branch=$val ;; esac
+  done < "$conf"
+  [ -n "$url" ] && [[ $url != -* ]] || fail "$conf has no usable UPDATE_REPO"
+  [[ $branch =~ ^[A-Za-z0-9._/-]+$ ]] || fail "bad UPDATE_BRANCH in $conf"
+  command -v git >/dev/null || fail "git missing: sudo apt-get install -y git openssh-client"
+  install -d -m 700 "$state"
+  exec 9> "$state/lock"
+  flock -n 9 || fail "another relay-update is running"
+
+  if [ -f "$marker" ]; then
+    echo "An earlier update was cut off: putting the previous code back first."
+    restore
+    ok "previous code restored"
+  fi
+
+  # --- fetch: nothing fetched is checked out or run here ---
+  tmp=$(mktemp -d -p "${root:-/run}" relay-update.XXXXXX)
+  trap "rm -rf '$tmp'" EXIT  # expanded now: tmp is local and gone by the time the script exits
+  export GIT_TERMINAL_PROMPT=0  # a private repository over https fails here instead of asking for a login
+  if [ -f "$cred" ] && [[ $url != https://* ]]; then
+    systemd-creds decrypt --name=relay-update-key "$cred" "$tmp/key"
+    export GIT_SSH_COMMAND="ssh -F /dev/null -i $tmp/key -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$known"
+  fi
+  [ -d "$repo" ] || git_ init --quiet --bare "$repo"
+  git_ -C "$repo" fetch --quiet --force --no-tags "$url" "+refs/heads/$branch:refs/update/head" \
+    || fail "could not fetch $branch from $url (private repository: deploy key added on GitHub? port 22 open?)"
+  rm -f "$tmp/key"
+  new=$(git_ -C "$repo" rev-parse --verify --quiet 'refs/update/head^{commit}') || fail "no commit fetched"
+  short=${new:0:7}
+  cur=$(cat "$libexec/COMMIT" 2>/dev/null || true)
+  [[ $cur =~ ^[0-9a-f]{40}$ ]] || cur=''
+  if [ "$new" = "$cur" ]; then
+    ok "already up to date ($short)"
+    return 0
+  fi
+
+  # --- what would change ---
+  echo "Installed: ${cur:-unknown (installed by hand)}"
+  echo "Available: $new"
+  if [ -n "$cur" ] && git_ -C "$repo" merge-base --is-ancestor "$cur" "$new" 2>/dev/null; then
+    count=$(git_ -C "$repo" rev-list --count "$cur..$new")
+    echo "Commits:   $count, titles as written by whoever pushed them:"
+    # Titles are the pusher's text: printable ASCII only, so they cannot drive the terminal.
+    git_ -C "$repo" log --no-decorate --format='  %h %s' -n 30 "$cur..$new" | LC_ALL=C tr -cd '\n\40-\176'
+    if [[ $url =~ ^(https://github\.com/|git@github\.com:)(.+)\.git$ ]]; then
+      echo "Review:    https://github.com/${BASH_REMATCH[2]}/compare/$cur...$new"
+    fi
+  elif [ -n "$cur" ]; then
+    echo "WARNING: $short does not contain the installed commit. The branch was rewritten or"
+    echo "         moved backwards. Review the whole tree, not a diff, before going on."
+  else
+    echo "Review:    the broker does not know what it runs, so there is no diff. Review commit $short."
+  fi
+  epoch_new=$(git_ -C "$repo" show "$new:broker/CONFIG_EPOCH" 2>/dev/null || true)
+  epoch_cur=$(cat "$libexec/CONFIG_EPOCH" 2>/dev/null || true)
+  if [ -n "$cur" ] && [ "$epoch_new" != "$epoch_cur" ]; then
+    echo "WARNING: this update needs manual steps first (broker/CONFIG_EPOCH changed)."
+    echo "         Read \"Upgrading\" in the new README and do them before typing yes."
+  fi
+  echo
+  read -r -p "Type yes to install $short: " answer || true
+  [ "$answer" = yes ] || { echo "Nothing installed."; return 1; }
+
+  # --- from here the commit is approved ---
+  staged=$state/staged
+  rm -rf "$staged"
+  mkdir -p "$staged"
+  git_ -C "$repo" archive "$new" | tar -x -C "$staged"
+  PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3 -I -c '
+import sys
+sys.path.insert(0, sys.argv[1])
+from relaylib.routes import RoutesError, load_routes, load_entry_config
+try:
+    routes = load_routes(sys.argv[2])
+    routes.validate_owners(load_entry_config(sys.argv[3]).owner_nodes)
+except (OSError, ValueError, RoutesError) as err:
+    sys.exit(f"FAIL  the new code rejects /etc/relay: {err}")
+' "$staged/relay" "$root/etc/relay/routes.toml" "$root/etc/relay/entry.toml" \
+    || { rm -rf "$staged"; fail "nothing installed"; }
+  ok "/etc/relay is valid for $short"
+
+  before=''
+  for p in $PORTS; do if listening "$p"; then before="$before $p"; fi; done
+  rm -rf "$backup"
+  mkdir -p "$backup/sbin" "$backup/units"
+  cp -a "$libexec" "$backup/libexec"
+  cp -a "$sbin"/relay-* "$backup/sbin/" 2>/dev/null || true
+  cp -a "$units"/relay-* "$backup/units/" 2>/dev/null || true
+  echo "$new" > "$marker"
+  ok "previous code kept in $backup"
+
+  # The installer's exit status is not the verdict: it also fails for reasons that are not the
+  # code's (no certificate yet, a vault item missing). The ports are.
+  (umask 022; bash "$staged/install.sh" broker) || echo "note  install.sh broker exited $?"
+  if [ -n "$before" ] && ! healthy "$before"; then
+    echo "FAIL  ports$before did not all come back: putting the previous code back" >&2
+    restore
+    rm -rf "$staged"
+    fail "$short not installed; the previous code is running (check: sudo relay-check)"
+  fi
+  echo "$new" > "$libexec/COMMIT"
+  chmod 644 "$libexec/COMMIT"
+  rm -rf "$staged" "$marker"
+  ok "installed $short; ports listening:${before:- none before, none checked}"
+  echo "Next: sudo relay-check"
+}
+
+case ${1:-} in
+  setup) shift; cmd_setup "$@" ;;
+  install) cmd_install ;;
+  rollback) restore; ok "previous code restored (check: sudo relay-check)" ;;
+  *) echo "$usage" >&2; exit 2 ;;
+esac

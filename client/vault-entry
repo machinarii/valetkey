@@ -1,0 +1,252 @@
+#!/usr/bin/env python3
+"""vault-entry: owner tool. Lists pending credential requests and enters values with a hidden prompt."""
+import argparse
+import getpass
+import json
+import os
+import sys
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+import warnings
+from datetime import datetime, timezone
+
+warnings.filterwarnings("error", category=getpass.GetPassWarning)
+def _relay_url():
+    """Broker URL: $RELAY_URL, else the first line of ~/.config/valetkey/relay-url (written by
+    `install.sh client --relay-url ...`). Empty if neither is set."""
+    url = os.environ.get("RELAY_URL", "").strip()
+    if not url:
+        cfg = os.path.join(os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config"),
+                           "valetkey", "relay-url")
+        try:
+            with open(cfg, encoding="utf-8") as f:
+                url = f.readline().strip()
+        except OSError:
+            url = ""
+    return url.rstrip("/")
+
+
+BASE = _relay_url()
+NO_URL = ("no broker URL: set RELAY_URL=https://broker.<tailnet>.ts.net or run "
+          "`install.sh client --relay-url https://broker.<tailnet>.ts.net`")
+
+
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    """A redirect is an error (HTTPError with the 3xx code), never followed."""
+
+    def redirect_request(self, *a, **kw):
+        return None
+
+
+# No proxies from the environment and no redirects: tailnet traffic goes straight to the broker.
+OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
+
+
+def call(method, path, body=None):
+    if not good_addr(BASE):
+        sys.exit("vault-entry: bad RELAY_URL (https:// required; HTTP allowed only on loopback for tests)")
+    data = json.dumps(body).encode() if body is not None else None
+    req = urllib.request.Request(BASE + "/entry/v1" + path, data=data, method=method)
+    if data is not None:
+        req.add_header("Content-Type", "application/json")
+    try:
+        with OPENER.open(req, timeout=30) as r:
+            return r.status, r.read().decode("utf-8", "replace")
+    except urllib.error.HTTPError as e:
+        return e.code, e.read().decode("utf-8", "replace")
+    except Exception as e:
+        sys.exit(f"vault-entry: cannot reach broker ({type(getattr(e, 'reason', e)).__name__})")
+
+
+def one_line(text):
+    return (text.strip().splitlines() or [""])[0][:200]
+
+
+def die(status, text):
+    # Broker/proxy error bodies can contain a reflected submitted value.
+    sys.exit(f"vault-entry: request failed ({status})")
+
+
+def good_addr(addr):
+    if any(c.isspace() or ord(c) < 32 for c in addr):
+        return False
+    try:
+        u = urllib.parse.urlsplit(addr)
+        u.port
+        return bool(u.hostname and u.username is None and not u.query and not u.fragment
+                    and (u.scheme == "https" or (u.scheme == "http" and u.hostname in ("127.0.0.1", "localhost"))))
+    except ValueError:
+        return False
+
+
+def age(created):
+    """Age of a request; `created` is epoch seconds (the relay) or an ISO UTC time."""
+    try:
+        if isinstance(created, (int, float)) and not isinstance(created, bool):
+            s = int(time.time() - created)
+        else:
+            t = datetime.strptime(created, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+            s = int((datetime.now(timezone.utc) - t).total_seconds())
+    except (TypeError, ValueError, OverflowError):
+        return "?"
+    s = max(0, s)
+    return f"{s}s" if s < 90 else f"{s // 60}m" if s < 5400 else f"{s // 3600}h" if s < 172800 else f"{s // 86400}d"
+
+
+def flag_text(r):
+    """replace, near_duplicate=<name>, names_unavailable, ... ("-" if none)."""
+    flags = r.get("flags") or {}
+    if isinstance(flags, list):
+        flags = {f: True for f in flags if isinstance(f, str)}
+    out = ["replace"] if r.get("replace") and "replace" not in flags else []
+    for k, v in flags.items():
+        if v is True:
+            out.append(k)
+        elif v:
+            out.append(f"{k}={v}")
+    return ",".join(out) or "-"
+
+
+def describe(r):
+    where = r.get("org", "?") + (f"/{r['project']}" if r.get("project") else "")
+    flags = flag_text(r)
+    by = f"  from={r['requester']}" if r.get("requester") else ""
+    return f"{r['id']}  {r.get('name', '?')}  {where}  {r.get('field', 'password')}  flags={flags}{by}  age={age(r.get('created'))}  {r.get('purpose') or ''}"
+
+
+def pending():
+    status, text = call("GET", "/requests?status=pending")
+    if status != 200:
+        die(status, text)
+    return json.loads(text)
+
+
+def owner_view(req):
+    """The owner listing's copy of a pending request (it names a near-duplicate), else req."""
+    if req.get("status", "pending") != "pending":
+        return req
+    return next((r for r in pending()["requests"] if r.get("id") == req.get("id")), req)
+
+
+def listing():
+    d = pending()
+    for r in d["requests"]:
+        print(describe(r))
+    for s in d.get("suspects", []):
+        print(f"may be expired: {s['name']} ({s['org']})")
+    if not d["requests"] and not d.get("suspects"):
+        print("nothing pending")
+    return 0
+
+
+def read_lines():
+    lines = []
+    while True:
+        line = sys.stdin.readline()
+        if line == "" or line.rstrip("\r\n") == ".":
+            break
+        lines.append(line.rstrip("\r\n"))
+    return "\n".join(lines)
+
+
+def read_notes():
+    """Multi-line value, twice. On a terminal, echo is off for the whole read (nothing reaches
+    the scrollback). Non-terminal input is refused."""
+    prompts = ('Lines, end with a single "." (input hidden)', 'Again, end with a single "."')
+    if not sys.stdin.isatty():
+        sys.exit("vault-entry: use a private terminal or the encrypted web entry page")
+    import termios
+    fd = sys.stdin.fileno()
+    saved = termios.tcgetattr(fd)
+    quiet = termios.tcgetattr(fd)
+    quiet[3] &= ~termios.ECHO
+    values = []
+    try:
+        termios.tcsetattr(fd, termios.TCSAFLUSH, quiet)
+        for prompt in prompts:
+            print(prompt, file=sys.stderr, flush=True)
+            values.append(read_lines())
+    finally:
+        termios.tcsetattr(fd, termios.TCSAFLUSH, saved)
+        print(file=sys.stderr)
+    return values
+
+
+def read_value(field):
+    if not sys.stdin.isatty():
+        sys.exit("vault-entry: use a private terminal or the encrypted web entry page")
+    if field == "notes":
+        first, second = read_notes()
+        if first != second:
+            sys.exit("values differ")
+        return first
+    try:
+        first = getpass.getpass("Value: ")
+        if getpass.getpass("Again: ") != first:
+            sys.exit("values differ")
+    except (getpass.GetPassWarning, EOFError):
+        sys.exit("vault-entry: hidden input unavailable; use the encrypted web entry page")
+    return first
+
+
+def enter(rid, req=None):
+    if req is None:
+        status, text = call("GET", f"/requests/{urllib.parse.quote(rid, safe='')}")
+        if status != 200:
+            die(status, text)
+        req = json.loads(text)
+    req = owner_view(req)
+    print(describe(req))
+    value = read_value(req.get("field", "password"))
+    if not value.strip():
+        sys.exit("empty value")
+    status, text = call("POST", f"/requests/{urllib.parse.quote(req['id'], safe='')}/value", {"value": value})
+    value = None
+    print("stored" if status == 200 else f"vault-entry: submission failed ({status})")
+    return 0 if status == 200 else 1
+
+
+def cmd_add(a):
+    status, text = call("POST", "/requests", {
+        "name": a.name, "org": a.org, "project": a.project,
+        "field": "notes" if a.notes else "password", "purpose": a.purpose, "replace": False})
+    if status != 201:
+        die(status, text)
+    return enter(None, json.loads(text))
+
+
+def cmd_replace(a):
+    status, text = call("POST", "/replace", {"name": a.name, "org": a.org})
+    if status not in (200, 201):
+        die(status, text)
+    return enter(None, json.loads(text))
+
+
+def main():
+    argv = sys.argv[1:]
+    if not BASE:
+        sys.exit(f"vault-entry: {NO_URL}")
+    if not argv:
+        return listing()
+    if argv[0] not in ("add", "replace"):
+        if len(argv) != 1 or argv[0].startswith("-"):
+            sys.exit("usage: vault-entry [<id> | add <name> --org … --purpose … | replace <name> --org …]")
+        return enter(argv[0])
+    p = argparse.ArgumentParser(prog="vault-entry " + argv[0])
+    p.add_argument("name")
+    p.add_argument("--org", required=True, choices=["local", "infra"])
+    if argv[0] == "add":
+        p.add_argument("--project")
+        p.add_argument("--purpose", required=True)
+        p.add_argument("--notes", action="store_true")
+        p.set_defaults(fn=cmd_add)
+    else:
+        p.set_defaults(fn=cmd_replace)
+    a = p.parse_args(argv[1:])
+    return a.fn(a)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
