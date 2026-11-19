@@ -125,7 +125,7 @@ More detail: [docs/architecture.md](docs/architecture.md).
 |---|---|
 | **Tailnet** | Tailscale with MagicDNS and HTTPS Certificates turned on. You need admin access to edit the ACL. |
 | **Vaultwarden** | Any host with Docker (the Proxmox LXC script is optional). Vaultwarden 1.37.2+ for current Bitwarden clients. |
-| **Broker** | Debian 12+ or Ubuntu 24.04+ with systemd ≥ 250, Python ≥ 3.11 and a TPM or vTPM (for `systemd-creds`). 1 vCPU, 1 GB RAM and 8 GB disk is plenty. |
+| **Broker** | Debian 12+ or Ubuntu 24.04+ with systemd ≥ 250, Python ≥ 3.11 and a TPM or vTPM (for `systemd-creds`). 2 vCPU, 2 GB RAM and 8 GB disk. Each relay runs the Bitwarden CLI, which is heavy: 1 GB runs out once an org has more than a few `[api.*]` routes. |
 | **Clients** | Python ≥ 3.9 (macOS's `/usr/bin/python3` works), Tailscale, and [fnox](https://fnox.jdx.dev) for project pulls (`install.sh client --with-deps` installs both). |
 
 ---
@@ -519,6 +519,7 @@ the installed one; the steps are listed here, newest first:
 | `no collection for project …` on entry | Create `infra-broker-collection/<project>` first, grant it, then run `relay-login entry …` again. |
 | fnox runs the wrong `vault` | Put the valetkey prefix before HashiCorp Vault on `PATH`. |
 | `relay-front` fails after setup | HTTPS Certificates are off in the tailnet DNS settings. Turn them on and re-run `install.sh broker`. |
+| The broker stops answering during `relay-check` or `relay-routes install`, or after adding `[api.*]` routes | Out of memory: fnox fetches one vault item per API route when a read relay starts, each through the Bitwarden CLI. Give the VM 2 GB and 2 cores (Proxmox: `qm stop <id>; qm set <id> --memory 2048 --cores 2; qm start <id>`). |
 | A relay unit is inactive | It has no login yet (the units wait for `relay-login`). `journalctl -u relay-<name> -n 30` shows why. |
 | Every route of one org answers `502 backend unavailable` | That read relay restarts in a loop because fnox cannot resolve an `[api.*]` item: it is missing, or its name is contained in another item's name (a `--replace` backup). `sudo relay-check <org>` names it. Fix the item, then run `sudo relay-routes install <org>`. |
 | An `[api.*]` call answers `502 upstream error: SSLCertVerificationError` | The broker's relay predates the Python 3.13 fix (fnox's proxy certificates fail the strict default check). Upgrade the broker. |

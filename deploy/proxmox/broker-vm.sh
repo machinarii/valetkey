@@ -43,7 +43,7 @@ keys="$WORK/authorized_keys"
 cat /root/.ssh/authorized_keys /root/.ssh/id_*.pub 2>/dev/null | grep -E '^(ssh-|ecdsa-)' | sort -u > "$keys"
 
 qm create "$VMID" --name "$BROKER_HOSTNAME" --ostype l26 \
-  --cores 1 --memory 1024 --cpu host \
+  --cores 2 --memory 2048 --cpu host \
   --net0 "virtio,bridge=$BRIDGE" --scsihw virtio-scsi-single \
   --agent enabled=1 --onboot 1 --serial0 socket --vga serial0
 qm set "$VMID" --scsi0 "$STORAGE:0,import-from=$img,discard=on"
