@@ -6,6 +6,9 @@ Please report vulnerabilities privately through GitHub's *Report a vulnerability
 
 ## Threat model
 
+valetkey is not a bulletproof solution for protecting keys from agents. It is a practical way to
+reduce risk in a home agentic setup, and it has had no independent security audit.
+
 See [secure setup](docs/secure-setup.md) for required machine separation, policy, migration and
 verification, and [the threat model](docs/valetkey-threat-model.md) for evidence and limits.
 

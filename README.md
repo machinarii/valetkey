@@ -1,32 +1,132 @@
-# valetkey
+<p align="center">
+  <img src="docs/images/valetkey-icon.png" width="128" height="128" alt="valetkey icon: a smiling robot valet in a green cap holds up a gold key, on a blue tile">
+</p>
 
-**Your machines get a valet key, never the master.**
+<h1 align="center">valetkey</h1>
 
-valetkey is a self-hosted credential broker. It pairs [Vaultwarden](https://github.com/dani-garcia/vaultwarden) with [fnox](https://fnox.jdx.dev) over [Tailscale](https://tailscale.com). Agents call broker API routes; separate trusted services can opt into raw credentials. Keeping keys unread by agents requires both broker policy and machine isolation.
+<p align="center">
+  <b>Your machines get a valet key, never the master.</b><br>
+  A self-hosted way to let AI agents use your API keys and logins without ever holding them:<br>
+  a credential broker and a tool desk on their own machines, joined over your private network.
+</p>
 
-**Start with [secure setup](docs/secure-setup.md).** Never run agents on the broker, vault server, owner entry device, trusted raw-value consumer or their management host. Raw reads are denied by default; existing deployments need the migration steps in that guide before upgrading.
+<p align="center">
+  <img alt="Python: standard library only" src="https://img.shields.io/badge/python-standard%20library%20only-3776ab?style=flat-square&logo=python&logoColor=white">
+  <img alt="Self-hosted with Proxmox, Tailscale and Vaultwarden" src="https://img.shields.io/badge/self--hosted-Proxmox%20%C2%B7%20Tailscale%20%C2%B7%20Vaultwarden-1d4e6e?style=flat-square">
+  <img alt="Clients: Linux and macOS" src="https://img.shields.io/badge/clients-Linux%20%C2%B7%20macOS-2d81ff?style=flat-square">
+  <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-3a3a3a?style=flat-square">
+  <img alt="Status: 0.1.0, for home setups" src="https://img.shields.io/badge/status-0.1.0%20%C2%B7%20for%20home%20setups-d69e2e?style=flat-square">
+</p>
+
+<p align="center">
+  <a href="#getting-started"><b>Get started</b></a> ·
+  <a href="#one-command-per-machine">One command per machine</a> ·
+  <a href="bellhop/README.md">bellhop</a> ·
+  <a href="docs/secure-setup.md">Secure setup</a>
+</p>
+
+<br>
+
+<p align="center">
+  <img src="docs/images/how-it-works.gif" width="860" alt="Animation in nine steps. An agent machine that holds no keys sends a request to the broker. The broker checks which machine is calling and what its routes allow, takes one key from the vault, adds it and forwards the request to the service. The answer comes back and the key stays on the broker. For a tool with its own login, the agent calls the desk, which runs the real tool and returns the output. A command that would print the login is refused.">
+  <br>
+  <sub>The agent's machine holds no keys. The broker adds a key to a request on its way out; the desk runs tools that keep their own login.</sub>
+</p>
+
+> [!IMPORTANT]
+> **This is not a bulletproof solution for protecting keys from agents.** It is a practical way to reduce the risk in a home agentic setup, where you run AI agents on your own machines. It stops a key being read and copied from an agent's machine. It does not stop an agent misusing the access it is given, it depends on you keeping the machines separate, and it has had no outside security review. If you have compliance requirements, many users or keys whose loss you could not absorb, use it as a starting point and not as your only control. [Security model](#security-model) lists what it does and does not cover.
+
+<p align="center">
+  <a href="#the-parts-and-where-each-runs">The parts</a> ·
+  <a href="#why">Why</a> ·
+  <a href="#how-it-works">How it works</a> ·
+  <a href="#containment-where-everything-runs">Containment</a> ·
+  <a href="#tailscale-what-valetkey-relies-on">Tailscale</a> ·
+  <a href="#getting-started">Getting started</a> ·
+  <a href="#everyday-use">Everyday use</a> ·
+  <a href="#commands">Commands</a> ·
+  <a href="#security-model">Security model</a> ·
+  <a href="#the-desk-tools-with-their-own-login">The desk</a> ·
+  <a href="#troubleshooting">Troubleshooting</a>
+</p>
+
+<br>
+
+<table>
+  <tr>
+    <td width="25%" valign="top">
+      <h3>🔑 No keys on agent machines</h3>
+      An agent calls the broker with no key. The broker adds it on the way out. There is nothing on the agent's machine to read, print or copy.
+    </td>
+    <td width="25%" valign="top">
+      <h3>🛎️ A desk for tools that sign in</h3>
+      bellhop runs command-line tools that keep their own login on a separate machine. Agents use them by name and get the output, never the login.
+    </td>
+    <td width="25%" valign="top">
+      <h3>🧱 Containment first</h3>
+      Every part has its own machine and one installer. The network policy tests itself on each save, and the guide says plainly what is not separate enough.
+    </td>
+    <td width="25%" valign="top">
+      <h3>🙋 You stay in charge</h3>
+      Agents ask for keys and tools by name. You type the value or install the tool. Who may use what changes only at a console.
+    </td>
+  </tr>
+</table>
+
+## What it is
+
+valetkey is a self-hosted credential broker. It pairs [Vaultwarden](https://github.com/dani-garcia/vaultwarden) with [fnox](https://fnox.jdx.dev) over [Tailscale](https://tailscale.com). Agents call broker API routes; separate trusted services can opt into raw credentials. Its companion, **bellhop**, does the same for command-line tools that keep their own login: they run on a separate desk machine, and agents use them by name without ever holding the login.
 
 A valet key starts the car but won't open the trunk. valetkey gives each machine the same kind of key: it can use the few credentials its routes allow, for as long as it is on your tailnet, and nothing else. The master key stays in one place: a small broker VM that is the only thing allowed to unlock the vault.
 
----
+Software alone does not keep a key from an agent. **Where each part runs matters as much as what it does.** Read [Containment](#containment-where-everything-runs) before installing anything, then follow [secure setup](docs/secure-setup.md). Never run agents on the broker, the desk, the vault server, an owner entry device, a trusted raw-value consumer or their management host. Raw reads are denied by default; existing deployments need the migration steps in that guide before upgrading.
 
-## Contents
+## The parts and where each runs
 
-- [Why](#why)
-- [How it works](#how-it-works)
-- [Features](#features)
-- [Requirements](#requirements)
-- [Getting started](#getting-started)
-- [Everyday use](#everyday-use)
-- [Configuration](#configuration)
-- [Commands](#commands)
-- [Security model](#security-model)
-- [Working with AI agents](#working-with-ai-agents)
-- [Upgrading](#upgrading)
-- [Troubleshooting](#troubleshooting)
-- [Project layout](#project-layout)
-- [Development](#development)
-- [Status and license](#status-and-license)
+valetkey is several small tools, each with one job, and each belongs on a particular machine. The machines are separate on purpose; see [Containment](#containment-where-everything-runs).
+
+| Part | What it is for | Runs on |
+|---|---|---|
+| **Tailscale** | The private network between your machines. It gives every machine a name the broker and desk can check, issues the HTTPS certificates, and holds the policy that says who may reach whom. | Every machine |
+| **Vaultwarden** | The vault. Stores every key, encrypted. You manage it with the Bitwarden apps. Only the broker and your own devices can reach it. | Vault host |
+| **relay** | The broker's services. They stand between your machines and the vault: unlock it, hand out only what each machine's routes allow, add keys to outgoing API calls, and take new keys from you. | Broker |
+| &nbsp;&nbsp;`relay-front` | The only listener: HTTPS on the broker's tailnet address. Passes each request to a service below and tells it which machine is calling. | Broker |
+| &nbsp;&nbsp;`relay-local`, `relay-infra` | The read side, one per vault organization: checks, values for trusted consumers, API routes. | Broker |
+| &nbsp;&nbsp;`relay-entry` | The write side: named requests from agents, and the page and prompt where you type a value. | Broker |
+| **fnox** | On the broker, adds the key to an outgoing API call (`fnox proxy`). On a trusted consumer, starts a program with its secrets (`fnox exec`). | Broker; trusted consumers |
+| **Broker tools** `relay-login`, `relay-check`, `relay-routes`, `relay-update` | Sign the relays in to the vault, check them, apply route changes, update the broker. | Broker, at its console |
+| **`relay`** | The client. Asks the broker whether a key exists and requests a new one by name. Never shows a value. | Agent machines and every other client |
+| **`vault`** | A small shim that lets fnox fetch a value from the broker for a trusted program. | Trusted consumers only |
+| **`vault-entry`** | A hidden prompt for typing a key's value. | Owner devices only |
+| **bellhop desk** | Runs command-line tools that keep their own login, on behalf of agent machines, within a list you write. | Desk |
+| **`bellhop`** | The stand-in. Sends a command and its files to the desk and returns the output. Linked under each tool's own name. | Agent machines |
+| **sweep** | An hourly check that no login and no unexpected tool has appeared. Reports names only. | Agent machines, as root |
+| **Agent rules** | Standing instructions that tell an agent how to ask for keys and tools, and what never to do. | Agent machines |
+| **Proxmox scripts** | Create the vault container and the broker and desk VMs, then run the right installer in each. | Hypervisor |
+
+### One command per machine
+
+Each machine gets exactly one installer. Run it on that machine, from a copy of this repository.
+
+| Machine | Command | What it installs |
+|---|---|---|
+| **Hypervisor** (Proxmox) | `bash deploy/proxmox/vaultwarden-ct.sh`<br>`bash deploy/proxmox/broker-vm.sh`<br>`bash bellhop/proxmox-desk-vm.sh` | Creates the vault container and the broker and desk VMs, and runs the three installers below inside them |
+| **Vault host** | `sudo ./install.sh vaultwarden` | Docker, Tailscale, Vaultwarden published on the tailnet only |
+| **Broker** | `sudo ./install.sh broker --with-deps` | Tailscale, Bitwarden CLI, fnox, the relay services and broker tools |
+| **Desk** (optional) | `sudo ./install.sh desk` | Tailscale, the desk service, the TLS front door. No tools, no logins |
+| **Agent machine** | `sudo ./install.sh agent --relay-url … --desk-url … --tools …`<br>`./install.sh claude` | `relay` in agent mode, the `bellhop` stand-in, the sweep and its timer, a policy that limits MCP servers to the broker and desk. Then, as the agent's user, the rules in `CLAUDE.md` and the blocks you choose in Claude Code's settings. No keys |
+| **Owner device** | `./install.sh client --owner --relay-url …` | `relay` and `vault-entry` |
+| **Trusted consumer** | `./install.sh client --relay-url … --with-deps` | `relay`, the `vault` shim, fnox |
+
+Never combine two rows on one machine, with one exception: the hypervisor hosts the vault, broker and desk as separate guests. If you use Proxmox, the first row replaces the next three.
+
+What no installer can do for you, because each step is a decision or a secret:
+
+- edit the tailnet policy in the Tailscale admin console;
+- create the Vaultwarden accounts and organizations, and type their passwords;
+- sign the relays in (`relay-login`) and sign tools in on the desk;
+- write the routes and the desk's tool list: who may use what;
+- take `sudo` away from the agent's user.
 
 ---
 
@@ -98,7 +198,112 @@ conflicts are rejected. The fnox pull examples below are for separate trusted co
 2. **Inject.** A client calls `https://broker.<tailnet>.ts.net/local/stripe-shop/v1/…` with no key. The broker adds the key on the way out. The client never holds it.
 3. **Entry.** An agent runs `relay request stripe-api-key-shop-prod --org infra --project shop --purpose "…"`. You enter the value with `vault-entry <id>` in your private terminal or on `https://broker.<tailnet>.ts.net/entry`, on a separate owner device. The broker writes it, verifies it and tells the agent `stored`; the response contains no value.
 
+**The desk (optional).** Some tools cannot go through an API route: a command-line tool that signs in and keeps its own login file, for example. bellhop puts those on a second small VM, the desk. The agent machine has a stand-in command under the tool's name; it sends the command and any files to the desk, which runs the real tool with its own login and returns the output. See [The desk](#the-desk-tools-with-their-own-login).
+
 More detail: [docs/architecture.md](docs/architecture.md).
+
+---
+
+## Containment: where everything runs
+
+The rule is short: **a key lives only on a machine where no agent runs, and an agent machine holds no key.** Everything below follows from it. The broker and the desk identify a caller by its machine, not by the program that is calling, so every process on a machine shares that machine's access. An agent and a key on the same machine means the agent can reach the key, whatever the software says.
+
+### The machines
+
+| Machine | Holds | Runs agents | Reachable by |
+|---|---|---|---|
+| **Agent machine** (dev box, bot, CI runner) | No key, no login, no vault session | Yes | Nothing needs to reach it |
+| **Broker** | Vault unlock material; keys in memory | Never | Agent machines and owner devices, port 443 only |
+| **Desk** (optional) | Logins of the command-line tools it runs | Never | Agent machines, port 443 only |
+| **Vault** (Vaultwarden) | The encrypted vault | Never | The broker and owner devices, port 443 only |
+| **Owner device** (your laptop, phone) | What you type during entry | Never | Nothing |
+| **Trusted consumer** (a deployed service) | Only the keys its own process needs | Never | Its own application port |
+| **Hypervisor** | Control of every VM on it | Never | You, at its console |
+
+### Recommended layout
+
+```
+ separate hardware                          one hypervisor host (Proxmox VE)
+┌──────────────────────┐   tailnet 443    ┌───────────────────────────────────────────┐
+│ agent machines       │ ───────────────▶ │ VM   broker    vTPM, 2 vCPU, 2 GB         │──┐
+│  no keys, no sudo,   │ ───────────────▶ │ VM   desk      2 vCPU, 2 GB  (optional)   │  │ 443
+│  sandboxed commands  │                  │ LXC  vault     Vaultwarden in Docker      │◀─┘
+└──────────────────────┘                  └───────────────────────────────────────────┘
+┌──────────────────────┐   tailnet 443            ▲ console or LAN SSH only
+│ owner devices        │ ───▶ vault, broker       │
+└──────────────────────┘                    you, never an agent
+```
+
+- **Put the broker, the desk and the vault on a hypervisor that no agent can administer.** A small always-on box running [Proxmox VE](https://www.proxmox.com/proxmox-virtual-environment) is the tested path: `deploy/proxmox/` and `bellhop/proxmox-desk-vm.sh` create all three from scratch.
+- **Keep agent machines on different hardware**, or at least on a different hypervisor. An agent that controls a hypervisor controls every VM on it.
+- **Give each of the three its own VM or container.** The broker gets a VM because it needs a virtual TPM. Run nothing else on any of them.
+- **Manage the broker and the desk from the hypervisor's console or LAN SSH.** Nothing reaches them over SSH on the tailnet, and there is no remote or automatic update trigger.
+
+### What counts as separate
+
+| Arrangement | Good enough? |
+|---|---|
+| Different physical machines | Yes. The strongest option |
+| VMs on a dedicated hypervisor that agents cannot log in to or control | Yes |
+| VMs or containers created by a desktop tool on a computer that also runs agents | **No** |
+| A container next to the agent, when the agent can reach the container engine | **No** |
+| Another Unix user on the agent's machine | **No** |
+| A rule in the agent's instructions | **No**. Useful, but not a boundary |
+
+Desktop virtualization is built for convenience, and that convenience is the problem. Check what yours shares before trusting it. With [OrbStack](https://orbstack.dev)'s default machines, for example, each machine can read the host's home folder, see the other machines' files and run commands on the host, the host can run commands as root inside any machine, and the default user has passwordless sudo. Its isolated machines turn the file sharing and host integration off, which makes them fine for *agent* machines and for testing. They are still not a place for the broker or the desk if agents also run on that computer.
+
+Things that quietly join two machines into one, from the agent's point of view:
+
+- a mounted host folder or a shared volume;
+- the host's Tailscale identity shared by several VMs (give each agent machine its own node);
+- passwordless `sudo`, or membership of the `docker` group;
+- a forwarded SSH agent, a shared clipboard, a management socket;
+- backups or disk images of the broker or desk stored where an agent can read them.
+
+### The agent machine
+
+An agent machine is treated as readable by the agent in full. Set it up so there is nothing to read:
+
+1. **Its own tailnet identity, tagged.** A tagged machine gets only the grants written for that tag. A personal device may inherit access meant for your own machines.
+2. **No sudo for the agent's user**, and no control of its own hypervisor or host.
+3. **No logins.** No `gh auth login`, no cloud CLIs signed in, no `.env` files with real keys, no SSH keys that open other machines. Git goes [through the broker](docs/git-through-the-broker.md).
+4. **Sandbox the agent's commands** where the agent supports it, with network access limited to the hosts it needs. This limits accidents; it does not replace the points above.
+5. **Restrict where MCP servers may live.** With Claude Code, a root-owned `/etc/claude-code/managed-settings.json` can allow only servers at the broker's or the desk's address.
+6. **Watch for drift.** `bellhop/sweep.py`, run hourly as root, reports any login file, key in a settings file or newly installed program on the machine, by name only.
+7. **Do not sign in to things on it yourself** out of habit. That is how logins come back.
+
+### The network
+
+Merge [`deploy/tailscale/acl.example.hujson`](deploy/tailscale/acl.example.hujson) into your tailnet policy. It grants exactly this and tests it on every save:
+
+| From | To | Port |
+|---|---|---|
+| Agent machines | broker, desk | 443 |
+| Owner devices | vault, broker | 443 |
+| Broker | vault | 443 |
+| Anything | broker or desk over SSH | Denied |
+| Agent machines | vault, owner devices | Denied |
+
+Grants in a tailnet policy add up, so remove any allow-all or member-to-member rule. The tailnet policy cannot close a LAN or public interface: the broker and desk listen only on their tailnet address, with their services on loopback behind it.
+
+### Recommended tools
+
+| Job | Tool | Why |
+|---|---|---|
+| Hypervisor for broker, desk and vault | Proxmox VE on its own box | VMs with a virtual TPM, containers, a console that does not depend on the tailnet; scripts included |
+| Guest OS | Debian 13 (cloud image) | Current systemd for `systemd-creds`; what the scripts and tests use |
+| Network and machine identity | Tailscale with MagicDNS, HTTPS certificates and tags | The broker and desk name callers with `tailscale whois`; tags keep grants narrow |
+| Vault | Vaultwarden | Self-hosted, works with the Bitwarden apps and CLI |
+| Key injection and project secrets | fnox | The broker's API routes use `fnox proxy`; projects keep `fnox exec` |
+| Unlock material at rest | `systemd-creds` with the VM's vTPM | Encrypted to that VM; useless if the disk is copied |
+| Monitoring | Any uptime monitor on its own tagged machine | Checks that the broker and desk answer; it needs port 443 and no route |
+| Agent sandbox | The agent's own sandbox and policy file | Limits what a command can read and reach on the agent machine |
+
+One command does the parts that can be automated: `sudo ./install.sh agent …` installs the clients as root-owned files the agent cannot edit, the MCP policy (point 5) and the sweep with its hourly timer (point 6). It then lists what is left for you: the tailnet identity, `sudo`, and keeping logins off the machine.
+
+### What containment does not do
+
+Hiding a key stops it being copied. It does not limit what an agent does with the access it is given: a route or a listed tool can be used freely by every listed machine. Keep keys narrow at the service, prefer test-mode and capped keys, and list only the operations you need. See [Security model](#security-model).
 
 ---
 
@@ -115,6 +320,9 @@ More detail: [docs/architecture.md](docs/architecture.md).
 - **Least privilege on the broker.** Separate system users, separate Vaultwarden accounts, view-only read accounts, a write account unlocked for seconds at a time, and hardened systemd units (`ProtectSystem=strict`, `NoNewPrivileges`, and more).
 - **Names only, everywhere.** Audit logs, checks, errors and installer output contain item names and `ok` / `FAIL`, never values.
 - **No runtime dependencies beyond the tools.** Python standard library only. The broker needs `bw`, `fnox`, `jq` and `tailscale`, and `install.sh broker --with-deps` installs them.
+- **A desk for tools with their own login.** bellhop runs listed subcommands of a command-line tool on a separate machine and returns the output. Login and token subcommands, risky options and paths into the desk are refused. Files travel with the command.
+- **Install requests, not installs.** An agent asked to add a tool that needs a login files a request; the owner installs it. Nothing an agent sends makes the desk install or run anything new.
+- **Checks on the agent machine.** A root-owned policy can limit MCP servers to the broker and desk, and an hourly sweep reports logins and new tools by name.
 - **One-command installs** for all three parts: `install.sh vaultwarden`, `install.sh broker --with-deps` and `install.sh client --with-deps` bring their own Docker, Tailscale, Bitwarden CLI and fnox. Proxmox scripts can create the Vaultwarden container and the broker VM from scratch.
 
 ---
@@ -126,6 +334,7 @@ More detail: [docs/architecture.md](docs/architecture.md).
 | **Tailnet** | Tailscale with MagicDNS and HTTPS Certificates turned on. You need admin access to edit the ACL. |
 | **Vaultwarden** | Any host with Docker (the Proxmox LXC script is optional). Vaultwarden 1.37.2+ for current Bitwarden clients. |
 | **Broker** | Debian 12+ or Ubuntu 24.04+ with systemd ≥ 250, Python ≥ 3.11 and a TPM or vTPM (for `systemd-creds`). 2 vCPU, 2 GB RAM and 8 GB disk. Each relay runs the Bitwarden CLI, which is heavy: 1 GB runs out once an org has more than a few `[api.*]` routes. |
+| **Desk** (optional) | Debian 12+ or Ubuntu 24.04+ with systemd and Python ≥ 3.11, on its own VM. 2 vCPU, 2 GB RAM and 16 GB disk is enough for a few tools. No TPM needed. |
 | **Clients** | Python ≥ 3.9 (macOS's `/usr/bin/python3` works), Tailscale, and [fnox](https://fnox.jdx.dev) for project pulls (`install.sh client --with-deps` installs both). |
 
 ---
@@ -134,12 +343,14 @@ More detail: [docs/architecture.md](docs/architecture.md).
 
 Allow about an hour for the first setup, most of it creating Vaultwarden accounts. You type every password yourself, into a hidden prompt or Vaultwarden's own web page. None of them goes into this repo, a command argument or a chat.
 
+The table under [One command per machine](#one-command-per-machine) is the map: each step below runs on a different machine.
+
 ### 1. Prepare the tailnet
 
-In the Tailscale admin console:
+In the Tailscale admin console ([Tailscale: what valetkey relies on](#tailscale-what-valetkey-relies-on) has the documentation links):
 
 1. **DNS:** turn on **MagicDNS** and **HTTPS Certificates**.
-2. **Access controls:** merge [`deploy/tailscale/acl.example.hujson`](deploy/tailscale/acl.example.hujson) into your policy. Owner devices reach `tag:vault` and `tag:broker` on 443; workload machines reach only `tag:broker:443`; the broker reaches `tag:vault:443`; nothing reaches the broker over SSH. The `tests` block checks this every time you save.
+2. **Access controls:** merge [`deploy/tailscale/acl.example.hujson`](deploy/tailscale/acl.example.hujson) into your policy. Owner devices reach `tag:vault` and `tag:broker` on 443; workload machines reach only `tag:broker:443` (and `tag:desk:443` if you use the desk); the broker reaches `tag:vault:443`; nothing reaches the broker or desk over SSH. The `tests` block checks this every time you save.
 
 ### 2. Run Vaultwarden
 
@@ -215,9 +426,26 @@ sudo relay-login entry <-entry account address>
 sudo relay-check        # expect: unlocked ×3, ok for every item and route, all units active
 ```
 
-### 6. Install the clients
+### 6. Set up the machines that use keys
 
-On each machine that uses keys:
+**On each agent machine**, one command as root:
+
+```sh
+git clone https://github.com/machinarii/valetkey && cd valetkey
+sudo ./install.sh agent --relay-url https://broker.<tailnet>.ts.net
+```
+
+It installs `relay` in agent mode, the hourly sweep and a policy that limits MCP servers to the broker, all as root-owned files, and prints what is left for you. With a desk, add `--desk-url https://desk.<tailnet>.ts.net/desk --tools tool1,tool2`; each tool name becomes a stand-in. `--user NAME` says which user the agent runs as, and `--no-policy` skips the MCP policy.
+
+Then, as the user the agent runs as, set up Claude Code itself:
+
+```sh
+./install.sh claude
+```
+
+It asks six questions about what to block, shows the changes, and writes them only when you agree. See [Working with AI agents](#working-with-ai-agents).
+
+**On each owner device and trusted consumer:**
 
 ```sh
 git clone https://github.com/machinarii/valetkey && cd valetkey
@@ -226,7 +454,7 @@ git clone https://github.com/machinarii/valetkey && cd valetkey
 
 `--with-deps` installs what is missing: Tailscale (Linux; on macOS it points you to the download) and, except on agent machines, fnox at the version the broker is tested with (through [mise](https://mise.jdx.dev), linked into the prefix). Leave it off to install them yourself.
 
-On agent machines, add `--agent` to install only `relay` and offline guidance. On separate owner devices, add `--owner` to also get `vault-entry`; these modes cannot be combined. Tools go to `~/.local/bin` (`--prefix` to change it). For trusted consumers, that directory must come before HashiCorp `vault` on `PATH`. `./install.sh doctor` reports installation and broker reachability.
+On macOS agent machines, where `install.sh agent` does not run, use `client --agent` to install only `relay` and offline guidance. On separate owner devices, add `--owner` to also get `vault-entry`; these modes cannot be combined. Tools go to `~/.local/bin` (`--prefix` to change it). For trusted consumers, that directory must come before HashiCorp `vault` on `PATH`. `./install.sh doctor` reports installation and broker reachability.
 
 ### 7. Wire up a project
 
@@ -276,7 +504,26 @@ FNOX_DAEMON=off fnox exec -- npm run dev
 
 Set `FNOX_DAEMON=off` (for example in the project's `.mise.toml` `[env]`) so values aren't cached outside the process. Once it works, delete the old `.env` files and local keys yourself, and rotate them when convenient.
 
-### 8. Verify
+### 8. Add the desk (optional)
+
+Only if agents need a command-line tool that keeps its own login. An HTTP API or an MCP server with a fixed key needs no desk: give it an `[api.*]` route on the broker.
+
+**On Proxmox** (creates a Debian 13 VM and installs the desk in it):
+
+```sh
+bash bellhop/proxmox-desk-vm.sh                # VMID=212 DESK_HOSTNAME=desk by default
+```
+
+**On any Debian/Ubuntu VM that runs nothing else:**
+
+```sh
+git clone https://github.com/machinarii/valetkey && cd valetkey
+sudo ./install.sh desk
+```
+
+Add `tag:desk` to the tailnet policy first; the installer joins the tailnet with that tag and prints a login URL. It installs no tool and no login. [bellhop/README.md](bellhop/README.md) covers listing tools, signing them in and the stand-in command for agent machines.
+
+### 9. Verify
 
 From a client:
 
@@ -416,6 +663,13 @@ After changing org or collection names, run `relay-login` again for the affected
 | `sudo relay-login <local\|infra\|entry> <email>` | broker | Hidden-prompt login; stores the encrypted unlock; writes `org.json`. |
 | `sudo relay-check [local\|infra\|entry]` | broker | Lock state, `ok`/`FAIL` per item and route, unit state, recent audit lines. |
 | `sudo relay-routes check \| install [local\|infra]` | broker | Validates the configs; regenerates fnox proxy rules and restarts the read relays. |
+| `sudo ./install.sh agent [--relay-url URL] [--desk-url URL] [--tools a,b] [--user NAME] [--no-policy]` | agent machine (Linux) | Everything an agent machine needs, as root-owned files: `relay` in agent mode, the `bellhop` stand-in and tool links, the sweep and its timer, the MCP policy. No keys. |
+| `./install.sh claude [--yes] [--dry-run] [--hide-env NAMES]` | agent machine, as the agent's user | Asks what to block, then merges valetkey's rules into `~/.claude/CLAUDE.md` and `~/.claude/settings.json`. Keeps what is there; backs both files up. |
+| `sudo ./install.sh desk` | desk | Installs or updates the bellhop desk behind the same TLS front door. No tools, no logins. |
+| `bellhop <tool> [args…]` · `bellhop --list` | agent machine | Runs a listed tool on the desk · shows what this machine may use. Link it under a tool's name to use that name. |
+| `bellhop --request cli <name> [source] [why]` | agent machine | Asks the owner to install a tool on the desk. |
+| `desk.py --requests` · `desk.py --done <id>` | desk | Lists waiting install requests · clears one. |
+| `sweep.py [--accept]` | agent machine, as root | Reports logins and new tools by name · takes the current tools as known. |
 | `sudo relay-update setup <repo> \| install \| rollback` | broker | Fetches a new version, shows what changes, installs after `yes`; puts the previous code back if the relays do not return, or on request. |
 
 ---
@@ -436,12 +690,83 @@ After changing org or collection names, run `relay-login` again for the affected
 
 - **Code on an allowed machine.** Every process shares its Tailscale identity. If trusted consumer `app-shop` may pull `*-shop-qa`, anything on `app-shop` can. Keep routes narrow and agents on separate machines or VMs.
 - **A process that already holds a value** (`[project]` and `[value]` routes). It can leak that value. `[api]` routes avoid this.
+- **Use of what is allowed.** A listed machine can call every operation its routes and desk entries permit, as often as it likes. Hiding a key stops copying, not misuse: narrow the lists, the key's own scope and its spending limits.
+- **A desk tool's own behaviour.** The desk refuses subcommands that are not listed, but a listed subcommand does whatever the tool does. Do not list one whose purpose is to print the login or read a file you name.
 - **Root on the broker**, which can unlock everything. Run nothing else on it, manage it only from its console or LAN SSH, keep it updated and back it up.
 - **An agent on an owner device.** It could submit values, capture input or browser state, or read process memory. Keep owner devices separate.
 - **Upstream key disclosure or misuse.** Echo/debug and secret-export APIs can return credentials. A route also permits the upstream actions it exposes. Narrow paths, methods and provider permissions; Valet is not a general response redactor.
 - **Availability.** If the broker is down, clients get no keys. Keep what you need to repair it outside valetkey.
 
 More in [SECURITY.md](SECURITY.md).
+
+---
+
+## Tailscale: what valetkey relies on
+
+valetkey has no passwords or tokens of its own between machines. It uses Tailscale for the network, for naming the caller and for certificates, so the tailnet's settings are part of the security of the whole setup.
+
+| Tailscale feature | What valetkey uses it for | Documentation |
+|---|---|---|
+| Install | Every machine joins the tailnet. Each agent machine needs its own node, not a host's | [Install on Linux](https://tailscale.com/kb/1031/install-linux) |
+| MagicDNS | Names such as `broker.<tailnet>.ts.net` | [MagicDNS](https://tailscale.com/kb/1081/magicdns) |
+| HTTPS certificates | Certificates for the broker, desk and vault, fetched with `tailscale cert` and renewed weekly | [Enabling HTTPS](https://tailscale.com/kb/1153/enabling-https) |
+| Policy file | Who may reach whom, on which port | [ACLs](https://tailscale.com/kb/1018/acls), [Grants](https://tailscale.com/kb/1324/grants) |
+| Policy tests | A saved policy is rejected if it opens something it should not | [Policy syntax: tests](https://tailscale.com/kb/1337/policy-syntax#tests) |
+| Tags | `tag:vault`, `tag:broker`, `tag:desk`, and a tag for agent machines | [Tags](https://tailscale.com/kb/1068/tags) |
+| `tailscale whois` | How the broker and desk learn which machine is calling | [CLI reference](https://tailscale.com/kb/1080/cli) |
+| Tailscale Serve | Publishes Vaultwarden on the tailnet and nowhere else | [Serve](https://tailscale.com/kb/1312/serve) |
+| Key expiry | A server whose key expires drops off the tailnet | [Key expiry](https://tailscale.com/kb/1028/key-expiry) |
+| Auth keys (optional) | Joining a machine without opening a login link. An auth key is a secret: treat it like one | [Auth keys](https://tailscale.com/kb/1085/auth-keys) |
+| Tailnet Lock (optional) | New machines must be signed by one you trust before they can join | [Tailnet Lock](https://tailscale.com/kb/1226/tailnet-lock) |
+
+Set it up in this order:
+
+1. In the admin console, under DNS, turn on **MagicDNS** and **HTTPS Certificates**.
+2. Merge [`deploy/tailscale/acl.example.hujson`](deploy/tailscale/acl.example.hujson) into your policy: the `tagOwners`, the `grants` and the `tests`. Remove any allow-all rule you had.
+3. Only then run the installers. Each one joins its machine with the right tag and prints a login link.
+
+Things that catch people out:
+
+- **A tag must be in `tagOwners` before a machine can join with it.** Otherwise the join is refused.
+- **A test opens nothing.** `tests` only check; access comes from `grants`. Each goes in its own section of the policy.
+- **Tag names must match exactly.** A grant for `tag:monitor` does nothing for a machine tagged `tag:monitoring`.
+- **A machine that may not reach a peer may not be able to resolve its name either.** A name that does not resolve usually means a missing grant, not a DNS fault.
+- **Tagged machines are not yours in the policy's eyes.** That is the point for servers and agent machines. It also means a tagged machine can never be an owner device.
+- **VMs behind one host share that host's identity** unless each runs Tailscale itself. The broker would then treat them as one machine.
+- **The broker and desk know a machine by its Tailscale name.** Renaming a machine changes who it is; update the routes when you do.
+- **The policy covers the tailnet only.** It cannot close a LAN or public address. The broker and desk listen only on their tailnet address.
+
+---
+
+## The desk: tools with their own login
+
+Some tools cannot be reached through an API route. They are programs that sign in and keep a login file, and they expect to run where that file is. bellhop runs them on the desk and gives agent machines a stand-in.
+
+```
+agent machine                         desk (no agent)
+  sometool upload scene.png             checks who is calling and what they ask
+    -> bellhop (stand-in)   -- HTTPS -->   runs the real tool with its own login,
+       sends the command and the file      in an empty folder, then cleans up
+    <- output, exit code, result files <-
+```
+
+| The desk enforces | How |
+|---|---|
+| Who may call | Tailscale machine name, per tool. Everyone else gets `403` |
+| What may run | Only subcommands on the tool's `allow` list. Login and token commands are left off it |
+| No reaching into the desk | Arguments shaped like a path on the desk are refused: `/x`, `~/x`, `-o/x`, `key=/x`, `file:/x`, `../x` |
+| Files are data | An upload is stored under a name the desk chooses and is never executed |
+| A record | One log line per request: machine, tool, outcome. Never a value |
+
+Which goes where:
+
+| The service offers | Use |
+|---|---|
+| An HTTP API or remote MCP server with a fixed key | A broker `[api.*]` route. The key stays in the vault |
+| Only a program or SDK, or a login that renews itself | A desk entry |
+| A browser sign-in MCP server with no fixed key | Neither can hold it yet |
+
+Start with [bellhop/README.md](bellhop/README.md). To add a tool step by step, follow [the recipe](docs/recipe-new-tool-with-credential.md). [The keyless tool standard](docs/keyless-tool-standard.md) is a draft of how a tool should be built so that either the broker or the desk can hold its credential.
 
 ---
 
@@ -453,6 +778,29 @@ More in [SECURITY.md](SECURITY.md).
 - create named requests and **always offer you both entry methods** (terminal or web);
 - keep agents separate from trusted raw-key consumers and owner entry devices;
 - never ask for, print or store a secret, including in Notion or other cloud documents.
+
+### Setting up Claude Code
+
+`./install.sh claude` does this for Claude Code. Run it on the agent machine as the user the agent runs as. It asks, with a recommended answer for each:
+
+| Question | Recommended | What it changes |
+|---|---|---|
+| Add valetkey's rules to `CLAUDE.md`? | Yes | A marked block in `~/.claude/CLAUDE.md`, replaced in place on later runs. The desk's rules are included when the machine has a desk address |
+| Turn on the command sandbox? | Yes | `sandbox.enabled`; the broker's and desk's hosts are added to the allowed network list |
+| Block reading login and key files? | Yes | Read rules and sandbox read blocks for SSH keys, cloud logins, tokens and `.env` files. `.env.example` stays readable |
+| Block commands that print a secret? | Yes | Deny rules for `env`, `printenv`, `gh auth token`, `vault`, password-manager commands and similar |
+| Turn off claude.ai account connectors? | Yes | `disableClaudeAiConnectors`. Connectors are logins held on Anthropic's side that any session signed in as you can be offered |
+| Never run a command outside the sandbox? | No | `sandbox.allowUnsandboxedCommands: false`. Safer, but tools that must leave the sandbox stop working |
+
+It then asks for the names of any environment variables to remove from the agent's commands (names only, never values), shows every change, and writes only when you say yes.
+
+- **It merges.** No existing rule or setting is removed, and running it again changes nothing.
+- **It backs up.** Each file is copied to `<name>.before-valetkey-<time>` first.
+- **`--yes`** takes every recommended answer; **`--dry-run`** shows the changes and writes nothing.
+
+These are the agent user's own settings, so that user can change them back. They cut down accidents; they are not a boundary. The rules an agent cannot undo come from `sudo ./install.sh agent`, which writes root-owned files.
+
+[`bellhop/agent-rules.md`](bellhop/agent-rules.md) is the matching section for machines that use the desk: call listed tools by name, file a request for a tool that needs a login, and treat a refusal from the desk as final.
 
 ---
 
@@ -547,13 +895,26 @@ valetkey/
 │   ├── bin/                    relay-login, relay-check, relay-routes, relay-update, relay-cert, with-bw-session
 │   └── systemd/                relay-{front,local,infra,entry}.service, relay-cert.{service,timer}
 ├── client/                     relay, vault (fnox shim), vault-entry
+├── bellhop/                    the desk: tools with their own login
+│   ├── desk.py                 desk service: listed tools, install requests
+│   ├── bellhop                 stand-in command for agent machines
+│   ├── install-desk.sh         installs the desk behind relay_front
+│   ├── desk-tools.sh           example tools with cautious allow lists
+│   ├── sweep.py                agent-machine check for logins and new tools
+│   ├── agent-rules.md          instruction section for AI agents
+│   ├── proxmox-desk-*.sh       create the desk VM; run a script or open a shell in it
+│   └── testvm/, fakes/         test machines and fixtures, synthetic logins only
 ├── config/                     routes / entry / vault.env examples
 ├── deploy/
-│   ├── proxmox/                vaultwarden-ct.sh, broker-vm.sh
+│   ├── proxmox/                vaultwarden-ct.sh, broker-vm.sh (also builds the desk VM)
 │   ├── vaultwarden/            in-container setup, admin token, close sign-ups
 │   └── tailscale/              example ACL
-├── agents/credential-rules.md  instruction section for AI agents
-└── docs/                       secure setup, architecture, threat model, fnox vault-provider notes, git through the broker
+├── agents/
+│   ├── credential-rules.md     instruction section for AI agents
+│   └── claude-setup.py         asks what to block; updates Claude Code's CLAUDE.md and settings.json
+├── docs/images/                icon, how-it-works animation, and the script that draws the animation
+└── docs/                       secure setup, architecture, threat model, fnox vault-provider notes, git through the broker,
+                                keyless tool standard, recipe for adding a tool
 ```
 
 ---
@@ -561,7 +922,7 @@ valetkey/
 ## Development
 
 ```sh
-make test     # 210+ unit and policy tests; stdlib only, fakes for bw, tailscale and fnox
+make test     # 230+ unit and policy tests (relay and bellhop); stdlib only, fakes for bw, tailscale and fnox
 make lint     # bash -n on every script, shellcheck if installed, py_compile, no real tailnet names or home paths
 make dist     # dist/valetkey-<version>.tar.gz
 ```
@@ -572,6 +933,8 @@ The tests cover the policy edges as well as the happy path: unknown callers, cal
 
 ## Status and license
 
-Version 0.1.0. In daily use on a small fleet of Proxmox, macOS and Linux machines with AI agents; the Proxmox scripts are the most tested path.
+Version 0.1.0. In daily use on a small fleet of Proxmox, macOS and Linux machines with AI agents; the Proxmox scripts are the most tested path. bellhop is newer than the broker: it has run on one Proxmox desk with three tools, and its keyless tool standard is a draft that nothing enforces yet.
 
-Released under the [MIT license](LICENSE).
+It is not a bulletproof solution for protecting keys from agents. It is a practical way to reduce risk in a home agentic setup, built by one person, without an independent security audit. Treat it as a reasonable set of precautions, not a guarantee.
+
+Released under the [MIT license](LICENSE). The icon was generated with ChatGPT's image tool; the animation is drawn by `docs/images/make.py`.
