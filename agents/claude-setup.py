@@ -136,6 +136,15 @@ def plan_rules(text, block):
     return None if new == text else new
 
 
+def policy_rules(path):
+    """The standing instructions a root-owned policy already gives the agent; '' when there are none."""
+    try:
+        with open(path) as f:
+            return str(json.load(f).get("claudeMd", ""))
+    except (OSError, ValueError, AttributeError):
+        return ""
+
+
 def host_of(url):
     return urllib.parse.urlsplit(url.strip()).hostname or ""
 
@@ -164,6 +173,8 @@ def main(argv=None):
     ap.add_argument("--dry-run", action="store_true", help="show the changes and write nothing")
     ap.add_argument("--settings", default="~/.claude/settings.json")
     ap.add_argument("--claude-md", default="~/.claude/CLAUDE.md")
+    ap.add_argument("--policy", default="/etc/claude-code/managed-settings.json",
+                    help="the root-owned policy file; rules it already holds are not added a second time")
     ap.add_argument("--relay-url", default=None, help="the broker's address (default: what the client saved)")
     ap.add_argument("--desk-url", default=None, help="the desk's address (default: /etc/bellhop/url)")
     ap.add_argument("--hide-env", default="", help="comma-separated variable names to remove from the agent's commands")
@@ -188,7 +199,13 @@ def main(argv=None):
     if any(not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", n) for n in env_names):
         sys.exit("claude-setup: --hide-env takes variable names only, never values")
 
-    answers = {key: ask(q, default, why, args.yes) for key, q, default, why in QUESTIONS}
+    block = open(os.path.join(args.repo, "agents", "credential-rules.md")).read()
+    in_policy = block.strip() in policy_rules(args.policy)  # `install.sh agent` put them there: twice costs tokens
+    if in_policy:
+        print("The root-owned policy already gives the agent valetkey's rules; not adding them to CLAUDE.md as well.")
+    answers = {key: ask(q, default, why, args.yes) for key, q, default, why in QUESTIONS
+               if not (in_policy and key == "rules")}
+    answers.setdefault("rules", False)
     if not args.yes and not env_names:
         print("\nVariable names to remove from the agent's commands, separated by commas (names only; Enter for none):")
         try:
@@ -201,7 +218,6 @@ def main(argv=None):
     changes = plan_settings(after, answers, hosts, env_names)
     new_rules = None
     if answers["rules"]:
-        block = open(os.path.join(args.repo, "agents", "credential-rules.md")).read()
         if desk:
             block += "\n" + open(os.path.join(args.repo, "bellhop", "agent-rules.md")).read()
         try:

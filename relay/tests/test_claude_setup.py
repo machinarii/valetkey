@@ -20,7 +20,8 @@ class ClaudeSetup(unittest.TestCase):
     def run_setup(self, *args, stdin=""):
         return subprocess.run(
             [sys.executable, "-I", str(SCRIPT), "--settings", str(self.settings), "--claude-md", str(self.rules),
-             "--relay-url", "https://broker.example.ts.net", "--desk-url", "", *args],
+             "--relay-url", "https://broker.example.ts.net", "--desk-url", "",
+             "--policy", str(Path(self.tmp.name) / "no-policy.json"), *args],
             input=stdin, capture_output=True, text=True, timeout=30)
 
     def test_recommended_answers_merge_and_keep_what_was_there(self):
@@ -84,6 +85,15 @@ class ClaudeSetup(unittest.TestCase):
         r = self.run_setup("--yes", "--hide-env", "TOKEN=abc123")
         self.assertNotEqual(r.returncode, 0)
         self.assertEqual(self.settings.read_text(), "{}")
+
+    def test_rules_already_in_the_root_policy_are_not_added_twice(self):
+        policy = Path(self.tmp.name) / "policy.json"
+        policy.write_text(json.dumps({"claudeMd": (ROOT / "agents" / "credential-rules.md").read_text() + "\nmore"}))
+        r = self.run_setup("--yes", "--policy", str(policy))
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("already gives the agent", r.stdout)
+        self.assertFalse(self.rules.exists())
+        self.assertTrue(json.loads(self.settings.read_text())["sandbox"]["enabled"])
 
 
 if __name__ == "__main__":
