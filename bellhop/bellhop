@@ -1,0 +1,128 @@
+#!/usr/bin/python3 -I
+"""bellhop: run a tool that lives on the desk machine as if it were installed here.
+
+  bellhop <tool> [args...]    run it (or link this file under the tool's name and call that)
+  bellhop --list              what the desk lets this machine use
+  bellhop --request mcp|cli NAME [SOURCE] [WHY...]
+                              ask the owner to install a tool or MCP server on the desk
+
+An argument that names an existing local file is uploaded and swapped for the desk's copy.
+Files the tool writes come back into the current folder. No key or login is kept here.
+The desk's address comes from $BELLHOP_URL, ~/.config/bellhop/url or /etc/bellhop/url.
+"""
+import json
+import os
+import re
+import shutil
+import sys
+import urllib.error
+import urllib.parse
+import urllib.request
+
+
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, *a, **k):  # a redirect could carry an upload somewhere else
+        return None
+
+
+OPEN = urllib.request.build_opener(NoRedirect).open  # honours proxy settings, so it works in a sandbox
+
+
+def die(text, code=125):
+    print("bellhop: " + text, file=sys.stderr)
+    sys.exit(code)
+
+
+def desk_url():
+    places = (os.path.expanduser("~/.config/bellhop/url"), "/etc/bellhop/url")
+    url = os.environ.get("BELLHOP_URL") or next(
+        (open(p).readline().strip() for p in places if os.path.isfile(p)), "")
+    if not re.match(r"https?://", url):
+        die("no desk address: set BELLHOP_URL or write it to ~/.config/bellhop/url")
+    return url.rstrip("/")
+
+
+def call(method, path, data=None, headers=None):
+    """(status, open response). Refusals come back as a status, not an exception."""
+    req = urllib.request.Request(desk_url() + path, data=data, method=method, headers=headers or {})
+    try:
+        return 200, OPEN(req, timeout=900)
+    except urllib.error.HTTPError as e:
+        return e.code, e
+    except (urllib.error.URLError, OSError) as e:
+        die(f"cannot reach the desk ({getattr(e, 'reason', e)})")
+
+
+def text(resp):
+    return resp.read().decode(errors="replace").strip()
+
+
+def send_file(path):
+    ext = os.path.splitext(path)[1][1:].lower()
+    ext = ext if re.fullmatch(r"[a-z0-9]{1,8}", ext) else ""
+    with open(path, "rb") as f:
+        status, resp = call("PUT", "/file?ext=" + ext, f, {"Content-Length": str(os.path.getsize(path))})
+    if status != 200:
+        die(f"{path}: upload refused: {text(resp)} ({status})", 126)
+    return text(resp)
+
+
+def main():
+    me, args = os.path.basename(sys.argv[0]), sys.argv[1:]
+    if me == "bellhop":
+        if not args or args[0] in ("-h", "--help"):
+            print(__doc__.strip())
+            return 0
+        if args[0] == "--list":
+            status, resp = call("GET", "/tools")
+            mine = json.loads(resp.read()) if status == 200 else die(f"{text(resp)} ({status})", 126)
+            print("tools: " + (", ".join(mine["tools"]) or "none"))
+            print("mcp:   " + (", ".join(mine["mcp"]) or "none"))
+            return 0
+        if args[0] == "--request":
+            if len(args) < 3 or args[1] not in ("mcp", "cli"):
+                die("usage: bellhop --request mcp|cli NAME [SOURCE] [WHY...]", 2)
+            ask = {"kind": args[1], "name": args[2], "source": "".join(args[3:4]), "note": " ".join(args[4:])}
+            status, resp = call("POST", "/request", json.dumps(ask).encode(), {"Content-Type": "application/json"})
+            if status != 200:
+                die(f"request refused: {text(resp)} ({status})", 126)
+            print(f"request {text(resp)} filed. The owner installs it on the desk; "
+                  "it appears in `bellhop --list` when it is ready.")
+            return 0
+        me, args = args[0], args[1:]
+    sent, files, names = [], [], {}
+    for a in args:
+        head, eq, value = a.partition("=")
+        flag = bool(eq) and head.startswith("-")
+        local = value if flag else a
+        # ponytail: an argument that happens to equal a local file's name is uploaded, wanted or not
+        if local and os.path.isfile(local):
+            fid = send_file(local)
+            files.append(fid)
+            names[fid] = os.path.basename(local)  # if the tool writes over it, it comes back under this name
+            a = head + "=" + fid if flag else fid
+        sent.append(a)
+    status, resp = call("POST", "/run/" + urllib.parse.quote(me, safe=""),
+                        json.dumps({"args": sent, "files": files}).encode(), {"Content-Type": "application/json"})
+    if status != 200:
+        die(f"{me}: {text(resp)} ({status})", 126)
+    result = json.loads(resp.read())
+    sys.stdout.write(result["stdout"])
+    sys.stderr.write(result["stderr"])
+    for made in result["files"]:
+        name = names.get(made["name"]) or os.path.basename(made["name"]) or "bellhop-output"
+        target, n = name, 0
+        while os.path.lexists(target):  # never overwrite: the name was chosen on the desk
+            n += 1
+            target = f"{name}.{n}"
+        status, body = call("GET", "/file/" + made["id"])
+        if status != 200:
+            die(f"{name}: could not fetch ({status})", 126)
+        with open(target, "xb") as out:
+            shutil.copyfileobj(body, out)
+        print(f"bellhop: saved {target}", file=sys.stderr)
+    return result["exit"]
+
+
+if __name__ == "__main__":
+    sys.exit(main())

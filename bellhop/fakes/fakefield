@@ -1,0 +1,26 @@
+#!/usr/bin/python3
+"""Stand-in for a command-line tool that keeps a login in its home folder. Test fixture only."""
+import hashlib
+import os
+import sys
+
+login = open(os.path.join(os.environ["HOME"], ".config", "fakefield", "credentials.json")).read().strip()
+args = sys.argv[1:]
+
+if args[:1] == ["whoami"]:
+    print("signed in" if login else "not signed in")
+elif args[:1] == ["upload"] and len(args) == 2:
+    data = open(args[1].partition("=")[2] or args[1], "rb").read()
+    print(f"uploaded {len(data)} bytes sha256 {hashlib.sha256(data).hexdigest()}")
+elif args[:1] == ["make"] and len(args) == 2:
+    with open(args[1], "w") as f:
+        f.write("made by fakefield\n")
+    print("made " + args[1])
+elif args[:2] == ["auth", "token"]:
+    print(login)  # the dangerous subcommand: the desk must never let a caller reach it
+elif args[:1] == ["fail"]:
+    print("something went wrong", file=sys.stderr)
+    sys.exit(3)
+else:
+    print("usage: fakefield whoami | upload FILE | make NAME | auth token | fail", file=sys.stderr)
+    sys.exit(2)

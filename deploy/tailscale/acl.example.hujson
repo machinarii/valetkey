@@ -8,6 +8,7 @@
     "tagOwners": {
         "tag:vault":  ["autogroup:admin"],
         "tag:broker": ["autogroup:admin"],
+        "tag:desk":   ["autogroup:admin"],   // optional: the bellhop desk
     },
 
     // Named machines. Names here are for the policy only; the broker identifies callers by their
@@ -30,6 +31,10 @@
         // Workload machines get credentials only through the broker, never from Vaultwarden.
         {"src": ["devbox", "bot1"], "dst": ["tag:broker"], "ip": ["tcp:443"]},
 
+        // Workload machines use login-holding tools through the desk. Nothing else reaches it:
+        // not owner devices, not the broker, and nobody over SSH.
+        {"src": ["devbox", "bot1"], "dst": ["tag:desk"], "ip": ["tcp:443"]},
+
         // The broker reads from Vaultwarden.
         {"src": ["tag:broker"], "dst": ["tag:vault"], "ip": ["tcp:443"]},
 
@@ -40,8 +45,9 @@
     "tests": [
         {"src": "laptop", "accept": ["tag:vault:443", "tag:broker:443"], "deny": ["tag:broker:22"]},
         {"src": "phone",  "accept": ["tag:vault:443", "tag:broker:443"], "deny": ["tag:broker:22"]},
-        {"src": "devbox", "accept": ["tag:broker:443"], "deny": ["tag:vault:443", "tag:broker:22", "laptop:22", "phone:443"]},
+        {"src": "devbox", "accept": ["tag:broker:443", "tag:desk:443"], "deny": ["tag:vault:443", "tag:broker:22", "tag:desk:22", "laptop:22", "phone:443"]},
         {"src": "bot1",   "accept": ["tag:broker:443"], "deny": ["tag:vault:443", "tag:broker:22", "laptop:22", "phone:443"]},
-        {"src": "tag:broker", "accept": ["tag:vault:443"]},
+        {"src": "tag:broker", "accept": ["tag:vault:443"], "deny": ["tag:desk:443"]},
+        {"src": "tag:desk", "deny": ["tag:vault:443", "tag:broker:443", "devbox:22"]},
     ],
 }

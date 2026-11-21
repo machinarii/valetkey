@@ -1,0 +1,21 @@
+#!/bin/bash
+# Fake `tailscale` for testvm/drill.sh. Answers from /etc/bellhop-drill.env:
+#   NAME=desk.test.ts.net  IP=<this machine>  PEERS="<ip>=<machine name> ..."
+# `cert` makes a two-day self-signed certificate and trusts it on this machine. Test fixture only.
+. /etc/bellhop-drill.env
+case "$1" in
+  status) [ "${2:-}" = --json ] && echo "{\"Self\":{\"DNSName\":\"$NAME.\"}}"; exit 0 ;;
+  ip) echo "$IP" ;;
+  version) echo "fake-for-drill" ;;
+  up) exit 0 ;;
+  whois)
+    for peer in $PEERS; do
+      [ "${peer%%=*}" = "${!#}" ] && { echo "{\"Node\":{\"Name\":\"${peer#*=}.${NAME#*.}.\"}}"; exit 0; }
+    done
+    exit 1 ;;
+  cert)  # cert --cert-file CERT --key-file KEY NAME
+    openssl req -x509 -newkey rsa:2048 -nodes -days 2 -subj "/CN=$6" -addext "subjectAltName=DNS:$6" \
+      -keyout "$5" -out "$3" 2>/dev/null
+    cp "$3" /usr/local/share/ca-certificates/bellhop-drill.crt && update-ca-certificates >/dev/null 2>&1 ;;
+  *) echo "fake tailscale: unsupported: $1" >&2; exit 2 ;;
+esac

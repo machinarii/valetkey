@@ -104,6 +104,15 @@ class InstallClientTests(unittest.TestCase):
         self.assertIn("sudo", r.stderr)
 
 
+    def test_agent_machine_setup_refuses_without_root(self):
+        if os.geteuid() == 0:
+            self.skipTest("running as root")
+        r = self.run_install("agent", "--relay-url", "https://broker.example.ts.net")
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("sudo", r.stderr)
+        self.assertFalse((self.home / ".config" / "valetkey").exists())
+
+
 class ShellSyntaxTests(unittest.TestCase):
     def test_every_shell_script_parses(self):
         scripts = [p for p in ROOT.rglob("*") if p.is_file() and ".git" not in p.parts

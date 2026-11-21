@@ -10,6 +10,7 @@ Unix user or an ordinary Docker container on the agent's host does not provide t
 |---|---|---|---|
 | Agent VM | No provider keys, vault sessions or unlock passwords | Yes | Broker HTTPS API routes, checks and named requests |
 | Broker VM | Unlock material, vault sessions and injected keys | No | Agent-facing HTTPS 443; backend ports on loopback only |
+| Desk VM (optional) | The logins of command-line tools it runs for agents | No | Agent-facing HTTPS 443; the desk service on loopback only |
 | Vault server | Encrypted vault database and server secrets | No | HTTPS from broker and separate owner devices |
 | Owner device | Owner-entered values during private entry | No | Vault UI, broker entry UI or `vault-entry` |
 | Trusted consumer | Only the keys its service requires | No | Narrow application interface; raw-value routes if unavoidable |

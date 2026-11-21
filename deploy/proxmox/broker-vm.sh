@@ -3,7 +3,8 @@
 # the Debian 13 cloud image (with a virtual TPM for systemd-creds), copies the repo into it and
 # runs `install.sh broker --with-deps` there over SSH.
 # SSH access: the keys in /root/.ssh/authorized_keys plus this host's root key.
-# Override defaults with env vars: VMID, STORAGE, BRIDGE, BROKER_HOSTNAME, IMG_URL.
+# Override defaults with env vars: VMID, STORAGE, BRIDGE, BROKER_HOSTNAME, IMG_URL, CORES, MEMORY, DISK.
+# ROLE=desk builds a bellhop desk VM with the same steps (see bellhop/proxmox-desk-vm.sh).
 set -euo pipefail
 
 VMID=${VMID:-211}
@@ -12,6 +13,10 @@ BRIDGE=${BRIDGE:-vmbr0}
 ARCH=$(dpkg --print-architecture)
 IMG_URL=${IMG_URL:-https://cloud.debian.org/images/cloud/trixie/latest/debian-13-genericcloud-${ARCH}.qcow2}
 BROKER_HOSTNAME=${BROKER_HOSTNAME:-broker}
+CORES=${CORES:-2}
+MEMORY=${MEMORY:-2048}
+DISK=${DISK:-8G}
+ROLE=${ROLE:-broker}
 REPO=$(cd "$(dirname "$0")/../.." && pwd)
 WORK=/var/lib/vz/template/cache/broker
 SNIPPET=/var/lib/vz/snippets/broker-vendor.yaml
@@ -43,11 +48,11 @@ keys="$WORK/authorized_keys"
 cat /root/.ssh/authorized_keys /root/.ssh/id_*.pub 2>/dev/null | grep -E '^(ssh-|ecdsa-)' | sort -u > "$keys"
 
 qm create "$VMID" --name "$BROKER_HOSTNAME" --ostype l26 \
-  --cores 2 --memory 2048 --cpu host \
+  --cores "$CORES" --memory "$MEMORY" --cpu host \
   --net0 "virtio,bridge=$BRIDGE" --scsihw virtio-scsi-single \
   --agent enabled=1 --onboot 1 --serial0 socket --vga serial0
 qm set "$VMID" --scsi0 "$STORAGE:0,import-from=$img,discard=on"
-qm resize "$VMID" scsi0 8G
+qm resize "$VMID" scsi0 "$DISK"
 qm set "$VMID" --tpmstate0 "$STORAGE:1,version=v2.0"
 qm set "$VMID" --ide2 "$STORAGE:cloudinit" --boot order=scsi0 \
   --ciuser admin --sshkeys "$keys" --ipconfig0 ip=dhcp \
@@ -62,9 +67,13 @@ for i in json.load(sys.stdin):
     if i["name"] == "lo": continue
     for a in i.get("ip-addresses", []):
         if a["ip-address-type"] == "ipv4": print(a["ip-address"]); sys.exit()')
-echo "Broker VM LAN address: $IP"
+echo "$ROLE VM LAN address: $IP"
 
 # Copy the repo (without .git) and install the broker with its dependencies.
 tar -C "$REPO" --exclude .git -czf - . \
   | ssh -o StrictHostKeyChecking=accept-new "admin@$IP" 'rm -rf /tmp/valetkey && mkdir -p /tmp/valetkey && tar -C /tmp/valetkey -xzf -'
-ssh -t "admin@$IP" sudo env BROKER_HOSTNAME="$BROKER_HOSTNAME" bash /tmp/valetkey/install.sh broker --with-deps
+if [ "$ROLE" = desk ]; then
+  ssh -t "admin@$IP" sudo env DESK_HOSTNAME="$BROKER_HOSTNAME" bash /tmp/valetkey/install.sh desk
+else
+  ssh -t "admin@$IP" sudo env BROKER_HOSTNAME="$BROKER_HOSTNAME" bash /tmp/valetkey/install.sh broker --with-deps
+fi

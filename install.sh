@@ -3,6 +3,11 @@
 #
 #   sudo ./install.sh vaultwarden       (Debian/Ubuntu: Docker, Tailscale, Vaultwarden on the tailnet only)
 #   sudo ./install.sh broker [--with-deps]
+#   sudo ./install.sh desk              (bellhop desk: runs login-holding tools for agent machines; no agent here)
+#   sudo ./install.sh agent [--relay-url URL] [--desk-url URL] [--tools a,b] [--user NAME] [--no-policy]
+#                                       (an agent machine in one command: clients, sweep, MCP policy; no keys)
+#   ./install.sh claude [--yes] [--dry-run]
+#                                       (agent machine: asks what to block, then updates CLAUDE.md and settings.json)
 #   ./install.sh client --relay-url https://broker.<tailnet>.ts.net [--prefix DIR] [--agent|--owner] [--with-deps]
 #   ./install.sh uninstall-client [--prefix DIR]
 #   ./install.sh doctor
@@ -16,7 +21,7 @@
 # Never asks for, prints or stores a secret. The client side stores only the broker URL.
 set -euo pipefail
 
-usage() { sed -n '2,14p' "$0" 2>/dev/null | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,19p' "$0" 2>/dev/null | sed 's/^# \{0,1\}//'; }
 die() { echo "install.sh: $*" >&2; exit 1; }
 ok() { echo "ok    $*"; }
 warn() { echo "warn  $*" >&2; }
@@ -62,7 +67,7 @@ cmd_client() {
       *) die "client: unknown option $1" ;;
     esac
   done
-  [ "$(id -u)" != 0 ] || warn "installing the client as root; usually you want your own user"
+  [ "$(id -u)" != 0 ] || [ -n "${VALETKEY_AGENT_SETUP:-}" ] || warn "installing the client as root; usually you want your own user"
   need_python 9
   [ "$owner" != yes ] || [ "$agent" != yes ] || die "--agent and --owner require separate machines"
   if [ -n "$url" ]; then
@@ -184,6 +189,116 @@ cmd_broker() {
   bash "$repo/broker/setup.sh"
 }
 
+# --- agent: everything an agent machine needs, as root-owned files the agent cannot change ---
+cmd_agent() {
+  local relay_url='' desk_url='' tools='' user=${SUDO_USER:-} policy=yes home t existing
+  while [ $# -gt 0 ]; do
+    case $1 in
+      --relay-url) relay_url=${2:?--relay-url needs a URL}; shift 2 ;;
+      --desk-url) desk_url=${2:?--desk-url needs a URL}; shift 2 ;;
+      --tools) tools=${2:?--tools needs a comma-separated list}; shift 2 ;;
+      --user) user=${2:?--user needs a name}; shift 2 ;;
+      --no-policy) policy=no; shift ;;
+      -h|--help) usage; exit 0 ;;
+      *) die "agent: unknown option $1" ;;
+    esac
+  done
+  [ "$(id -u)" = 0 ] || die "agent: run with sudo (it writes root-owned files the agent's user cannot change)"
+  [ "$(uname -s)" = Linux ] || die "agent: Linux only. On macOS use: ./install.sh client --agent --relay-url ..."
+  [ -n "$relay_url$desk_url" ] || die "agent: give --relay-url, --desk-url or both"
+  [ -n "$user" ] && [ "$user" != root ] && id "$user" >/dev/null 2>&1 \
+    || die "agent: say which user the agent runs as: --user NAME"
+  home=$(getent passwd "$user" | cut -d: -f6)
+  need_python 9
+  if command -v bw >/dev/null; then
+    warn "the Bitwarden CLI (bw) is installed here; an agent machine should not have a vault client"
+  fi
+
+  if [ -n "$relay_url" ]; then  # the broker client, agent mode, with the URL saved for that user
+    HOME=$home XDG_CONFIG_HOME='' VALETKEY_AGENT_SETUP=1 cmd_client --agent --prefix /usr/local/bin --relay-url "$relay_url" >/dev/null
+    chown -R "$user": "$home/.config/valetkey"
+    ok "relay (agent mode) in /usr/local/bin, broker $relay_url"
+  fi
+
+  if [ -n "$desk_url" ]; then  # the stand-in for tools that live on the desk
+    case $desk_url in https://*) ;; http://*) warn "desk URL is plain http: test networks only" ;; *) die "--desk-url must be a URL" ;; esac
+    install -m 755 "$repo/bellhop/bellhop" /usr/local/bin/bellhop
+    install -d -m 755 /etc/bellhop
+    printf '%s\n' "${desk_url%/}" > /etc/bellhop/url
+    for t in ${tools//,/ }; do
+      [[ $t =~ ^[a-z0-9][a-z0-9._-]*$ ]] || die "agent: bad tool name: $t"
+      existing=$(command -v "$t" 2>/dev/null || true)
+      if [ -n "$existing" ] && [ "$(readlink -f "$existing")" != /usr/local/bin/bellhop ]; then
+        warn "$t is already installed at $existing and was left alone; remove it and its login to use the desk's"
+        continue
+      fi
+      ln -sf bellhop "/usr/local/bin/$t"
+    done
+    ok "bellhop in /usr/local/bin, desk ${desk_url%/}${tools:+, stand-ins: $tools}"
+  fi
+
+  # Where MCP servers may live, for the sweep and for the policy below.
+  install -d -m 755 /etc/bellhop
+  : > /etc/bellhop/mcp-prefixes
+  [ -z "$relay_url" ] || printf '%s\n' "${relay_url%/}" >> /etc/bellhop/mcp-prefixes
+
+  install -m 755 "$repo/bellhop/sweep.py" /usr/local/sbin/bellhop-sweep
+  if command -v systemctl >/dev/null; then
+    cat > /etc/systemd/system/bellhop-sweep.service <<'UNIT'
+# Installed by valetkey (install.sh agent). Reports logins and new tools on this machine, by name.
+[Unit]
+Description=bellhop sweep: logins and new tools on this agent machine
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/bellhop-sweep
+SuccessExitStatus=1
+UNIT
+    cat > /etc/systemd/system/bellhop-sweep.timer <<'UNIT'
+# Installed by valetkey (install.sh agent).
+[Unit]
+Description=Run the bellhop sweep every hour
+[Timer]
+OnBootSec=2min
+OnCalendar=hourly
+[Install]
+WantedBy=timers.target
+UNIT
+    systemctl daemon-reload
+    systemctl enable -q --now bellhop-sweep.timer
+    ok "sweep every hour (journalctl -u bellhop-sweep); findings now: $(/usr/local/sbin/bellhop-sweep --accept | tail -1)"
+  else
+    warn "no systemd: run /usr/local/sbin/bellhop-sweep from your own scheduler, as root"
+  fi
+
+  if [ "$policy" = yes ]; then  # Claude Code: MCP servers only at the broker and the desk; rules as standing instructions
+    if [ -e /etc/claude-code/managed-settings.json ]; then
+      warn "/etc/claude-code/managed-settings.json exists and was left alone; allow MCP servers only at the broker and desk there"
+    else
+      install -d -m 755 /etc/claude-code
+      python3 -I - "$repo" "${relay_url%/}" "${desk_url%/}" <<'PY'
+import json, sys
+repo, relay, desk = sys.argv[1:4]
+allowed = [{"serverUrl": relay + "/*"}] if relay else []
+rules = open(repo + "/agents/credential-rules.md").read()
+if desk:
+    allowed.append({"serverUrl": desk + "/mcp/*"})
+    rules += "\n" + open(repo + "/bellhop/agent-rules.md").read()
+json.dump({"allowManagedMcpServersOnly": True, "allowedMcpServers": allowed, "claudeMd": rules},
+          open("/etc/claude-code/managed-settings.json", "w"), indent=2)
+PY
+      ok "Claude Code policy: MCP servers only at the broker and desk (this also blocks local and account-synced ones; --no-policy to skip)"
+    fi
+  fi
+
+  echo
+  echo "Left for you, because they are yours to decide:"
+  if id -nG "$user" | tr ' ' '\n' | grep -qxE 'sudo|wheel|admin' || [ -n "$(ls /etc/sudoers.d 2>/dev/null)" ]; then
+    echo "  - $user may be able to use sudo. An agent that can become root can undo everything above."
+  fi
+  echo "  - Join the tailnet as its own tagged machine, with grants to the broker and desk on 443 only."
+  echo "  - Keep logins off this machine: no signed-in cloud tools, no .env files with real keys, no SSH keys."
+}
+
 # --- doctor: what is installed here, without touching any secret ---
 cmd_doctor() {
   echo "valetkey $version ($repo)"
@@ -218,6 +333,9 @@ case ${1:-} in
   client) shift; cmd_client "$@" ;;
   broker) shift; cmd_broker "$@" ;;
   vaultwarden) cmd_vaultwarden ;;
+  desk) exec bash "$repo/bellhop/install-desk.sh" ;;
+  agent) shift; cmd_agent "$@" ;;
+  claude) shift; need_python 11; exec python3 -I "$repo/agents/claude-setup.py" --repo "$repo" "$@" ;;
   uninstall-client) shift; cmd_uninstall_client "$@" ;;
   doctor) cmd_doctor ;;
   guidance) cat "$repo/agents/credential-rules.md" ;;
