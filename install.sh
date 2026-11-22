@@ -294,6 +294,7 @@ Claude Code policy: /etc/claude-code/managed-settings.json, owned by root.
   Intent: give every Claude Code session on this machine valetkey's rules, and let it use MCP
   servers only at the broker and desk, in a file the agent's user cannot change.
   It also turns off every other MCP server here, including local and account-synced ones.
+  Recommended: yes, unless this machine needs other MCP servers (T3 Code's own tools, for example).
 ASK
     read -r -p "  Write it? [Y/n] " answer </dev/tty || answer=n
     case $answer in [nN]*) policy=no; warn "Claude Code policy not written (run again, or ./install.sh claude for user-level rules)" ;; esac
@@ -370,7 +371,7 @@ cmd_proxmox() {
 tty=${VALETKEY_TTY:-/dev/tty}  # where the answers come from (a file in tests)
 ask() {  # ask VAR "question" [proposed] [optional]; answers come from fd 3 (cmd_menu opens it)
   local a hint=''
-  if [ -n "${3:-}" ]; then hint=" [$3] (Enter keeps it${4:+, - for none})"
+  if [ -n "${3:-}" ]; then hint=" [$3] (recommended; Enter keeps it${4:+, - for none})"
   elif [ -n "${4:-}" ]; then hint=" (Enter for none)"; fi
   while :; do
     printf '%s%s: ' "$2" "$hint" >&2
@@ -428,8 +429,11 @@ cmd_menu() {
   echo 'Which machine is this? Each part needs its own machine; see "Containment" in the README.' >&2
   echo 'At each question, Enter keeps the value shown in [brackets].' >&2
   for i in "${!roles[@]}"; do
-    for l in "${labels[@]}"; do [ "${l%%|*}" != "${roles[$i]}" ] || printf '  %d) %s\n' $((i + 1)) "${l#*|}" >&2; done
     [ "${roles[$i]}" != proxmox ] || ! command -v qm >/dev/null || default=$((i + 1))
+    for l in "${labels[@]}"; do
+      [ "${l%%|*}" != "${roles[$i]}" ] || printf '  %d) %s%s\n' $((i + 1)) "${l#*|}" \
+        "$([ "$default" != $((i + 1)) ] || echo '  (recommended: this is a Proxmox host)')" >&2
+    done
   done
   while :; do
     ask n "Number" "$default"
