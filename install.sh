@@ -371,7 +371,7 @@ cmd_proxmox() {
 tty=${VALETKEY_TTY:-/dev/tty}  # where the answers come from (a file in tests)
 ask() {  # ask VAR "question" [proposed] [optional]; answers come from fd 3 (cmd_menu opens it)
   local a hint=''
-  if [ -n "${3:-}" ]; then hint=" [$3] (recommended; Enter keeps it${4:+, - for none})"
+  if [ -n "${3:-}" ]; then hint=" [$3] (Enter keeps it${4:+, - for none})"
   elif [ -n "${4:-}" ]; then hint=" (Enter for none)"; fi
   while :; do
     printf '%s%s: ' "$2" "$hint" >&2
