@@ -38,9 +38,11 @@ class ClaudeSetup(unittest.TestCase):
         self.assertEqual(s["model"], "kept")
         self.assertEqual(s["permissions"]["allow"], ["Bash(git status *)"])
         deny = s["permissions"]["deny"]
-        for rule in ("Read(~/mine/**)", "Read(~/.ssh/**)", "Read(~/.netrc)", "Read(**/.env)", "Bash(printenv*)", "Bash(vault *)"):
+        for rule in ("Read(~/mine/**)", "Read(~/.ssh/**)", "Read(~/.netrc)", "Bash(printenv*)", "Bash(vault *)"):
             self.assertIn(rule, deny)
-        self.assertNotIn("Read(**/.env.example)", deny)
+        # A pattern without a fixed folder (**/.env) becomes one sandbox mount per match: none added.
+        self.assertFalse([r for r in deny if r.startswith("Read(**")])
+        self.assertFalse([p for p in s["sandbox"]["filesystem"]["denyRead"] if p.startswith("**")])
         self.assertTrue(s["sandbox"]["enabled"])
         self.assertIn("~/.ssh", s["sandbox"]["filesystem"]["denyRead"])
         self.assertEqual(s["sandbox"]["network"]["allowedDomains"], ["github.com", "broker.example.ts.net"])
@@ -101,6 +103,47 @@ class ClaudeSetup(unittest.TestCase):
         self.assertTrue(text.startswith("# Mine\n"))
         self.assertIn("valetkey:begin", text)
         self.assertIn("assess it first", text)
+
+    def test_running_again_with_no_undoes_only_what_valetkey_added(self):
+        self.settings.parent.mkdir()
+        self.settings.write_text(json.dumps({"permissions": {"deny": ["Read(~/.ssh/**)", "Read(~/mine/**)"]}}))
+        self.rules.write_text("# Mine\n")
+        self.codex.parent.mkdir()
+        self.codex.write_text("# Codex mine\n")
+        self.assertEqual(self.run_setup("--yes").returncode, 0)
+        self.assertIn("valetkey:begin", self.codex.read_text())
+        # Second run: no to everything, Enter for variables, then write.
+        r = self.run_setup(stdin="n\nn\nn\nn\nn\nn\nn\n\ny\n")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("Now: yes", r.stdout)
+        s = json.loads(self.settings.read_text())
+        self.assertEqual(s["permissions"]["deny"], ["Read(~/.ssh/**)", "Read(~/mine/**)"])  # the owner's own stay
+        self.assertNotIn("enabled", s["sandbox"])                  # valetkey turned it on, so it goes
+        self.assertNotIn("disableClaudeAiConnectors", s)
+        self.assertEqual(s["sandbox"]["filesystem"]["denyRead"], [])
+        self.assertEqual(self.rules.read_text(), "# Mine\n")
+        self.assertEqual(self.codex.read_text(), "# Codex mine\n")
+        again = self.run_setup("--yes")                            # and yes puts it all back
+        self.assertEqual(again.returncode, 0, again.stderr)
+        self.assertIn("valetkey:begin", self.rules.read_text())
+        self.assertTrue(json.loads(self.settings.read_text())["sandbox"]["enabled"])
+
+    def test_a_new_broker_address_replaces_the_old_one(self):
+        self.settings.parent.mkdir()
+        self.settings.write_text(json.dumps({"sandbox": {"network": {"allowedDomains": ["github.com"]}}}))
+        self.assertEqual(self.run_setup("--yes").returncode, 0)
+        r = self.run_setup("--yes", "--relay-url", "https://broker2.example.ts.net")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        domains = json.loads(self.settings.read_text())["sandbox"]["network"]["allowedDomains"]
+        self.assertEqual(domains, ["github.com", "broker2.example.ts.net"])
+
+    def test_a_setting_the_owner_had_already_is_kept_on_no(self):
+        self.settings.parent.mkdir()
+        self.settings.write_text(json.dumps({"sandbox": {"enabled": True}}))
+        self.assertEqual(self.run_setup("--yes").returncode, 0)
+        r = self.run_setup(stdin="n\nn\nn\nn\nn\nn\n\ny\n")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIs(json.loads(self.settings.read_text())["sandbox"]["enabled"], True)
 
     def test_rules_already_in_the_root_policy_are_not_added_twice(self):
         policy = Path(self.tmp.name) / "policy.json"

@@ -5,8 +5,10 @@
   ./install.sh claude --yes        take every recommended answer
   ./install.sh claude --dry-run    show what would change and write nothing
 
-It merges into what is already there: no existing rule or setting is removed, and running it
-again changes nothing. Each file is copied to <name>.before-valetkey-<time> before it is written.
+Run it again to change an answer: a no removes what an earlier yes added, and a new broker address
+replaces the old one. Rules and settings you added yourself are never removed: what valetkey added is
+recorded in valetkey-setup.json next to settings.json. Each file is copied to
+<name>.before-valetkey-<time> before it is written.
 
 These are your own user settings, so the agent's user can change them back. They reduce accidents;
 they are not a boundary. For rules the agent cannot undo, also run: sudo ./install.sh agent
@@ -35,10 +37,9 @@ LOGIN_FILES = [
     "~/.cache/huggingface/token", "~/.claude/.credentials.json", "~/.codex/auth.json",
     "~/.bash_history", "~/.zsh_history",
 ]
-# Files that usually hold a key, wherever they are. `.env.example` stays readable on purpose.
-KEY_FILES = ["**/.env", "**/.env.local", "**/.env.production", "**/.env.*.local", "**/*.pem", "**/*.key",
-             "**/*.p12", "**/*.pfx", "**/credentials.json", "**/service-account*.json", "**/*.tfvars",
-             "**/*.tfstate"]
+# Fixed paths only. Claude Code merges Read() deny rules into the Bash sandbox, which turns a
+# pattern like **/.env into one mount per matching file; across a home folder that passes
+# bubblewrap's limit and no command can start. The agent rules cover .env and key files.
 # Commands whose purpose is to show a secret. A speed bump: a value can be reached other ways.
 SECRET_COMMANDS = [
     "printenv*", "env", "gh auth token*", "gh auth status --show-token*", "op read *", "op item get *",
@@ -52,8 +53,8 @@ QUESTIONS = [  # key, question, recommended answer, one line of why
      "Tells the agent to ask for keys and tools by name and never to read, print or store one."),
     ("sandbox", "Turn on Claude Code's command sandbox?", True,
      "Commands the agent runs then see only the files and network hosts you allow."),
-    ("files", "Block the agent from reading login and key files (SSH keys, cloud logins, .env, tokens)?", True,
-     "Covers the Read tool and sandboxed commands. .env.example files stay readable."),
+    ("files", "Block the agent from reading login files (SSH keys, cloud logins, tokens, shell history)?", True,
+     "Covers the Read tool and sandboxed commands, at their fixed places in your home folder."),
     ("commands", "Block commands that exist to print a secret (env, printenv, gh auth token, vault, password managers)?", True,
      "A speed bump, not a wall: it stops the obvious ways, and the agent is told not to look for others."),
     ("connectors", "Turn off the connectors that come from your claude.ai account (Drive, Notion, GitHub and so on)?", True,
@@ -63,22 +64,16 @@ QUESTIONS = [  # key, question, recommended answer, one line of why
 ]
 
 
-def ask(question, default, why, assume):
+def ask(question, default, why, assume, now=None):
     if assume:
         return default
     print(f"\n{question}\n  {why}")
+    state = "" if now is None else f" Now: {'yes' if now else 'no'}."
     try:
-        answer = input(f"  Recommended: {'yes' if default else 'no'}. [{'Y/n' if default else 'y/N'}] ").strip().lower()
+        answer = input(f"  Recommended: {'yes' if default else 'no'}.{state} [{'Y/n' if default else 'y/N'}] ").strip().lower()
     except EOFError:
         answer = ""
     return default if not answer else answer.startswith("y")
-
-
-def add(target, items):
-    """Append the items that are not there yet; return how many were added."""
-    new = [i for i in items if i not in target]
-    target.extend(new)
-    return len(new)
 
 
 def table(parent, key, kind):
@@ -88,48 +83,112 @@ def table(parent, key, kind):
     return value
 
 
-def plan_settings(settings, answers, hosts, env_names):
-    """Change `settings` in place; return one line per change, for the owner to read."""
+def sync(target, wanted, owned):
+    """Make `target` hold `wanted`, removing only what valetkey added before (`owned`).
+
+    Entries that were there already are left alone and never recorded, so a later no keeps them.
+    Returns (added, removed)."""
+    gone = [i for i in owned if i not in wanted and i in target]
+    for i in gone:
+        target.remove(i)
+    new = [i for i in wanted if i not in target]
+    target.extend(new)
+    owned[:] = [i for i in owned if i in wanted] + [i for i in new if i not in owned]
+    return len(new), len(gone)
+
+
+def sync_flag(parent, key, want, record, name):
+    """Set parent[key] = want (want is not None), or undo valetkey's earlier setting (want is None).
+
+    An undo only happens while the value is still the one valetkey set; the previous value returns."""
+    if want is not None:
+        if parent.get(key) == want:
+            return ""
+        record.setdefault(name, {"had": key in parent, "before": parent.get(key), "value": want})
+        parent[key] = want
+        return "+"
+    r = record.get(name)
+    if r is None or parent.get(key) != r["value"]:
+        record.pop(name, None)
+        return ""
+    if r["had"]:
+        parent[key] = r["before"]
+    else:
+        parent.pop(key, None)
+    record.pop(name)
+    return "-"
+
+
+def blank_state():
+    return {"deny": [], "denyRead": [], "commands": [], "hosts": [], "env": [], "flags": {}}
+
+
+def file_rules():
+    return [f"Read({p}/**)" for p in LOGIN_FOLDERS] + [f"Read({p})" for p in LOGIN_FILES]
+
+
+def plan_settings(settings, answers, hosts, env_names, state):
+    """Change `settings` (and the record `state`) in place; return one '+ ...' / '- ...' line per change."""
     lines = []
     deny = table(table(settings, "permissions", dict), "deny", list)
     sandbox = table(settings, "sandbox", dict)
-    if answers["sandbox"] and sandbox.get("enabled") is not True:
-        sandbox["enabled"] = True
-        lines.append("turn the command sandbox on")
-    if answers["files"]:
-        rules = [f"Read({p}/**)" for p in LOGIN_FOLDERS] + [f"Read({p})" for p in LOGIN_FILES + KEY_FILES]
-        n = add(deny, rules)
-        m = add(table(table(sandbox, "filesystem", dict), "denyRead", list), LOGIN_FOLDERS + LOGIN_FILES + KEY_FILES)
-        if n or m:
-            lines.append(f"block reading login and key files ({n} rules for the Read tool, {m} for sandboxed commands)")
-    if answers["commands"]:
-        n = add(deny, [f"Bash({c})" for c in SECRET_COMMANDS])
+    flags = state["flags"]
+
+    def note(sign, on, off):
+        if sign:
+            lines.append(f"+ {on}" if sign == "+" else f"- {off}")
+
+    note(sync_flag(sandbox, "enabled", True if answers["sandbox"] else None, flags, "sandbox"),
+         "turn the command sandbox on", "turn the command sandbox back off (valetkey turned it on)")
+    n, r = sync(deny, file_rules() if answers["files"] else [], state["deny"])
+    m, q = sync(table(table(sandbox, "filesystem", dict), "denyRead", list),
+                LOGIN_FOLDERS + LOGIN_FILES if answers["files"] else [], state["denyRead"])
+    if n or m:
+        lines.append(f"+ block reading login files ({n} rules for the Read tool, {m} for sandboxed commands)")
+    if r or q:
+        lines.append(f"- stop blocking login files ({r} Read rules, {q} sandbox rules valetkey added)")
+    n, r = sync(deny, [f"Bash({c})" for c in SECRET_COMMANDS] if answers["commands"] else [], state["commands"])
+    if n:
+        lines.append(f"+ block {n} commands that print secrets")
+    if r:
+        lines.append(f"- unblock {r} commands valetkey blocked")
+    note(sync_flag(settings, "disableClaudeAiConnectors", True if answers["connectors"] else None, flags, "connectors"),
+         "turn off claude.ai account connectors on this machine", "turn claude.ai account connectors back on")
+    note(sync_flag(sandbox, "allowUnsandboxedCommands", False if answers["escape"] else None, flags, "escape"),
+         "never run a command outside the sandbox", "allow commands outside the sandbox again")
+    if hosts:  # unknown addresses (nothing configured) leave the earlier ones in place
+        n, r = sync(table(table(sandbox, "network", dict), "allowedDomains", list), hosts, state["hosts"])
         if n:
-            lines.append(f"block {n} commands that print secrets")
-    if answers["connectors"] and settings.get("disableClaudeAiConnectors") is not True:
-        settings["disableClaudeAiConnectors"] = True
-        lines.append("turn off claude.ai account connectors on this machine")
-    if answers["escape"] and sandbox.get("allowUnsandboxedCommands") is not False:
-        sandbox["allowUnsandboxedCommands"] = False
-        lines.append("never run a command outside the sandbox")
-    if hosts:
-        n = add(table(table(sandbox, "network", dict), "allowedDomains", list), hosts)
-        if n:
-            lines.append("let sandboxed commands reach " + ", ".join(hosts))
-    if env_names:
+            lines.append("+ let sandboxed commands reach " + ", ".join(hosts))
+        if r:
+            lines.append(f"- remove {r} old broker or desk address(es)")
+    if env_names is not None:
         entries = table(table(sandbox, "credentials", dict), "envVars", list)
-        have = {e.get("name") for e in entries if isinstance(e, dict)}
-        new = [n for n in env_names if n not in have]
+        names = [e.get("name") for e in entries if isinstance(e, dict)]
+        gone = [n for n in state["env"] if n not in env_names and n in names]
+        entries[:] = [e for e in entries if not (isinstance(e, dict) and e.get("name") in gone)]
+        new = [n for n in env_names if n not in names]
         entries.extend({"name": n, "mode": "deny"} for n in new)
+        state["env"] = [n for n in state["env"] if n in env_names] + [n for n in new if n not in state["env"]]
         if new:
-            lines.append("remove these variables from the agent's commands: " + ", ".join(new))
+            lines.append("+ remove these variables from the agent's commands: " + ", ".join(new))
+        if gone:
+            lines.append("- give these variables back to the agent's commands: " + ", ".join(gone))
     return lines
 
 
 def plan_rules(text, block):
-    """CLAUDE.md with the valetkey block added or refreshed; None when it is already current."""
+    """The rules file with valetkey's block added or refreshed, or removed when `block` is None.
+    None when nothing changes."""
+    has = BEGIN in text and END in text
+    if block is None:
+        if not has:
+            return None
+        before = text[:text.index(BEGIN)].rstrip("\n")
+        after = text[text.index(END) + len(END):].lstrip("\n")
+        return before + ("\n\n" + after if before and after else "\n" if before else after)
     marked = f"{BEGIN}\n{block.strip()}\n{END}\n"
-    if BEGIN in text and END in text:
+    if has:
         new = text[:text.index(BEGIN)] + marked + text[text.index(END) + len(END):].lstrip("\n")
     else:
         new = (text.rstrip("\n") + "\n\n" if text.strip() else "") + marked
@@ -157,6 +216,14 @@ def first_line(path):
         return ""
 
 
+def read_text(path):
+    try:
+        with open(path) as f:
+            return f.read()
+    except FileNotFoundError:
+        return ""
+
+
 def write(path, text):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     if os.path.exists(path):
@@ -164,6 +231,9 @@ def write(path, text):
     with open(path + ".new", "w") as f:
         f.write(text)
     os.replace(path + ".new", path)
+
+
+NAME_RE = r"[A-Za-z_][A-Za-z0-9_]*"
 
 
 def main(argv=None):
@@ -179,16 +249,17 @@ def main(argv=None):
                     help="the root-owned policy file; rules it already holds are not added a second time")
     ap.add_argument("--relay-url", default=None, help="the broker's address (default: what the client saved)")
     ap.add_argument("--desk-url", default=None, help="the desk's address (default: /etc/bellhop/url)")
-    ap.add_argument("--hide-env", default="", help="comma-separated variable names to remove from the agent's commands")
+    ap.add_argument("--hide-env", default=None, help="comma-separated variable names to remove from the agent's commands")
     args = ap.parse_args(argv)
     settings_path, rules_path = os.path.expanduser(args.settings), os.path.expanduser(args.claude_md)
     codex_path = os.path.expanduser(args.codex_md)
+    state_path = os.path.join(os.path.dirname(settings_path), "valetkey-setup.json")
     codex = os.path.isdir(os.path.dirname(codex_path))
     print("This sets up Claude Code" + (" and Codex" if codex else "") + " on this machine for valetkey.\n"
           "Intent: an agent here asks for keys and tools by name, and cannot easily read, print or copy a\n"
           "key or login. " + ("--yes: taking the recommended answer to each question without asking."
                                if args.yes else "Each change is explained and asked about; nothing is\n"
-                               "written until you say yes at the end."))
+                               "written until you say yes at the end. Run again to change an answer."))
 
     try:
         with open(settings_path) as f:
@@ -199,62 +270,83 @@ def main(argv=None):
         sys.exit(f"claude-setup: {settings_path} is not valid JSON; fix it first. Nothing was changed.")
     if not isinstance(before, dict):
         sys.exit(f"claude-setup: {settings_path} is not a settings object. Nothing was changed.")
+    state = blank_state()
+    try:
+        with open(state_path) as f:
+            loaded = json.load(f)
+        if isinstance(loaded, dict):
+            state.update({k: v for k, v in loaded.items() if k in state and isinstance(v, type(state[k]))})
+    except (OSError, ValueError):
+        pass
 
     relay = args.relay_url if args.relay_url is not None else (
         os.environ.get("RELAY_URL") or first_line("~/.config/valetkey/relay-url"))
     desk = args.desk_url if args.desk_url is not None else first_line("/etc/bellhop/url")
     hosts = [h for h in dict.fromkeys(host_of(u) for u in (relay, desk)) if h]
-    env_names = [n for n in (x.strip() for x in args.hide_env.split(",")) if n]
-    if any(not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", n) for n in env_names):
+    env_names = None if args.hide_env is None else [n for n in (x.strip() for x in args.hide_env.split(",")) if n]
+    if env_names and any(not re.fullmatch(NAME_RE, n) for n in env_names):
         sys.exit("claude-setup: --hide-env takes variable names only, never values")
 
     block = open(os.path.join(args.repo, "agents", "credential-rules.md")).read()
     in_policy = block.strip() in policy_rules(args.policy)  # `install.sh agent` put them there: twice costs tokens
+    if desk:
+        block += "\n" + open(os.path.join(args.repo, "bellhop", "agent-rules.md")).read()
+    claude_md, codex_md = read_text(rules_path), read_text(codex_path)
+    deny = before.get("permissions", {}).get("deny", []) if isinstance(before.get("permissions"), dict) else []
+    sb = before.get("sandbox", {}) if isinstance(before.get("sandbox"), dict) else {}
+    now = {"rules": BEGIN in claude_md, "sandbox": sb.get("enabled") is True,
+           "files": all(r in deny for r in file_rules()),
+           "commands": all(f"Bash({c})" in deny for c in SECRET_COMMANDS),
+           "connectors": before.get("disableClaudeAiConnectors") is True,
+           "escape": sb.get("allowUnsandboxedCommands") is False}
     if in_policy:
-        print("The root-owned policy already gives the agent valetkey's rules; not adding them to CLAUDE.md as well.")
-    answers = {key: ask(q, default, why, args.yes) for key, q, default, why in QUESTIONS
+        print("The root-owned policy already gives the agent valetkey's rules; they are not added to CLAUDE.md as well.")
+    answers = {key: ask(q, default, why, args.yes, now[key]) for key, q, default, why in QUESTIONS
                if not (in_policy and key == "rules")}
     answers.setdefault("rules", False)
     # The root policy reaches Claude Code only, so Codex gets the rules even when the policy has them.
     answers["codex"] = codex and ask(
         "Add valetkey's rules for agents to Codex's AGENTS.md?", True,
-        "Codex reads AGENTS.md the way Claude Code reads CLAUDE.md.", args.yes)
-    if not args.yes and not env_names:
-        print("\nVariable names to remove from the agent's commands, separated by commas (names only; Enter for none):")
+        "Codex reads AGENTS.md the way Claude Code reads CLAUDE.md.", args.yes, BEGIN in codex_md)
+    if not args.yes and env_names is None:
+        current = ", ".join(state["env"])
+        print("\nVariable names to remove from the agent's commands, separated by commas (names only; "
+              + (f"Enter keeps [{current}], - for none):" if current else "Enter for none):"))
         try:
             typed = input("  ").strip()
         except EOFError:
             typed = ""
-        env_names = [n for n in (x.strip() for x in typed.split(",")) if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", n)]
+        if typed == "-":
+            env_names = []
+        elif typed:
+            env_names = [n for n in (x.strip() for x in typed.split(",")) if re.fullmatch(NAME_RE, n)]
+        elif not current:
+            env_names = []
 
     after = copy.deepcopy(before)
-    changes = plan_settings(after, answers, hosts, env_names)
-    if desk:
-        block += "\n" + open(os.path.join(args.repo, "bellhop", "agent-rules.md")).read()
+    old_state = json.dumps(state, sort_keys=True)
+    changes = plan_settings(after, answers, hosts, env_names, state)
+    new_rules = plan_rules(claude_md, block if answers["rules"] else None)
+    new_codex = plan_rules(codex_md, block if answers["codex"] else None) if codex else None
 
-    def planned(path):
-        try:
-            current = open(path).read()
-        except FileNotFoundError:
-            current = ""
-        return plan_rules(current, block)
-    new_rules = planned(rules_path) if answers["rules"] else None
-    new_codex = planned(codex_path) if answers["codex"] else None
-
+    def what(new, text, added):
+        if new is None:
+            return "  nothing to change"
+        return "  - remove valetkey's rules" if BEGIN not in new else ("  + " + added if BEGIN not in text
+                                                                        else "  + update valetkey's rules")
     print(f"\n{settings_path}:")
-    print("\n".join("  + " + c for c in changes) or "  nothing to change")
+    print("\n".join("  " + c for c in changes) or "  nothing to change")
     print(f"{rules_path}:")
-    print("  + valetkey's rules for agents" + (" and the desk's" if desk else "") if new_rules is not None
-          else "  nothing to change")
-    if answers["codex"]:
+    print(what(new_rules, claude_md, "valetkey's rules for agents" + (" and the desk's" if desk else "")))
+    if codex:
         print(f"{codex_path}:")
-        print("  + the same rules, for Codex" if new_codex is not None else "  nothing to change")
+        print(what(new_codex, codex_md, "the same rules, for Codex"))
     if args.dry_run or not (changes or new_rules is not None or new_codex is not None):
         print("\nNothing written." if args.dry_run else "\nAlready up to date.")
         return 0
     if not args.yes:
         try:
-            if not input("\nWrite these changes? [y/N] ").strip().lower().startswith("y"):
+            if input("\nWrite these changes? [Y/n] ").strip().lower().startswith("n"):
                 print("Nothing written.")
                 return 0
         except EOFError:
@@ -262,6 +354,11 @@ def main(argv=None):
             return 0
     if changes:
         write(settings_path, json.dumps(after, indent=2) + "\n")
+    if json.dumps(state, sort_keys=True) != old_state:
+        os.makedirs(os.path.dirname(state_path), exist_ok=True)
+        with open(state_path, "w") as f:
+            json.dump(state, f, indent=2)
+            f.write("\n")
     if new_rules is not None:
         write(rules_path, new_rules)
     if new_codex is not None:

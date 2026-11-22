@@ -881,13 +881,13 @@ Start with [bellhop/README.md](bellhop/README.md). To add a tool step by step, f
 
 ### Setting up Claude Code
 
-`./install.sh claude` does this for Claude Code. Run it on the agent machine as the user the agent runs as. It asks, with a recommended answer for each:
+`./install.sh claude` does this for Claude Code, and for Codex's `AGENTS.md` when Codex is installed. Run it on the agent machine as the user the agent runs as. It asks, with a recommended answer for each:
 
 | Question | Recommended | What it changes |
 |---|---|---|
 | Add valetkey's rules to `CLAUDE.md`? | Yes | A marked block in `~/.claude/CLAUDE.md`, replaced in place on later runs. The desk's rules are included when the machine has a desk address |
 | Turn on the command sandbox? | Yes | `sandbox.enabled`; the broker's and desk's hosts are added to the allowed network list |
-| Block reading login and key files? | Yes | Read rules and sandbox read blocks for SSH keys, cloud logins, tokens and `.env` files. `.env.example` stays readable |
+| Block reading login files? | Yes | Read rules and sandbox read blocks for SSH keys, cloud logins, tokens and shell history, at their fixed places in your home folder. No `**/.env`-style patterns: Claude Code turns each into one sandbox entry per matching file, and across a home folder that stops every command from starting. The agent rules cover `.env` and key files |
 | Block commands that print a secret? | Yes | Deny rules for `env`, `printenv`, `gh auth token`, `vault`, password-manager commands and similar |
 | Turn off claude.ai account connectors? | Yes | `disableClaudeAiConnectors`. Connectors are logins held on Anthropic's side that any session signed in as you can be offered |
 | Never run a command outside the sandbox? | No | `sandbox.allowUnsandboxedCommands: false`. Safer, but tools that must leave the sandbox stop working |
@@ -896,7 +896,7 @@ When `sudo ./install.sh agent` has already put the rules in the root-owned polic
 
 It then asks for the names of any environment variables to remove from the agent's commands (names only, never values), shows every change, and writes only when you say yes.
 
-- **It merges.** No existing rule or setting is removed, and running it again changes nothing.
+- **Run it again to change an answer.** Each question shows what is in place now. A no removes what an earlier yes added, and a new broker or desk address replaces the old one. Rules and settings you added yourself are never removed: what valetkey added is recorded in `~/.claude/valetkey-setup.json`.
 - **It backs up.** Each file is copied to `<name>.before-valetkey-<time>` first.
 - **`--yes`** takes every recommended answer; **`--dry-run`** shows the changes and writes nothing.
 
