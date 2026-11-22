@@ -153,13 +153,14 @@ The client tools are also Homebrew packages, one per role, on macOS and on Linux
 
 ```sh
 brew tap machinarii/valetkey https://github.com/machinarii/valetkey
+brew trust machinarii/valetkey      # Homebrew asks you to trust a third-party tap once
 brew install valetkey-agent       # agent machine: relay only
 brew install valetkey-owner       # owner device: relay and vault-entry
 brew install valetkey-consumer    # trusted consumer: relay and the vault shim (add fnox)
 relay set-url https://broker.<tailnet>.ts.net
 ```
 
-The three packages refuse to install side by side, because one machine has one role.
+They use the `python3` already on the machine (3.9 or newer). The three packages refuse to install side by side, because one machine has one role.
 `brew upgrade` keeps them current. On a Linux agent machine, the installer above still does more
 than the package: the desk stand-in, the sweep and the Claude Code policy. `./install.sh claude`
 adds the agent rules to Claude Code and Codex in either case.

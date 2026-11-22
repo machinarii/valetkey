@@ -1,4 +1,5 @@
 # valetkey owner client. Install: brew tap machinarii/valetkey https://github.com/machinarii/valetkey
+#                                  brew trust machinarii/valetkey
 #                                  brew install valetkey-owner
 # Release: bump the tag in all three formulas to the new VERSION and push the tag.
 class ValetkeyOwner < Formula
@@ -8,7 +9,6 @@ class ValetkeyOwner < Formula
   license "MIT"
   head "https://github.com/machinarii/valetkey.git", branch: "main"
 
-  depends_on "python@3.13"
   conflicts_with "valetkey-agent", because: "one machine has one valetkey role"
   conflicts_with "valetkey-consumer", because: "one machine has one valetkey role"
 
@@ -16,11 +16,11 @@ class ValetkeyOwner < Formula
     bin.install "client/relay", "client/vault", "client/vault-entry"
     bin.install "relay/tools/fnox-to-relay.py" => "fnox-to-relay"
     (share/"valetkey").install "agents/credential-rules.md"
-    rewrite_shebang detected_python_shebang, *bin.children
   end
 
   def caveats
     <<~EOS
+      Needs python3 3.9 or newer on PATH (macOS and most Linux systems have it).
       Point it at your broker once (names only, never a key):
         relay set-url https://broker.<tailnet>.ts.net
       Owner devices type keys with vault-entry; never run agents on this machine.
