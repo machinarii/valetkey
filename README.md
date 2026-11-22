@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  <a href="#getting-started"><b>Get started</b></a> ·
+  <a href="#installation"><b>Install</b></a> ·
   <a href="#one-command-per-machine">One command per machine</a> ·
   <a href="bellhop/README.md">bellhop</a> ·
   <a href="docs/secure-setup.md">Secure setup</a>
@@ -38,22 +38,6 @@
 
 > [!WARNING]
 > **For a private tailnet only. Never expose any part of it to the internet.** valetkey is not built for a public-facing system: the broker, the desk and the vault must be reachable only from your own machines over Tailscale. **You use it at your own risk**: it comes with no warranty, and the author is not responsible for any loss or damage. Read [Use at your own risk](#use-at-your-own-risk) before installing.
-
-<p align="center">
-  <a href="#the-parts-and-where-each-runs">The parts</a> ·
-  <a href="#why">Why</a> ·
-  <a href="#how-it-works">How it works</a> ·
-  <a href="#containment-where-everything-runs">Containment</a> ·
-  <a href="#tailscale-what-valetkey-relies-on">Tailscale</a> ·
-  <a href="#getting-started">Getting started</a> ·
-  <a href="#everyday-use">Everyday use</a> ·
-  <a href="#commands">Commands</a> ·
-  <a href="#security-model">Security model</a> ·
-  <a href="#the-desk-tools-with-their-own-login">The desk</a> ·
-  <a href="#what-it-costs-tokens-and-time">Cost</a> ·
-  <a href="#troubleshooting">Troubleshooting</a> ·
-  <a href="#use-at-your-own-risk">Your own risk</a>
-</p>
 
 <br>
 
@@ -78,6 +62,31 @@
   </tr>
 </table>
 
+## Contents
+
+- [What it is](#what-it-is)
+- [Features](#features)
+- [Installation](#installation): [requirements](#requirements), [one command per machine](#one-command-per-machine)
+- [The parts and where each runs](#the-parts-and-where-each-runs)
+- [Why](#why)
+- [How it works](#how-it-works)
+- [Containment: where everything runs](#containment-where-everything-runs)
+- [Getting started](#getting-started): the full setup, step by step
+- [Everyday use](#everyday-use)
+- [Configuration](#configuration)
+- [Commands](#commands)
+- [Security model](#security-model)
+- [Tailscale: what valetkey relies on](#tailscale-what-valetkey-relies-on)
+- [The desk: tools with their own login](#the-desk-tools-with-their-own-login)
+- [Working with AI agents](#working-with-ai-agents)
+- [What it costs: tokens and time](#what-it-costs-tokens-and-time)
+- [Upgrading](#upgrading)
+- [Troubleshooting](#troubleshooting)
+- [Project layout](#project-layout)
+- [Development](#development)
+- [Use at your own risk](#use-at-your-own-risk)
+- [Status and license](#status-and-license)
+
 ## What it is
 
 valetkey is a self-hosted credential broker. It pairs [Vaultwarden](https://github.com/dani-garcia/vaultwarden) and [fnox](https://fnox.jdx.dev) with two parts of its own, **relay** and **bellhop**, over [Tailscale](https://tailscale.com). relay is the broker service: it checks which machine is calling and adds the key, so agents call broker API routes without holding one; separate trusted services can opt into raw credentials. bellhop does the same for command-line tools and MCP servers that keep their own login: they run on a separate desk machine, and agents use them by name without ever holding the login.
@@ -85,6 +94,138 @@ valetkey is a self-hosted credential broker. It pairs [Vaultwarden](https://gith
 A valet key starts the car but won't open the trunk. valetkey gives each machine the same kind of key: it can use the few credentials its routes allow, for as long as it is on your tailnet, and nothing else. The master key stays in one place: a small broker VM that is the only thing allowed to unlock the vault.
 
 Software alone does not keep a key from an agent. **Where each part runs matters as much as what it does.** Read [Containment](#containment-where-everything-runs) before installing anything, then follow [secure setup](docs/secure-setup.md). Never run agents on the broker, the desk, the vault server, an owner entry device, a trusted raw-value consumer or their management host. Raw reads are denied by default; existing deployments need the migration steps in that guide before upgrading.
+
+## Features
+
+- **No agent-side provider key required.** Approved broker API routes inject keys remotely. Existing credentials and Tailscale machine state still need protection. Revoke route access in `routes.toml` or the tailnet policy.
+- **Key injection.** `[api.*]` routes add credentials to outgoing HTTPS calls (exact host, methods and path prefixes) through `fnox proxy`. The calling process never has the key.
+- **Works with fnox as is.** Uses fnox's own `vault` provider with a 100-line shim. Keep `fnox exec`, profiles and `if_missing = "error"`.
+- **Broker-only agent policy.** Agent nodes can check and request; raw reads require a separate trusted-consumer grant. Includes offline guidance for agent memory.
+- **Owner entry, two ways.** Hidden terminal prompt (`vault-entry`) or a plain, phone-friendly web page that only your devices can submit to.
+- **Replace with backup.** Each replace keeps `<name>-backup-YYYYMMDD`; same-day collisions are refused. Backups require the same trusted raw-consumer policy as the original.
+  fnox may find multiple items when a backup contains the original name. The owner must resolve that ambiguity privately before restarting the route; agents must not delete backups. `relay-check` and `relay-routes install` report it.
+- **Upstream 401/403 detection.** An API route that starts failing marks its item *may be expired*. You see the mark next to a one-click replace.
+- **Least privilege on the broker.** Separate system users, separate Vaultwarden accounts, view-only read accounts, a write account unlocked for seconds at a time, and hardened systemd units (`ProtectSystem=strict`, `NoNewPrivileges`, and more).
+- **Names only, everywhere.** Audit logs, checks, errors and installer output contain item names and `ok` / `FAIL`, never values.
+- **No runtime dependencies beyond the tools.** Python standard library only. The broker needs `bw`, `fnox`, `jq` and `tailscale`, and `install.sh broker --with-deps` installs them.
+- **A desk for tools with their own login.** bellhop runs listed subcommands of a command-line tool on a separate machine and returns the output. Login and token subcommands, risky options and paths into the desk are refused. Files travel with the command.
+- **Install requests, not installs.** An agent asked to add a tool that needs a login files a request; the owner installs it. Nothing an agent sends makes the desk install or run anything new.
+- **Checks on the agent machine.** A root-owned policy can limit MCP servers to the broker and desk, and an hourly sweep reports logins and new tools by name.
+- **One-command installs** for all three parts: `install.sh vaultwarden`, `install.sh broker --with-deps` and `install.sh client --with-deps` bring their own Docker, Tailscale, Bitwarden CLI and fnox. Proxmox scripts can create the Vaultwarden container and the broker VM from scratch.
+
+---
+
+## Installation
+
+Every machine installs with the same command, on Linux and on macOS. Open a terminal on that
+machine and run:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/machinarii/valetkey/main/install.sh | bash
+```
+
+It asks one question, which machine this is, and does the rest:
+
+- It lists only the roles that fit this computer: all seven on Linux, three on a Mac (a Mac is
+  only ever a client). On a Proxmox host it suggests "Proxmox host".
+- It fills in your tailnet's broker and desk addresses from Tailscale; press Enter to accept them.
+- It asks for `sudo` only for the steps that need root.
+- Before it changes Claude Code or Codex settings, it says what it will change and why, and asks.
+- It never asks for a key or password.
+
+| On this machine | Choose | What happens |
+|---|---|---|
+| **Proxmox host** (Linux) | Proxmox host | Creates the vault container and the broker and desk VMs, and installs each one. Replaces the next three rows. |
+| **Vault host** (Linux) | Vault host | Docker, Tailscale and Vaultwarden, reachable only on the tailnet. |
+| **Broker** (Linux VM) | Broker | Tailscale, the Bitwarden CLI, fnox and the relay services. |
+| **Desk** (Linux VM, optional) | Desk | The desk service and its front door. No tools or logins yet. |
+| **Agent machine** (Linux) | Agent machine | `relay` and `bellhop` in agent mode, the hourly sweep, the Claude Code policy (asked first), then the agent rules for Claude Code and Codex. Asks for the desk address and which desk tools to link. |
+| **Agent machine** (Mac) | Agent machine | `relay` in agent mode in `~/.local/bin`, no root, then the agent rules for Claude Code and Codex. |
+| **Owner device** (Linux or Mac) | Owner device | `relay` and `vault-entry`, the hidden prompt for typing keys. A phone or tablet needs nothing installed: use the entry page in its browser. |
+| **Trusted consumer** (Linux or Mac) | Trusted consumer | `relay`, the `vault` shim and fnox. |
+
+Read [Containment](#containment-where-everything-runs) first: which machine each part runs on is
+what keeps the keys away from agents. Never pick two roles on one machine.
+
+### Client tools with Homebrew (macOS and Linux)
+
+The client tools are also Homebrew packages, one per role, on macOS and on Linux with Homebrew:
+
+```sh
+brew tap machinarii/valetkey https://github.com/machinarii/valetkey
+brew install valetkey-agent       # agent machine: relay only
+brew install valetkey-owner       # owner device: relay and vault-entry
+brew install valetkey-consumer    # trusted consumer: relay and the vault shim (add fnox)
+relay set-url https://broker.<tailnet>.ts.net
+```
+
+The three packages refuse to install side by side, because one machine has one role.
+`brew upgrade` keeps them current. On a Linux agent machine, the installer above still does more
+than the package: the desk stand-in, the sweep and the Claude Code policy. `./install.sh claude`
+adds the agent rules to Claude Code and Codex in either case.
+
+**No access to GitHub on that machine, or prefer to read the code first?** Clone the repository,
+or copy it over, and run the same menu from the copy:
+
+```sh
+git clone https://github.com/machinarii/valetkey && cd valetkey && ./install.sh
+# from another computer: git archive HEAD | ssh <machine> 'mkdir -p valetkey && tar -x -C valetkey'
+```
+
+The installer fetches the code with git, or with curl when git is missing, into a temporary
+folder that it deletes afterwards. `VALETKEY_REF=<tag or branch>` before `bash` installs that
+version instead of `main`. The commands behind each choice are under
+[One command per machine](#one-command-per-machine).
+
+Set the machines up in this order. [Getting started](#getting-started) has every step:
+
+1. [Prepare the tailnet](#1-prepare-the-tailnet)
+2. [Run Vaultwarden](#2-run-vaultwarden) on the vault host
+3. [Create the accounts and organizations](#3-create-the-accounts-and-organizations)
+4. [Install the broker](#4-install-the-broker)
+5. [Log the relays in](#5-log-the-relays-in)
+6. [Set up the machines that use keys](#6-set-up-the-machines-that-use-keys): agent machines, owner devices, trusted consumers
+7. [Wire up a project](#7-wire-up-a-project)
+8. [Add the desk](#8-add-the-desk-optional) (optional)
+9. [Verify](#9-verify)
+
+Already installed? See [Upgrading](#upgrading).
+
+### Requirements
+
+| Where | Needs |
+|---|---|
+| **Tailnet** | Tailscale with MagicDNS and HTTPS Certificates turned on. You need admin access to edit the ACL. |
+| **Vaultwarden** | Any host with Docker (the Proxmox LXC script is optional). Vaultwarden 1.37.2+ for current Bitwarden clients. |
+| **Broker** | Debian 12+ or Ubuntu 24.04+ with systemd ≥ 250, Python ≥ 3.11 and a TPM or vTPM (for `systemd-creds`). 2 vCPU, 2 GB RAM and 8 GB disk. Each relay runs the Bitwarden CLI, which is heavy: 1 GB runs out once an org has more than a few `[api.*]` routes. |
+| **Desk** (optional) | Debian 12+ or Ubuntu 24.04+ with systemd and Python ≥ 3.11, on its own VM. 2 vCPU, 2 GB RAM and 16 GB disk is enough for a few tools. No TPM needed. |
+| **Clients** | Python ≥ 3.9 (macOS's `/usr/bin/python3` works), Tailscale, and [fnox](https://fnox.jdx.dev) for project pulls (`install.sh client --with-deps` installs both). |
+
+### One command per machine
+
+Each machine gets exactly one installer. Run it on that machine, from a copy of this repository. `./install.sh` with no arguments asks which machine this is and runs the right row for you.
+
+| Machine | Command | What it installs |
+|---|---|---|
+| **Hypervisor** (Proxmox) | `sudo ./install.sh proxmox [--no-desk]`<br>(runs `deploy/proxmox/vaultwarden-ct.sh`, `deploy/proxmox/broker-vm.sh` and `bellhop/proxmox-desk-vm.sh`) | Creates the vault container and the broker and desk VMs, and runs the three installers below inside them |
+| **Vault host** | `sudo ./install.sh vaultwarden` | Docker, Tailscale, Vaultwarden published on the tailnet only |
+| **Broker** | `sudo ./install.sh broker --with-deps` | Tailscale, Bitwarden CLI, fnox, the relay services and broker tools |
+| **Desk** (optional) | `sudo ./install.sh desk` | Tailscale, the desk service, the TLS front door. No tools, no logins |
+| **Agent machine** | `sudo ./install.sh agent --relay-url … --desk-url … --tools …`<br>`./install.sh claude` | `relay` in agent mode, the `bellhop` stand-in, the sweep and its timer, a policy that limits MCP servers to the broker and desk (it says why and asks first). Then, as the agent's user, the rules in `CLAUDE.md` (and Codex's `AGENTS.md`, if Codex is installed) and the blocks you choose in Claude Code's settings. No keys |
+| **Owner device** | `./install.sh client --owner --relay-url …` | `relay` and `vault-entry` |
+| **Trusted consumer** | `./install.sh client --relay-url … --with-deps` | `relay`, the `vault` shim, fnox |
+
+Never combine two rows on one machine, with one exception: the hypervisor hosts the vault, broker and desk as separate guests. If you use Proxmox, the first row replaces the next three.
+
+What no installer can do for you, because each step is a decision or a secret:
+
+- edit the tailnet policy in the Tailscale admin console;
+- create the Vaultwarden accounts and organizations, and type their passwords;
+- sign the relays in (`relay-login`) and sign tools in on the desk;
+- write the routes and the desk's tool list: who may use what;
+- take `sudo` away from the agent's user.
+
+---
 
 ## The parts and where each runs
 
@@ -108,30 +249,6 @@ valetkey is several small tools, each with one job, and each belongs on a partic
 | **sweep** | An hourly check that no login and no unexpected tool has appeared. Reports names only. | Agent machines, as root |
 | **Agent rules** | Standing instructions that tell an agent how to ask for keys and tools, and what never to do. | Agent machines |
 | **Proxmox scripts** | Create the vault container and the broker and desk VMs, then run the right installer in each. | Hypervisor |
-
-### One command per machine
-
-Each machine gets exactly one installer. Run it on that machine, from a copy of this repository.
-
-| Machine | Command | What it installs |
-|---|---|---|
-| **Hypervisor** (Proxmox) | `bash deploy/proxmox/vaultwarden-ct.sh`<br>`bash deploy/proxmox/broker-vm.sh`<br>`bash bellhop/proxmox-desk-vm.sh` | Creates the vault container and the broker and desk VMs, and runs the three installers below inside them |
-| **Vault host** | `sudo ./install.sh vaultwarden` | Docker, Tailscale, Vaultwarden published on the tailnet only |
-| **Broker** | `sudo ./install.sh broker --with-deps` | Tailscale, Bitwarden CLI, fnox, the relay services and broker tools |
-| **Desk** (optional) | `sudo ./install.sh desk` | Tailscale, the desk service, the TLS front door. No tools, no logins |
-| **Agent machine** | `sudo ./install.sh agent --relay-url … --desk-url … --tools …`<br>`./install.sh claude` | `relay` in agent mode, the `bellhop` stand-in, the sweep and its timer, a policy that limits MCP servers to the broker and desk. Then, as the agent's user, the rules in `CLAUDE.md` and the blocks you choose in Claude Code's settings. No keys |
-| **Owner device** | `./install.sh client --owner --relay-url …` | `relay` and `vault-entry` |
-| **Trusted consumer** | `./install.sh client --relay-url … --with-deps` | `relay`, the `vault` shim, fnox |
-
-Never combine two rows on one machine, with one exception: the hypervisor hosts the vault, broker and desk as separate guests. If you use Proxmox, the first row replaces the next three.
-
-What no installer can do for you, because each step is a decision or a secret:
-
-- edit the tailnet policy in the Tailscale admin console;
-- create the Vaultwarden accounts and organizations, and type their passwords;
-- sign the relays in (`relay-login`) and sign tools in on the desk;
-- write the routes and the desk's tool list: who may use what;
-- take `sudo` away from the agent's user.
 
 ---
 
@@ -318,38 +435,6 @@ One command does the parts that can be automated: `sudo ./install.sh agent …` 
 ### What containment does not do
 
 Hiding a key stops it being copied. It does not limit what an agent does with the access it is given: a route or a listed tool can be used freely by every listed machine. Keep keys narrow at the service, prefer test-mode and capped keys, and list only the operations you need. See [Security model](#security-model).
-
----
-
-## Features
-
-- **No agent-side provider key required.** Approved broker API routes inject keys remotely. Existing credentials and Tailscale machine state still need protection. Revoke route access in `routes.toml` or the tailnet policy.
-- **Key injection.** `[api.*]` routes add credentials to outgoing HTTPS calls (exact host, methods and path prefixes) through `fnox proxy`. The calling process never has the key.
-- **Works with fnox as is.** Uses fnox's own `vault` provider with a 100-line shim. Keep `fnox exec`, profiles and `if_missing = "error"`.
-- **Broker-only agent policy.** Agent nodes can check and request; raw reads require a separate trusted-consumer grant. Includes offline guidance for agent memory.
-- **Owner entry, two ways.** Hidden terminal prompt (`vault-entry`) or a plain, phone-friendly web page that only your devices can submit to.
-- **Replace with backup.** Each replace keeps `<name>-backup-YYYYMMDD`; same-day collisions are refused. Backups require the same trusted raw-consumer policy as the original.
-  fnox may find multiple items when a backup contains the original name. The owner must resolve that ambiguity privately before restarting the route; agents must not delete backups. `relay-check` and `relay-routes install` report it.
-- **Upstream 401/403 detection.** An API route that starts failing marks its item *may be expired*. You see the mark next to a one-click replace.
-- **Least privilege on the broker.** Separate system users, separate Vaultwarden accounts, view-only read accounts, a write account unlocked for seconds at a time, and hardened systemd units (`ProtectSystem=strict`, `NoNewPrivileges`, and more).
-- **Names only, everywhere.** Audit logs, checks, errors and installer output contain item names and `ok` / `FAIL`, never values.
-- **No runtime dependencies beyond the tools.** Python standard library only. The broker needs `bw`, `fnox`, `jq` and `tailscale`, and `install.sh broker --with-deps` installs them.
-- **A desk for tools with their own login.** bellhop runs listed subcommands of a command-line tool on a separate machine and returns the output. Login and token subcommands, risky options and paths into the desk are refused. Files travel with the command.
-- **Install requests, not installs.** An agent asked to add a tool that needs a login files a request; the owner installs it. Nothing an agent sends makes the desk install or run anything new.
-- **Checks on the agent machine.** A root-owned policy can limit MCP servers to the broker and desk, and an hourly sweep reports logins and new tools by name.
-- **One-command installs** for all three parts: `install.sh vaultwarden`, `install.sh broker --with-deps` and `install.sh client --with-deps` bring their own Docker, Tailscale, Bitwarden CLI and fnox. Proxmox scripts can create the Vaultwarden container and the broker VM from scratch.
-
----
-
-## Requirements
-
-| Where | Needs |
-|---|---|
-| **Tailnet** | Tailscale with MagicDNS and HTTPS Certificates turned on. You need admin access to edit the ACL. |
-| **Vaultwarden** | Any host with Docker (the Proxmox LXC script is optional). Vaultwarden 1.37.2+ for current Bitwarden clients. |
-| **Broker** | Debian 12+ or Ubuntu 24.04+ with systemd ≥ 250, Python ≥ 3.11 and a TPM or vTPM (for `systemd-creds`). 2 vCPU, 2 GB RAM and 8 GB disk. Each relay runs the Bitwarden CLI, which is heavy: 1 GB runs out once an org has more than a few `[api.*]` routes. |
-| **Desk** (optional) | Debian 12+ or Ubuntu 24.04+ with systemd and Python ≥ 3.11, on its own VM. 2 vCPU, 2 GB RAM and 16 GB disk is enough for a few tools. No TPM needed. |
-| **Clients** | Python ≥ 3.9 (macOS's `/usr/bin/python3` works), Tailscale, and [fnox](https://fnox.jdx.dev) for project pulls (`install.sh client --with-deps` installs both). |
 
 ---
 

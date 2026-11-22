@@ -16,10 +16,12 @@ class ClaudeSetup(unittest.TestCase):
         self.addCleanup(self.tmp.cleanup)
         self.settings = Path(self.tmp.name) / "claude" / "settings.json"
         self.rules = Path(self.tmp.name) / "claude" / "CLAUDE.md"
+        self.codex = Path(self.tmp.name) / "codex" / "AGENTS.md"   # folder absent: Codex not installed
 
     def run_setup(self, *args, stdin=""):
         return subprocess.run(
             [sys.executable, "-I", str(SCRIPT), "--settings", str(self.settings), "--claude-md", str(self.rules),
+             "--codex-md", str(self.codex),
              "--relay-url", "https://broker.example.ts.net", "--desk-url", "",
              "--policy", str(Path(self.tmp.name) / "no-policy.json"), *args],
             input=stdin, capture_output=True, text=True, timeout=30)
@@ -85,6 +87,20 @@ class ClaudeSetup(unittest.TestCase):
         r = self.run_setup("--yes", "--hide-env", "TOKEN=abc123")
         self.assertNotEqual(r.returncode, 0)
         self.assertEqual(self.settings.read_text(), "{}")
+
+    def test_codex_gets_the_same_rules_when_installed(self):
+        self.assertEqual(self.run_setup("--yes").returncode, 0)
+        self.assertFalse(self.codex.exists())          # no ~/.codex: not offered
+        self.codex.parent.mkdir()
+        self.codex.write_text("# Mine\n")
+        policy = Path(self.tmp.name) / "policy.json"   # the Claude-only policy does not cover Codex
+        policy.write_text(json.dumps({"claudeMd": (ROOT / "agents" / "credential-rules.md").read_text()}))
+        r = self.run_setup("--yes", "--policy", str(policy))
+        self.assertEqual(r.returncode, 0, r.stderr)
+        text = self.codex.read_text()
+        self.assertTrue(text.startswith("# Mine\n"))
+        self.assertIn("valetkey:begin", text)
+        self.assertIn("assess it first", text)
 
     def test_rules_already_in_the_root_policy_are_not_added_twice(self):
         policy = Path(self.tmp.name) / "policy.json"

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Add valetkey's rules to Claude Code on an agent machine: CLAUDE.md and settings.json.
+"""Add valetkey's rules to Claude Code (CLAUDE.md, settings.json) and Codex (AGENTS.md) on an agent machine.
 
   ./install.sh claude              ask what to block, show the changes, then write them
   ./install.sh claude --yes        take every recommended answer
@@ -173,6 +173,8 @@ def main(argv=None):
     ap.add_argument("--dry-run", action="store_true", help="show the changes and write nothing")
     ap.add_argument("--settings", default="~/.claude/settings.json")
     ap.add_argument("--claude-md", default="~/.claude/CLAUDE.md")
+    ap.add_argument("--codex-md", default="~/.codex/AGENTS.md",
+                    help="Codex's rules file; offered only when its folder exists (Codex is installed)")
     ap.add_argument("--policy", default="/etc/claude-code/managed-settings.json",
                     help="the root-owned policy file; rules it already holds are not added a second time")
     ap.add_argument("--relay-url", default=None, help="the broker's address (default: what the client saved)")
@@ -180,6 +182,13 @@ def main(argv=None):
     ap.add_argument("--hide-env", default="", help="comma-separated variable names to remove from the agent's commands")
     args = ap.parse_args(argv)
     settings_path, rules_path = os.path.expanduser(args.settings), os.path.expanduser(args.claude_md)
+    codex_path = os.path.expanduser(args.codex_md)
+    codex = os.path.isdir(os.path.dirname(codex_path))
+    print("This sets up Claude Code" + (" and Codex" if codex else "") + " on this machine for valetkey.\n"
+          "Intent: an agent here asks for keys and tools by name, and cannot easily read, print or copy a\n"
+          "key or login. " + ("--yes: taking the recommended answer to each question without asking."
+                               if args.yes else "Each change is explained and asked about; nothing is\n"
+                               "written until you say yes at the end."))
 
     try:
         with open(settings_path) as f:
@@ -206,6 +215,10 @@ def main(argv=None):
     answers = {key: ask(q, default, why, args.yes) for key, q, default, why in QUESTIONS
                if not (in_policy and key == "rules")}
     answers.setdefault("rules", False)
+    # The root policy reaches Claude Code only, so Codex gets the rules even when the policy has them.
+    answers["codex"] = codex and ask(
+        "Add valetkey's rules for agents to Codex's AGENTS.md?", True,
+        "Codex reads AGENTS.md the way Claude Code reads CLAUDE.md.", args.yes)
     if not args.yes and not env_names:
         print("\nVariable names to remove from the agent's commands, separated by commas (names only; Enter for none):")
         try:
@@ -216,22 +229,27 @@ def main(argv=None):
 
     after = copy.deepcopy(before)
     changes = plan_settings(after, answers, hosts, env_names)
-    new_rules = None
-    if answers["rules"]:
-        if desk:
-            block += "\n" + open(os.path.join(args.repo, "bellhop", "agent-rules.md")).read()
+    if desk:
+        block += "\n" + open(os.path.join(args.repo, "bellhop", "agent-rules.md")).read()
+
+    def planned(path):
         try:
-            current = open(rules_path).read()
+            current = open(path).read()
         except FileNotFoundError:
             current = ""
-        new_rules = plan_rules(current, block)
+        return plan_rules(current, block)
+    new_rules = planned(rules_path) if answers["rules"] else None
+    new_codex = planned(codex_path) if answers["codex"] else None
 
     print(f"\n{settings_path}:")
     print("\n".join("  + " + c for c in changes) or "  nothing to change")
     print(f"{rules_path}:")
     print("  + valetkey's rules for agents" + (" and the desk's" if desk else "") if new_rules is not None
           else "  nothing to change")
-    if args.dry_run or not (changes or new_rules is not None):
+    if answers["codex"]:
+        print(f"{codex_path}:")
+        print("  + the same rules, for Codex" if new_codex is not None else "  nothing to change")
+    if args.dry_run or not (changes or new_rules is not None or new_codex is not None):
         print("\nNothing written." if args.dry_run else "\nAlready up to date.")
         return 0
     if not args.yes:
@@ -246,8 +264,10 @@ def main(argv=None):
         write(settings_path, json.dumps(after, indent=2) + "\n")
     if new_rules is not None:
         write(rules_path, new_rules)
+    if new_codex is not None:
+        write(codex_path, new_codex)
     print("\nWritten. The previous files are kept beside them as *.before-valetkey-<time>.")
-    print("Start a new Claude Code session for the changes to take effect.")
+    print("Start a new Claude Code (or Codex) session for the changes to take effect.")
     print("The agent's user can edit these files. For rules it cannot undo: sudo ./install.sh agent")
     return 0
 

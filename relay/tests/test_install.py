@@ -39,6 +39,17 @@ class InstallClientTests(unittest.TestCase):
         url = (self.home / ".config" / "valetkey" / "relay-url").read_text()
         self.assertEqual(url, "https://broker.example.ts.net\n")
 
+    def test_menu_installs_an_owner_device(self):
+        answers = self.home / "answers"
+        answers.write_text("6\nhttps://broker.example.ts.net\n")
+        r = self.run_install(VALETKEY_TTY=str(answers))
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertTrue((self.home / ".local/bin/vault-entry").exists())
+        url = (self.home / ".config" / "valetkey" / "relay-url").read_text()
+        self.assertEqual(url, "https://broker.example.ts.net\n")
+        answers.write_text("9\n")
+        self.assertNotEqual(self.run_install(VALETKEY_TTY=str(answers)).returncode, 0)
+
     def test_client_owner_adds_vault_entry(self):
         r = self.run_install("client", "--prefix", str(self.prefix), "--owner")
         self.assertEqual(r.returncode, 0, r.stderr)

@@ -13,15 +13,18 @@
 #   ./install.sh doctor
 #   ./install.sh guidance   (offline rules for agent memory; never reads credentials)
 #   ./install.sh version
+#   sudo ./install.sh proxmox [--no-desk]
+#                                       (Proxmox host: creates the vault, broker and desk guests)
+#   ./install.sh                        (on a terminal: asks which machine this is, then runs the above)
 #
-# Run from a checkout, or straight from GitHub (it clones the repo into a temp dir first):
-#   curl -fsSL https://raw.githubusercontent.com/machinarii/valetkey/main/install.sh | bash -s -- client --relay-url ...
+# Run from a checkout, or straight from GitHub (it fetches the repo into a temp dir first):
+#   curl -fsSL https://raw.githubusercontent.com/machinarii/valetkey/main/install.sh | bash
 # VALETKEY_REPO / VALETKEY_REF pick another repo or branch for that clone.
 #
 # Never asks for, prints or stores a secret. The client side stores only the broker URL.
 set -euo pipefail
 
-usage() { sed -n '2,19p' "$0" 2>/dev/null | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,22p' "$0" 2>/dev/null | sed 's/^# \{0,1\}//'; }
 die() { echo "install.sh: $*" >&2; exit 1; }
 ok() { echo "ok    $*"; }
 warn() { echo "warn  $*" >&2; }
@@ -34,13 +37,27 @@ if [ -n "$self" ] && [ -f "$self" ]; then
   [ -f "$d/relay/relay_read.py" ] && repo=$d
 fi
 if [ -z "$repo" ]; then
-  command -v git >/dev/null || die "git is needed to fetch valetkey"
+  src=${VALETKEY_REPO:-https://github.com/machinarii/valetkey.git}
   tmp=$(mktemp -d)
+  chmod 755 "$tmp"  # sudo steps and the agent's user read the copy too
   trap 'rm -rf "$tmp"' EXIT
-  git clone -q --depth 1 --branch "${VALETKEY_REF:-main}" \
-    "${VALETKEY_REPO:-https://github.com/machinarii/valetkey.git}" "$tmp/valetkey" \
-    || die "could not clone ${VALETKEY_REPO:-https://github.com/machinarii/valetkey.git}"
-  bash "$tmp/valetkey/install.sh" "$@"
+  if command -v git >/dev/null; then
+    git clone -q --depth 1 --branch "${VALETKEY_REF:-main}" "$src" "$tmp/valetkey" \
+      || die "could not clone $src"
+  elif [ "$src" = https://github.com/machinarii/valetkey.git ] && command -v curl >/dev/null; then
+    # A fresh Debian image often has curl but no git.
+    mkdir "$tmp/valetkey"
+    curl -fsSL "https://github.com/machinarii/valetkey/archive/${VALETKEY_REF:-main}.tar.gz" \
+      | tar -xz --strip-components=1 -C "$tmp/valetkey" || die "could not download valetkey"
+  else
+    die "git is needed to fetch $src"
+  fi
+  # `curl | bash` leaves the script on stdin; give the questions the terminal instead.
+  if { : </dev/tty; } 2>/dev/null; then
+    bash "$tmp/valetkey/install.sh" "$@" </dev/tty
+  else
+    bash "$tmp/valetkey/install.sh" "$@"
+  fi
   exit $?
 fi
 version=$(cat "$repo/VERSION")
@@ -270,6 +287,17 @@ UNIT
     warn "no systemd: run /usr/local/sbin/bellhop-sweep from your own scheduler, as root"
   fi
 
+  if [ "$policy" = yes ] && [ ! -e /etc/claude-code/managed-settings.json ] && { : </dev/tty; } 2>/dev/null; then
+    cat >&2 <<'ASK'
+
+Claude Code policy: /etc/claude-code/managed-settings.json, owned by root.
+  Intent: give every Claude Code session on this machine valetkey's rules, and let it use MCP
+  servers only at the broker and desk, in a file the agent's user cannot change.
+  It also turns off every other MCP server here, including local and account-synced ones.
+ASK
+    read -r -p "  Write it? [Y/n] " answer </dev/tty || answer=n
+    case $answer in [nN]*) policy=no; warn "Claude Code policy not written (run again, or ./install.sh claude for user-level rules)" ;; esac
+  fi
   if [ "$policy" = yes ]; then  # Claude Code: MCP servers only at the broker and the desk; rules as standing instructions
     if [ -e /etc/claude-code/managed-settings.json ]; then
       warn "/etc/claude-code/managed-settings.json exists and was left alone; allow MCP servers only at the broker and desk there"
@@ -329,6 +357,95 @@ cmd_doctor() {
   fi
 }
 
+# --- proxmox: the three guests, each with its own installer inside ---
+cmd_proxmox() {
+  [ "$(id -u)" = 0 ] || die "proxmox: run as root on the Proxmox host"
+  command -v qm >/dev/null || die "proxmox: qm not found; this is not a Proxmox host"
+  bash "$repo/deploy/proxmox/vaultwarden-ct.sh"
+  bash "$repo/deploy/proxmox/broker-vm.sh"
+  [ "${1:-}" = --no-desk ] || bash "$repo/bellhop/proxmox-desk-vm.sh"
+}
+
+# --- menu: one command for every machine; asks which one this is ---
+tty=${VALETKEY_TTY:-/dev/tty}  # where the answers come from (a file in tests)
+ask() {  # ask VAR "question" [default]; answers come from fd 3 (cmd_menu opens it)
+  local a
+  printf '%s%s: ' "$2" "${3:+ [$3]}" >&2
+  IFS= read -r -u 3 a || die "no answer"
+  printf -v "$1" '%s' "${a:-${3:-}}"
+}
+
+tailnet_suffix() {  # e.g. example.ts.net, or nothing
+  local ts
+  ts=$(command -v tailscale || echo /Applications/Tailscale.app/Contents/MacOS/Tailscale)
+  [ -x "$ts" ] || return 0
+  "$ts" status --json 2>/dev/null | python3 -I -c '
+import json, sys
+try: print(json.load(sys.stdin).get("MagicDNSSuffix") or "")
+except ValueError: pass' 2>/dev/null || true
+}
+
+as_root() {
+  if [ "$(id -u)" = 0 ]; then bash "$repo/install.sh" "$@"
+  else echo "This step needs root; sudo may ask for your password." >&2; sudo bash "$repo/install.sh" "$@"; fi
+}
+
+cmd_menu() {
+  local n role relay='' desk='' tools='' suffix default='' i args=() roles=() labels=()
+  exec 3<"$tty"
+  suffix=$(tailnet_suffix)
+  if [ "$(uname -s)" = Darwin ]; then  # a Mac is only ever a client
+    roles=(agent owner consumer)
+  else
+    roles=(proxmox vault broker desk agent owner consumer)
+  fi
+  labels=(
+    "proxmox|Proxmox host: creates the vault, broker and desk as separate guests"
+    "vault|Vault host (Vaultwarden)"
+    "broker|Broker (the relay services)"
+    "desk|Desk (optional: runs tools that keep their own login)"
+    "agent|Agent machine (where Claude Code, Codex or other agents run)"
+    "owner|Owner device (where you type keys; never runs agents)"
+    "consumer|Trusted consumer (a service that must hold a key itself; never runs agents)")
+  echo 'Which machine is this? Each part needs its own machine; see "Containment" in the README.' >&2
+  for i in "${!roles[@]}"; do
+    for l in "${labels[@]}"; do [ "${l%%|*}" != "${roles[$i]}" ] || printf '  %d) %s\n' $((i + 1)) "${l#*|}" >&2; done
+    [ "${roles[$i]}" != proxmox ] || ! command -v qm >/dev/null || default=$((i + 1))
+  done
+  ask n "Number" "$default"
+  [[ $n =~ ^[0-9]+$ ]] && [ "$n" -ge 1 ] && [ "$n" -le ${#roles[@]} ] || die "pick a number from 1 to ${#roles[@]}"
+  role=${roles[$((n - 1))]}
+  case $role in
+    agent|owner|consumer) ask relay "Broker URL" "${suffix:+https://broker.$suffix}"
+           [ -n "$relay" ] || die "a broker URL is needed" ;;
+  esac
+  case $role in
+    proxmox) as_root proxmox ;;
+    vault) as_root vaultwarden ;;
+    broker) as_root broker --with-deps ;;
+    desk) as_root desk ;;
+    agent)
+      if [ "$(uname -s)" = Darwin ]; then
+        cmd_client --agent --relay-url "$relay"
+      else
+        ask desk "Desk URL (blank if you have no desk)" "${suffix:+https://desk.$suffix/desk}"
+        [ -z "$desk" ] || ask tools "Desk tools to link here, comma-separated (blank for none)"
+        args=(--user "${SUDO_USER:-$(id -un)}" --relay-url "$relay")
+        [ -z "$desk" ] || args+=(--desk-url "$desk")
+        [ -z "$tools" ] || args+=(--tools "$tools")
+        as_root agent "${args[@]}"
+      fi
+      if [ "$(id -u)" != 0 ] && python3 -c 'import sys; sys.exit(sys.version_info < (3, 11))' 2>/dev/null; then
+        echo >&2; echo "Next: the agent rules and settings for $(id -un)." >&2
+        python3 -I "$repo/agents/claude-setup.py" --repo "$repo" <&3
+      else
+        echo "Then, as the agent's user (Python 3.11+): ./install.sh claude" >&2
+      fi ;;
+    owner) cmd_client --owner --relay-url "$relay" ;;
+    consumer) cmd_client --relay-url "$relay" --with-deps ;;
+  esac
+}
+
 case ${1:-} in
   client) shift; cmd_client "$@" ;;
   broker) shift; cmd_broker "$@" ;;
@@ -340,6 +457,8 @@ case ${1:-} in
   doctor) cmd_doctor ;;
   guidance) cat "$repo/agents/credential-rules.md" ;;
   version|--version) echo "valetkey $version" ;;
-  ""|-h|--help|help) usage ;;
+  proxmox) shift; cmd_proxmox "$@" ;;
+  "") if { : <"$tty"; } 2>/dev/null; then cmd_menu; else usage; fi ;;
+  -h|--help|help) usage ;;
   *) usage >&2; exit 2 ;;
 esac

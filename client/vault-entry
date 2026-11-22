@@ -30,7 +30,7 @@ def _relay_url():
 
 BASE = _relay_url()
 NO_URL = ("no broker URL: set RELAY_URL=https://broker.<tailnet>.ts.net or run "
-          "`install.sh client --relay-url https://broker.<tailnet>.ts.net`")
+          "`relay set-url https://broker.<tailnet>.ts.net`")
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):

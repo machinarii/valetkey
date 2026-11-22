@@ -378,6 +378,19 @@ class HardeningTests(ClientCase):
         self.assertIn(b"Never read a value", p.stdout)
         self.assertEqual(self.srv.log, [])
 
+    def test_set_url_saves_a_valid_broker_url_only(self):
+        with tempfile.TemporaryDirectory() as cfg:
+            env = {"RELAY_URL": "", "XDG_CONFIG_HOME": cfg}
+            for bad in ("http://broker.example.ts.net", "https://broker.example.ts.net/x",
+                        "https://user@broker.example.ts.net"):
+                self.assertNotEqual(self.run_tool("relay", "set-url", bad, env=env).returncode, 0, bad)
+            self.assertFalse(os.path.exists(os.path.join(cfg, "valetkey", "relay-url")))
+            p = self.run_tool("relay", "set-url", "https://broker.example.ts.net/", env=env)
+            self.assertEqual(p.returncode, 0, p.stderr)
+            with open(os.path.join(cfg, "valetkey", "relay-url")) as f:
+                self.assertEqual(f.read(), "https://broker.example.ts.net\n")
+        self.assertEqual(self.srv.log, [])
+
     def test_relay_url_from_config_file(self):
         with tempfile.TemporaryDirectory() as cfg:
             os.makedirs(os.path.join(cfg, "valetkey"))
