@@ -435,11 +435,11 @@ cmd_menu() {
         [ -z "$tools" ] || args+=(--tools "$tools")
         as_root agent "${args[@]}"
       fi
-      if [ "$(id -u)" != 0 ] && python3 -c 'import sys; sys.exit(sys.version_info < (3, 11))' 2>/dev/null; then
+      if [ "$(id -u)" != 0 ] && python3 -c 'import sys; sys.exit(sys.version_info < (3, 9))' 2>/dev/null; then
         echo >&2; echo "Next: the agent rules and settings for $(id -un)." >&2
         python3 -I "$repo/agents/claude-setup.py" --repo "$repo" <&3
       else
-        echo "Then, as the agent's user (Python 3.11+): ./install.sh claude" >&2
+        echo "Then, as the agent's user: ./install.sh claude" >&2
       fi ;;
     owner) cmd_client --owner --relay-url "$relay" ;;
     consumer) cmd_client --relay-url "$relay" --with-deps ;;
@@ -452,7 +452,7 @@ case ${1:-} in
   vaultwarden) cmd_vaultwarden ;;
   desk) exec bash "$repo/bellhop/install-desk.sh" ;;
   agent) shift; cmd_agent "$@" ;;
-  claude) shift; need_python 11; exec python3 -I "$repo/agents/claude-setup.py" --repo "$repo" "$@" ;;
+  claude) shift; need_python 9; exec python3 -I "$repo/agents/claude-setup.py" --repo "$repo" "$@" ;;
   uninstall-client) shift; cmd_uninstall_client "$@" ;;
   doctor) cmd_doctor ;;
   guidance) cat "$repo/agents/credential-rules.md" ;;
