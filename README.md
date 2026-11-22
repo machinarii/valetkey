@@ -161,7 +161,7 @@ relay set-url https://broker.<tailnet>.ts.net
 ```
 
 They use the `python3` already on the machine (3.9 or newer). The three packages refuse to install side by side, because one machine has one role.
-`brew upgrade` keeps them current. On a Linux agent machine, the installer above still does more
+`brew upgrade` keeps them current. On Linux, Homebrew may first install its own compiler and C library (a few hundred MB); the installer above needs neither. On a Linux agent machine, the installer above still does more
 than the package: the desk stand-in, the sweep and the Claude Code policy. `./install.sh claude`
 adds the agent rules to Claude Code and Codex in either case.
 
