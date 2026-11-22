@@ -27,6 +27,10 @@ If the tool needs no key or login, stop here and install it on the agent's machi
 
 ## Step 2: write the manifest
 
+One manifest per key. If the tool's jobs need different rights (reading versus pushing, test
+versus live), give each job its own key and item; [several keys for one
+service](several-keys-per-service.md) explains why a route alone cannot split them.
+
 Create `tool.toml`. It is a worksheet today: nothing reads it, but every later step copies from
 it. Name the credential; never write its value.
 

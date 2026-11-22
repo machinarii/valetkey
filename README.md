@@ -36,6 +36,9 @@
 > [!IMPORTANT]
 > **This is not a bulletproof solution for protecting keys from agents.** It is a practical way to reduce the risk in a home agentic setup, where you run AI agents on your own machines. It stops a key being read and copied from an agent's machine. It does not stop an agent misusing the access it is given, it depends on you keeping the machines separate, and it has had no outside security review. If you have compliance requirements, many users or keys whose loss you could not absorb, use it as a starting point and not as your only control. [Security model](#security-model) lists what it does and does not cover.
 
+> [!WARNING]
+> **For a private tailnet only. Never expose any part of it to the internet.** valetkey is not built for a public-facing system: the broker, the desk and the vault must be reachable only from your own machines over Tailscale. **You use it at your own risk**: it comes with no warranty, and the author is not responsible for any loss or damage. Read [Use at your own risk](#use-at-your-own-risk) before installing.
+
 <p align="center">
   <a href="#the-parts-and-where-each-runs">The parts</a> ·
   <a href="#why">Why</a> ·
@@ -48,7 +51,8 @@
   <a href="#security-model">Security model</a> ·
   <a href="#the-desk-tools-with-their-own-login">The desk</a> ·
   <a href="#what-it-costs-tokens-and-time">Cost</a> ·
-  <a href="#troubleshooting">Troubleshooting</a>
+  <a href="#troubleshooting">Troubleshooting</a> ·
+  <a href="#use-at-your-own-risk">Your own risk</a>
 </p>
 
 <br>
@@ -134,6 +138,13 @@ What no installer can do for you, because each step is a decision or a secret:
 ## Why
 
 Secrets tend to spread across a fleet: an `.env.local` on the dev box, a key in the laptop's Keychain, an age-encrypted file with its private key next to it, a token pasted into a VM's systemd unit. Every copy is one more place to leak from. Once AI agents run on those machines, every copy is also something an agent can read and repeat back into a chat transcript.
+
+Two things can go wrong with an agent that holds a key, and valetkey reduces the risk of both:
+
+- **The agent goes wrong on its own.** It misreads a task, takes a shortcut or acts on a bad guess, and does something harmful: prints a key into a transcript, commits it, or uses it somewhere it was never meant for.
+- **Someone else steers the agent.** A web page, a document, a package or a tool result carries hidden instructions (prompt injection), and the agent follows an attacker's orders instead of yours.
+
+In both cases an agent with no key has nothing to hand over, and it can reach only the routes, operations and tools you listed for its machine. This lowers the risk; it does not remove it. An agent can still misuse whatever access you did give it, as [What containment does not do](#what-containment-does-not-do) explains.
 
 Password managers solve storage. They don't solve *use*: to use a key a process needs the value, so the value ends up on the machine. Secret managers built for that (Vault, Infisical, Doppler) bring tokens of their own, and a token on a client is just another secret to protect.
 
@@ -284,6 +295,8 @@ Merge [`deploy/tailscale/acl.example.hujson`](deploy/tailscale/acl.example.hujso
 | Broker | vault | 443 |
 | Anything | broker or desk over SSH | Denied |
 | Agent machines | vault, owner devices | Denied |
+
+**Keep all of it inside the tailnet.** valetkey is not intended for a public-facing system. Do not publish the broker, the desk or the vault with Tailscale Funnel, a port forward, or a reverse proxy, tunnel or public IP address that is reachable from outside the tailnet (`tailscale serve`, which the vault setup uses, stays inside it), and do not share those machines into someone else's tailnet. The broker decides who is calling from the machine's Tailscale identity and has no other sign-in, so anything that lets outside traffic reach it removes the protection.
 
 Grants in a tailnet policy add up, so remove any allow-all or member-to-member rule. The tailnet policy cannot close a LAN or public interface: the broker and desk listen only on their tailnet address, with their services on loopback behind it.
 
@@ -593,7 +606,7 @@ the agent calls the broker with no key:
 curl -s https://broker.<tailnet>.ts.net/local/stripe-shop/v1/balance
 ```
 
-**Push with git without holding a token.** The same kind of route carries `git fetch` and `git push`: git talks to the broker, which adds the credential. [Git through the broker](docs/git-through-the-broker.md) has the form GitHub needs the token stored in, the route, and the two `git config` lines.
+**Push with git without holding a token.** The same kind of route carries `git fetch` and `git push`: git talks to the broker, which adds the credential. [Git through the broker](docs/git-through-the-broker.md) has the form GitHub needs the token stored in, the route, and the two `git config` lines. [Several keys for one service](docs/several-keys-per-service.md) explains why pushing, reading the API and changing CI each get their own token.
 
 **A separate trusted service that must hold a value** (a push URL, an SSH key):
 
@@ -1005,7 +1018,7 @@ valetkey/
 │   └── token-cost.py           measures what the setup adds to a Claude Code session, in tokens and time
 ├── docs/images/                icon, how-it-works animation, and the script that draws the animation
 └── docs/                       secure setup, architecture, threat model, fnox vault-provider notes, git through the broker,
-                                keyless tool standard, recipe for adding a tool
+                                keyless tool standard, recipe for adding a tool, several keys for one service
 ```
 
 ---
@@ -1022,10 +1035,24 @@ The tests cover the policy edges as well as the happy path: unknown callers, cal
 
 ---
 
+## Use at your own risk
+
+valetkey is a personal project shared in the hope that it is useful. Read the following before you install or use it.
+
+- **No warranty.** The software and its documentation are provided "as is", without warranty of any kind, express or implied, including fitness for a particular purpose and freedom from defects. It has had no independent security audit.
+- **No liability.** To the fullest extent the law allows, the author and contributors are not liable for any claim, loss or damage arising from the software or its use. That includes leaked, stolen or misused credentials, charges run up on your accounts, lost or damaged data, downtime, and anything an AI agent does with the access you give it.
+- **You are responsible for your own setup.** You decide where it runs, which machines and agents may use which keys and tools, and how narrow those keys are. Read the code and [secure setup](docs/secure-setup.md) before you trust it with a real credential, start with test-mode or low-value keys, and keep your own backups of the vault.
+- **Private use on a tailnet only.** It is meant for one person or a small trusted group running agents on their own machines. It is not designed, tested or supported for a public-facing service, for several tenants who do not trust each other, or for regulated, safety-critical or high-value uses. Never expose it to the internet.
+- **It reduces risk; it does not remove it.** Nothing here guarantees that an agent cannot obtain, leak or misuse a credential. Do not make it your only control.
+- **Other people's services and software.** You are responsible for following the terms of every service whose key or login you put behind the broker or the desk; some services restrict shared or automated use of an account. Vaultwarden, fnox, Tailscale, Claude Code and the other tools named here belong to their owners, come under their own licenses and terms, and are not covered by this notice. valetkey is not affiliated with or endorsed by any of them.
+- **Not professional advice.** Nothing in this repository is security, legal or compliance advice.
+
+The [MIT license](LICENSE) is the governing text; this section explains it and does not replace it.
+
 ## Status and license
 
 Version 0.1.0. In daily use on a small fleet of Proxmox, macOS and Linux machines with AI agents; the Proxmox scripts are the most tested path. bellhop is newer than the broker: it has run on one Proxmox desk with three tools, and its keyless tool standard is a draft that nothing enforces yet.
 
 It is not a bulletproof solution for protecting keys from agents. It is a practical way to reduce risk in a home agentic setup, built by one person, without an independent security audit. Treat it as a reasonable set of precautions, not a guarantee.
 
-Released under the [MIT license](LICENSE). The icon was generated with ChatGPT's image tool; the animation is drawn by `docs/images/make.py`.
+Released under the [MIT license](LICENSE), copyright Jinsoo An. The license requires that the copyright notice, with that name, stays in every copy or substantial portion of the code. If you use valetkey or build on it, please also credit "Jinsoo An" with a link to https://github.com/machinarii/valetkey in your README, documentation or about page; see [NOTICE](NOTICE). The icon was generated with ChatGPT's image tool; the animation is drawn by `docs/images/make.py`.

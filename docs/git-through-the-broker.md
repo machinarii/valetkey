@@ -41,7 +41,8 @@ relay request github-git-basic-acme --org local --purpose "git for acme's reposi
 ```
 
 Use one token per account per job. Several machines can share it, because none of them holds it:
-the route's `nodes` list says which machines may use it.
+the route's `nodes` list says which machines may use it. [Several keys for one
+service](several-keys-per-service.md) explains why, and which GitHub jobs get separate tokens.
 
 ## 2. Add the route
 

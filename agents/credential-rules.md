@@ -33,8 +33,11 @@ policy and machine isolation enforce access. A missing guide never permits readi
    (add `--project P` or `--notes` when needed). Purpose is non-secret technical context only.
 5. Always offer the owner both private entry methods and let them choose: `vault-entry <id>`
    in their own unrecorded terminal on a separate owner device, or the encrypted Tailscale web
-   entry field at `https://broker.<tailnet>.ts.net/entry`. Never run the entry prompt inside an
-   agent tool, terminal recording, shared browser, or agent-controlled machine.
+   entry field at `https://broker.<tailnet>.ts.net/entry`. File the request (step 4) before
+   sending the link: the entry page lists only pending requests. Send the broker's entry link,
+   never the Vaultwarden web-vault address, and never ask the owner to create the item in the
+   vault themselves. Never run the entry prompt inside an agent tool, terminal recording, shared
+   browser, or agent-controlled machine.
 6. Use `relay status <id>` until `stored` or `replaced`, then `relay check`. An entry request
    does not grant a route: broker configuration still controls who can use the item.
 7. If upstream authentication fails, report the item name and failure status. An owner can
