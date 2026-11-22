@@ -115,7 +115,6 @@ class ClaudeSetup(unittest.TestCase):
         # Second run: no to everything, Enter for variables, then write.
         r = self.run_setup(stdin="n\nn\nn\nn\nn\nn\nn\n\ny\n")
         self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertIn("Now: yes", r.stdout)
         s = json.loads(self.settings.read_text())
         self.assertEqual(s["permissions"]["deny"], ["Read(~/.ssh/**)", "Read(~/mine/**)"])  # the owner's own stay
         self.assertNotIn("enabled", s["sandbox"])                  # valetkey turned it on, so it goes

@@ -896,7 +896,7 @@ When `sudo ./install.sh agent` has already put the rules in the root-owned polic
 
 It then asks for the names of any environment variables to remove from the agent's commands (names only, never values), shows every change, and writes only when you say yes.
 
-- **Run it again to change an answer.** Each question shows what is in place now. A no removes what an earlier yes added, and a new broker or desk address replaces the old one. Rules and settings you added yourself are never removed: what valetkey added is recorded in `~/.claude/valetkey-setup.json`.
+- **Run it again to change an answer.** A no removes what an earlier yes added, and a new broker or desk address replaces the old one. Rules and settings you added yourself are never removed: what valetkey added is recorded in `~/.claude/valetkey-setup.json`.
 - **It backs up.** Each file is copied to `<name>.before-valetkey-<time>` first.
 - **`--yes`** takes every recommended answer; **`--dry-run`** shows the changes and writes nothing.
 

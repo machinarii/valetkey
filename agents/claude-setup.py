@@ -64,13 +64,12 @@ QUESTIONS = [  # key, question, recommended answer, one line of why
 ]
 
 
-def ask(question, default, why, assume, now=None):
+def ask(question, default, why, assume):
     if assume:
         return default
     print(f"\n{question}\n  {why}")
-    state = "" if now is None else f" Now: {'yes' if now else 'no'}."
     try:
-        answer = input(f"  Recommended: {'yes' if default else 'no'}.{state} [{'Y/n' if default else 'y/N'}] ").strip().lower()
+        answer = input(f"  Recommended: {'yes' if default else 'no'}. [{'Y/n' if default else 'y/N'}] ").strip().lower()
     except EOFError:
         answer = ""
     return default if not answer else answer.startswith("y")
@@ -292,22 +291,15 @@ def main(argv=None):
     if desk:
         block += "\n" + open(os.path.join(args.repo, "bellhop", "agent-rules.md")).read()
     claude_md, codex_md = read_text(rules_path), read_text(codex_path)
-    deny = before.get("permissions", {}).get("deny", []) if isinstance(before.get("permissions"), dict) else []
-    sb = before.get("sandbox", {}) if isinstance(before.get("sandbox"), dict) else {}
-    now = {"rules": BEGIN in claude_md, "sandbox": sb.get("enabled") is True,
-           "files": all(r in deny for r in file_rules()),
-           "commands": all(f"Bash({c})" in deny for c in SECRET_COMMANDS),
-           "connectors": before.get("disableClaudeAiConnectors") is True,
-           "escape": sb.get("allowUnsandboxedCommands") is False}
     if in_policy:
         print("The root-owned policy already gives the agent valetkey's rules; they are not added to CLAUDE.md as well.")
-    answers = {key: ask(q, default, why, args.yes, now[key]) for key, q, default, why in QUESTIONS
+    answers = {key: ask(q, default, why, args.yes) for key, q, default, why in QUESTIONS
                if not (in_policy and key == "rules")}
     answers.setdefault("rules", False)
     # The root policy reaches Claude Code only, so Codex gets the rules even when the policy has them.
     answers["codex"] = codex and ask(
         "Add valetkey's rules for agents to Codex's AGENTS.md?", True,
-        "Codex reads AGENTS.md the way Claude Code reads CLAUDE.md.", args.yes, BEGIN in codex_md)
+        "Codex reads AGENTS.md the way Claude Code reads CLAUDE.md.", args.yes)
     if not args.yes and env_names is None:
         current = ", ".join(state["env"])
         print("\nVariable names to remove from the agent's commands, separated by commas (names only; "
