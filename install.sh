@@ -368,11 +368,29 @@ cmd_proxmox() {
 
 # --- menu: one command for every machine; asks which one this is ---
 tty=${VALETKEY_TTY:-/dev/tty}  # where the answers come from (a file in tests)
-ask() {  # ask VAR "question" [default]; answers come from fd 3 (cmd_menu opens it)
-  local a
-  printf '%s%s: ' "$2" "${3:+ [$3]}" >&2
-  IFS= read -r -u 3 a || die "no answer"
-  printf -v "$1" '%s' "${a:-${3:-}}"
+ask() {  # ask VAR "question" [proposed] [optional]; answers come from fd 3 (cmd_menu opens it)
+  local a hint=''
+  if [ -n "${3:-}" ]; then hint=" [$3] (Enter keeps it${4:+, - for none})"
+  elif [ -n "${4:-}" ]; then hint=" (Enter for none)"; fi
+  while :; do
+    printf '%s%s: ' "$2" "$hint" >&2
+    IFS= read -r -u 3 a || die "no answer"
+    if [ -n "${4:-}" ] && [ "$a" = - ]; then a=''; break; fi
+    a=${a:-${3:-}}
+    [ -n "$a" ] || [ -n "${4:-}" ] && break
+    echo "  This one is needed; type a value." >&2
+  done
+  printf -v "$1" '%s' "$a"
+}
+
+ask_url() {  # ask_url VAR "question" proposed [optional]: an https:// address, asked again until it is one
+  local v
+  while :; do
+    ask v "$2" "$3" "${4:-}"
+    [ -z "$v" ] || [[ $v =~ ^https://[A-Za-z0-9.-]+(/[A-Za-z0-9._~/-]*)?$ ]] && break
+    echo "  That is not an https:// address, e.g. https://broker.<tailnet>.ts.net" >&2
+  done
+  printf -v "$1" '%s' "$v"
 }
 
 tailnet_suffix() {  # e.g. example.ts.net, or nothing
@@ -408,16 +426,19 @@ cmd_menu() {
     "owner|Owner device (where you type keys; never runs agents)"
     "consumer|Trusted consumer (a service that must hold a key itself; never runs agents)")
   echo 'Which machine is this? Each part needs its own machine; see "Containment" in the README.' >&2
+  echo 'At each question, Enter keeps the value shown in [brackets].' >&2
   for i in "${!roles[@]}"; do
     for l in "${labels[@]}"; do [ "${l%%|*}" != "${roles[$i]}" ] || printf '  %d) %s\n' $((i + 1)) "${l#*|}" >&2; done
     [ "${roles[$i]}" != proxmox ] || ! command -v qm >/dev/null || default=$((i + 1))
   done
-  ask n "Number" "$default"
-  [[ $n =~ ^[0-9]+$ ]] && [ "$n" -ge 1 ] && [ "$n" -le ${#roles[@]} ] || die "pick a number from 1 to ${#roles[@]}"
+  while :; do
+    ask n "Number" "$default"
+    [[ $n =~ ^[0-9]+$ ]] && [ "$n" -ge 1 ] && [ "$n" -le ${#roles[@]} ] && break
+    echo "  Pick a number from 1 to ${#roles[@]}." >&2
+  done
   role=${roles[$((n - 1))]}
   case $role in
-    agent|owner|consumer) ask relay "Broker URL" "${suffix:+https://broker.$suffix}"
-           [ -n "$relay" ] || die "a broker URL is needed" ;;
+    agent|owner|consumer) ask_url relay "Broker URL" "${suffix:+https://broker.$suffix}" ;;
   esac
   case $role in
     proxmox) as_root proxmox ;;
@@ -428,8 +449,8 @@ cmd_menu() {
       if [ "$(uname -s)" = Darwin ]; then
         cmd_client --agent --relay-url "$relay"
       else
-        ask desk "Desk URL (blank if you have no desk)" "${suffix:+https://desk.$suffix/desk}"
-        [ -z "$desk" ] || ask tools "Desk tools to link here, comma-separated (blank for none)"
+        ask_url desk "Desk URL (if you have a desk)" "${suffix:+https://desk.$suffix/desk}" optional
+        [ -z "$desk" ] || ask tools "Desk tools to link here, comma-separated" "" optional
         args=(--user "${SUDO_USER:-$(id -un)}" --relay-url "$relay")
         [ -z "$desk" ] || args+=(--desk-url "$desk")
         [ -z "$tools" ] || args+=(--tools "$tools")

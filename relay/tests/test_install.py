@@ -47,7 +47,16 @@ class InstallClientTests(unittest.TestCase):
         self.assertTrue((self.home / ".local/bin/vault-entry").exists())
         url = (self.home / ".config" / "valetkey" / "relay-url").read_text()
         self.assertEqual(url, "https://broker.example.ts.net\n")
-        answers.write_text("9\n")
+        # A wrong number, an empty and a non-https broker URL are asked again, not fatal.
+        answers.write_text("9\n6\n\nhttp://broker.example.ts.net\nhttps://broker2.example.ts.net\n")
+        r = self.run_install(VALETKEY_TTY=str(answers))
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("Pick a number", r.stderr)
+        self.assertIn("This one is needed", r.stderr)
+        self.assertIn("not an https:// address", r.stderr)
+        url = (self.home / ".config" / "valetkey" / "relay-url").read_text()
+        self.assertEqual(url, "https://broker2.example.ts.net\n")
+        answers.write_text("9\n")      # answers run out: stop, never loop
         self.assertNotEqual(self.run_install(VALETKEY_TTY=str(answers)).returncode, 0)
 
     def test_client_owner_adds_vault_entry(self):
