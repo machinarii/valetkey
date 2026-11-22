@@ -69,7 +69,7 @@ def ask(question, default, why, assume):
         return default
     print(f"\n{question}\n  {why}")
     try:
-        answer = input(f"  Recommended: {'yes' if default else 'no'}. [{'Y/n' if default else 'y/N'}] ").strip().lower()
+        answer = input(f"  Recommended: {'Y' if default else 'N'} [{'Y/n' if default else 'y/N'}] ").strip().lower()
     except EOFError:
         answer = ""
     return default if not answer else answer.startswith("y")

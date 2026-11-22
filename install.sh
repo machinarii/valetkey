@@ -294,7 +294,7 @@ Claude Code policy: /etc/claude-code/managed-settings.json, owned by root.
   Intent: give every Claude Code session on this machine valetkey's rules, and let it use MCP
   servers only at the broker and desk, in a file the agent's user cannot change.
   It also turns off every other MCP server here, including local and account-synced ones.
-  Recommended: yes, unless this machine needs other MCP servers (T3 Code's own tools, for example).
+  Recommended: Y, unless this machine needs other MCP servers (T3 Code's own tools, for example).
 ASK
     read -r -p "  Write it? [Y/n] " answer </dev/tty || answer=n
     case $answer in [nN]*) policy=no; warn "Claude Code policy not written (run again, or ./install.sh claude for user-level rules)" ;; esac
