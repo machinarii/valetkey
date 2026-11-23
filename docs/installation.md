@@ -26,8 +26,8 @@ It asks one question, which machine this is, and does the rest:
 | **Desk** (Linux VM, optional) | Desk | The desk service and its front door. No tools or logins yet. |
 | **Agent machine** (Linux) | Agent machine | `relay` and `bellhop` in agent mode, the hourly sweep, the Claude Code policy (asked first), then the agent rules for Claude Code and Codex. Asks for the desk address and which desk tools to link. |
 | **Agent machine** (Mac) | Agent machine | `relay` in agent mode in `~/.local/bin`, no root, then the agent rules for Claude Code and Codex. |
-| **Owner device** (Linux or Mac) | Owner device | `relay` and `vault-entry`, the hidden prompt for typing keys. A phone or tablet needs nothing installed: use the entry page in its browser. |
-| **Trusted consumer** (Linux or Mac) | Trusted consumer | `relay`, the `vault` shim and fnox. |
+| **Computer where you enter keys** | Owner device | Installs the hidden terminal prompt, `vault-entry`. To enter keys in a browser on an approved phone or computer, skip this install. |
+| **Server where an application needs the key itself** (optional) | Trusted consumer | For example, a web app reads its database password at startup. The broker must explicitly grant that server access. Skip this role if all your tools use brokered API routes. |
 
 Read [Containment](system-design.md#containment-where-everything-runs) first: which machine each part runs on is
 what keeps the keys away from agents. Never pick two roles on one machine.
@@ -70,7 +70,7 @@ Set the machines up in this order. [Getting started](#getting-started) has every
 3. [Create the accounts and organizations](#3-create-the-accounts-and-organizations)
 4. [Install the broker](#4-install-the-broker)
 5. [Log the relays in](#5-log-the-relays-in)
-6. [Set up the machines that use keys](#6-set-up-the-machines-that-use-keys): agent machines, owner devices, trusted consumers
+6. [Set up the machines that use keys](#6-set-up-the-machines-that-use-keys): agent machines, your key-entry device, and any service that needs a raw key
 7. [Wire up a project](#7-wire-up-a-project)
 8. [Add the desk](#8-add-the-desk-optional) (optional)
 9. [Verify](#9-verify)
@@ -217,16 +217,23 @@ Then, as the user the agent runs as, set up Claude Code itself:
 
 It asks six questions about what to block, shows the changes, and writes them only when you agree. See [Working with AI agents](agent-setup.md#working-with-ai-agents).
 
-**On each owner device and trusted consumer:**
+**On a Mac that runs agents**, use `./install.sh client --agent --relay-url https://broker.<tailnet>.ts.net` to install the agent CLI and offline guide.
+
+**On the phone or computer where you enter keys**, open the broker’s entry page in your browser. The broker administrator lists this device in `owner_nodes`. If you prefer a hidden terminal prompt on an approved computer, run this from the checkout:
 
 ```sh
-git clone https://github.com/machinarii/valetkey && cd valetkey
+./install.sh client --owner --relay-url https://broker.<tailnet>.ts.net
+```
+
+**Only if an application needs the secret itself**, install the client on the separate machine that runs that application:
+
+```sh
 ./install.sh client --relay-url https://broker.<tailnet>.ts.net --with-deps
 ```
 
-`--with-deps` installs what is missing: Tailscale (Linux; on macOS it points you to the download) and, except on agent machines, fnox at the version the broker is tested with (through [mise](https://mise.jdx.dev), linked into the prefix). Leave it off to install them yourself.
+For example, a web app that connects directly to a database needs its password. The broker checks both `trusted_value_nodes` and the route for that password. Installing the tools alone grants no access. Keep agents off this server. If all your tools call the broker’s API routes, skip the raw-key project setup below.
 
-On macOS agent machines, where `install.sh agent` does not run, use `client --agent` to install only `relay` and offline guidance. On separate owner devices, add `--owner` to also get `vault-entry`; these modes cannot be combined. Tools go to `~/.local/bin` (`--prefix` to change it). For trusted consumers, that directory must come before HashiCorp `vault` on `PATH`. `./install.sh doctor` reports installation and broker reachability.
+Client tools install in `~/.local/bin` by default. On an application server, put that directory before HashiCorp `vault` on `PATH`. The optional `--with-deps` flag installs missing dependencies, including fnox for this role. Run `./install.sh doctor` to check installation and broker reachability.
 
 ### 7. Wire up a project
 

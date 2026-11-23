@@ -12,7 +12,7 @@ Give an AI agent access to a tool while keeping the tool’s credentials on a se
 
 - For an **API**, the agent calls a route on the broker. The broker checks the calling machine, HTTP method and path, then adds the key from Vaultwarden and forwards the request.
 - For a **command-line tool with its own login**, the optional desk runs approved commands and returns their results.
-- When an agent needs a new key, it requests the item by name. You enter the value on a separate owner device, through the broker’s entry page or a hidden terminal prompt.
+- When an agent needs a new key, it requests the item by name. You enter the key on an approved phone or computer where you never run agents. Use the broker’s entry page in your browser or a hidden prompt in your terminal.
 
 ![An agent calling a broker API route and running a tool on the desk](docs/images/how-it-works.gif)
 
@@ -20,7 +20,7 @@ Give an AI agent access to a tool while keeping the tool’s credentials on a se
 
 ## Installation
 
-Use a private Tailscale network. Run agents on separate machines from the broker, vault, desk, owner device and the host that administers them. An agent can still misuse an approved operation. This project has had no independent security audit. [Secure setup](docs/secure-setup.md) · [Security limits](docs/security-boundaries.md)
+Use a private Tailscale network. Run agents on dedicated machines. Keep them separate from the broker, vault, desk, any machine where you enter keys or a service reads them, and the host that administers those machines. An agent can still misuse an approved operation. This project has had no independent security audit. [Secure setup](docs/secure-setup.md) · [Security limits](docs/security-boundaries.md)
 
 1. Prepare your tailnet and decide where each role will run. [Requirements and machine roles](docs/installation.md#requirements)
 2. Run the installer on each machine and select its role. Linux and macOS share the same installer. [Installation guide and Homebrew option](docs/installation.md)
