@@ -165,6 +165,5 @@ to https://github.com/machinarii/valetkey; see [NOTICE](NOTICE).
 The icon was generated with ChatGPT's image tool; the animation is drawn by `docs/images/make.py`.
 
 <p align="center">
-  <img src="docs/images/valetkey-icon.png" width="28" height="28" alt=""><br>
-  <sub>Made by <a href="https://github.com/machinarii">machinarii</a>.</sub>
+  <img src="docs/images/valetkey-icon.png" width="28" height="28" alt="">
 </p>
