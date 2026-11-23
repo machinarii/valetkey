@@ -72,7 +72,7 @@ def mix(a, b, k):
 # no secret (the agent's requests). login: a tool's own sign-in (desk, tool's service).
 ICONS = {"master": lambda d, x, y, bg, a=1: key(d, x, y, 24, mix(bg, GOLD, a), bg),
          "valet": lambda d, x, y, bg, a=1: key(d, x, y, 24, mix(bg, SILVER, a), bg, teeth=1),
-         "login": lambda d, x, y, bg, a=1: login(d, x, y, 22, mix(bg, GOLD, a), bg)}
+         "login": lambda d, x, y, bg, a=1: login(d, x, y, 22, mix(bg, TEXT, a), bg)}
 
 
 BOXES = {  # name: (left, top, right, bottom, title, subtitle)
@@ -143,7 +143,7 @@ def base(focus):
     for i in range(3):
         key(d, right - 92 + i * 30, top + 24, 26, c(GOLD, "vault"), c(PANEL, "vault"))
     left, top, right, bottom = BOXES["desk"][:4]                        # the tool's login lives on the desk
-    login(d, left + 34, bottom - 30, 30, c(GOLD, "desk"), c(PANEL, "desk"))
+    login(d, left + 34, bottom - 30, 30, c(TEXT, "desk"), c(PANEL, "desk"))
     d.text(sc(left + 60, bottom - 39), "the tool's login", font=font(12), fill=c(MUTED, "desk"))
     d.rectangle(sc(0, 0, W, TOP), fill=PANEL)
     d.line(sc(0, TOP, W, TOP), fill=EDGE, width=S)
