@@ -1,8 +1,8 @@
 # valetkey trusted server client. Install: brew tap machinarii/valetkey https://github.com/machinarii/valetkey
 #                                  brew trust machinarii/valetkey
-#                                  brew install valetkey-server
+#                                  brew install valetkey-trusted-server
 # Release: bump the tag in all three formulas to the new VERSION and push the tag.
-class ValetkeyServer < Formula
+class ValetkeyTrustedServer < Formula
   desc "valetkey client for a trusted server whose application needs the key itself"
   homepage "https://github.com/machinarii/valetkey"
   url "https://github.com/machinarii/valetkey.git", tag: "v0.2.2"

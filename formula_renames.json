@@ -1,4 +1,5 @@
 {
   "valetkey-owner": "valetkey-approver",
-  "valetkey-consumer": "valetkey-server"
+  "valetkey-consumer": "valetkey-trusted-server",
+  "valetkey-server": "valetkey-trusted-server"
 }
