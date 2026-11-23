@@ -1,3 +1,4 @@
 {
-  "valetkey-owner": "valetkey-approver"
+  "valetkey-owner": "valetkey-approver",
+  "valetkey-consumer": "valetkey-server"
 }

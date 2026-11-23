@@ -10,7 +10,7 @@ class ValetkeyAgent < Formula
   head "https://github.com/machinarii/valetkey.git", branch: "main"
 
   conflicts_with "valetkey-approver", because: "one machine has one valetkey role"
-  conflicts_with "valetkey-consumer", because: "one machine has one valetkey role"
+  conflicts_with "valetkey-server", because: "one machine has one valetkey role"
 
   def install
     bin.install "client/relay"

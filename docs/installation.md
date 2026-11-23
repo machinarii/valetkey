@@ -25,7 +25,7 @@ Then install the package for that machine's role, and point it at your broker:
 |---|---|---|
 | **Runs AI agents** (Claude Code, Codex, …) | `brew install valetkey-agent` | `relay set-url https://broker.<tailnet>.ts.net`, then `valetkey-agent-setup`: valetkey's rules and settings for Claude Code and Codex, asking before each change |
 | **Where you type keys** and approve routes | `brew install valetkey-approver` | `relay set-url https://broker.<tailnet>.ts.net` |
-| **A server whose app reads a key itself** (optional) | `brew install valetkey-consumer` | `relay set-url https://broker.<tailnet>.ts.net`, and install [fnox](https://fnox.jdx.dev) |
+| **A server whose app reads a key itself** (optional) | `brew install valetkey-server` | `relay set-url https://broker.<tailnet>.ts.net`, and install [fnox](https://fnox.jdx.dev) |
 
 - One machine, one role: the packages refuse to install side by side.
 - `brew upgrade` keeps them current.
