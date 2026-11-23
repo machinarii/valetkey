@@ -23,6 +23,7 @@ import json
 import os
 import re
 import secrets
+import subprocess
 import sys
 import threading
 import time
@@ -33,6 +34,7 @@ from pathlib import Path
 DEFAULT_COLLECTIONS = {"local": "local-broker-collection", "infra": "infra-broker-collection"}
 
 if __package__:
+    from .relaylib import approval_rpc
     from .relaylib import routes as routes_mod
     from .relaylib.bwclient import Bw, BwError, value_of
     from .relaylib.httpbase import RelayHandler, RelayServer
@@ -41,6 +43,7 @@ if __package__:
     from .relay_read import read_env_file
 else:  # installed as a script next to relaylib/
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from relaylib import approval_rpc
     from relaylib import routes as routes_mod
     from relaylib.bwclient import Bw, BwError, value_of
     from relaylib.httpbase import RelayHandler, RelayServer
@@ -286,7 +289,7 @@ def public(r, owner=False):
 
 class Handler(RelayHandler):
     def end_headers(self):
-        self.send_header("Content-Security-Policy", self.server.ctx["csp"])
+        self.send_header("Content-Security-Policy", self.server.ctx["csp"] + "; img-src data:")
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("X-Content-Type-Options", "nosniff")
         super().end_headers()
@@ -304,6 +307,12 @@ class Handler(RelayHandler):
         ctx = self.server.ctx
         parts = urllib.parse.urlsplit(self.path)
         path = parts.path
+        if approval_rpc.sensitive(path):
+            key = ctx["approval_front"]
+            provided = self.headers.get(approval_rpc.HEADER, "").encode()
+            if not (key and self.client_address[0] == "127.0.0.1" and hmac.compare_digest(
+                    provided, approval_rpc.proof(key, self.command, path, peer_ip(self)).encode())):
+                return self.deny("?", "approval", 403, "authenticated broker front required")
         if path in ("/v1/suspect", "/v1/unsuspect"):
             return self.mark(path[len("/v1/"):])
         who = ctx["whois"].machine(peer_ip(self))
@@ -311,6 +320,21 @@ class Handler(RelayHandler):
             return self.deny(who, "entry", 403, "unknown caller")
         owner = (who not in ctx["agent_nodes"]
                  and ctx["whois"].owner_machine(peer_ip(self)) in ctx["owners"])
+        if path == "/v1/route-requests":
+            if self.command != "POST":
+                return self.deny(who, "proposal", 405, "POST required")
+            spec = self.json_body(who, "proposal")
+            if spec is not None:
+                rid = self.approval_call(who, op="propose", spec=spec)
+                if rid is not None:
+                    self.send_json(201, {"id": rid})
+                    self.audit(who, "proposal", 201)
+            return
+        match = re.fullmatch(r"/(pair|approve)/([a-f0-9]{40})", path)
+        if match:
+            if not owner:
+                return self.deny(who, "approval", 403, "owner device required")
+            return self.approval_page(who, *match.groups())
         m = REQ_PATH.match(path)
         if path == "/v1/requests" and self.command == "POST":
             return self.create(who)
@@ -333,6 +357,69 @@ class Handler(RelayHandler):
         if path == "/submit":
             return self.only("POST", who, route) or self.submit_form(who)
         return self.only("POST", who, route) or self.replace_form(who)
+
+    def approval_call(self, who, **msg):
+        try:
+            status, data = self.server.ctx["approval_rpc"](dict(peer=peer_ip(self), **msg))
+        except (ValueError, OSError):
+            return self.deny(who, "approval", 503, "approval worker unavailable; pair an owner device on the broker")
+        if status != 200:
+            return self.deny(who, "approval", status, data)
+        return data
+
+    def approval_page(self, who, kind, rid):
+        ctx = self.server.ctx
+        token = hmac.digest(ctx["page_token"].encode(), f"{who}/{kind}/{rid}".encode(), "sha256").hex()
+        pairing = kind == "pair"
+        title = "Pair your authenticator" if pairing else "Approve API access"
+        if self.command == "POST":
+            form = self.body(who, "approval", "application/x-www-form-urlencoded", 1024)
+            if form is None:
+                return
+            if not hmac.compare_digest(form.get("token", "").encode(), token.encode()):
+                return self.deny(who, "approval", 403, "reload the review page")
+            result = self.approval_call(who, op="pair-confirm" if pairing else "approve",
+                                        id=rid, code=form.get("code", ""))
+            if result is None:
+                return
+            card = f'<p class="result">{html.escape(result)}</p>'
+        elif self.command == "GET":
+            data = self.approval_call(who, op="pair-view" if pairing else "review", id=rid)
+            if data is None:
+                return
+            show_form = True
+            if pairing:
+                try:
+                    png = ctx["qr_png"](data)
+                except (OSError, subprocess.SubprocessError):
+                    return self.deny(who, "pair", 503, "broker QR encoder unavailable")
+                image = base64.b64encode(png).decode()
+                card = ('<p>Scan this QR code with your authenticator. Then enter its six-digit code '
+                        'to confirm pairing.</p><img alt="Authenticator pairing QR code" '
+                        f'src="data:image/png;base64,{image}">')
+            else:
+                spec = data["spec"]
+                fields = [("Requesting machine", data["node"]), ("Route", spec["name"]),
+                          ("Vault item", spec["org"] + "/" + spec["item"]), ("HTTPS destination", spec["upstream"]),
+                          ("Allowed methods", ", ".join(spec["methods"])),
+                          ("Allowed path prefixes (including descendants)", ", ".join(spec["paths"])),
+                          ("Authentication", "Bearer token"), ("Status", data["state"])]
+                card = "<dl>" + "".join(f"<dt>{k}</dt><dd>{html.escape(v)}</dd>" for k, v in fields) + "</dl>"
+                show_form = data["state"] == "pending"
+                if show_form:
+                    card += "<p>Verify that this provider controls the destination and should receive this key.</p>"
+            if show_form:
+                button = "Confirm pairing" if pairing else "Approve this route"
+                card += (f'<form method="post" action="{html.escape(ctx["prefix"])}/{kind}/{rid}">'
+                         f'<input type="hidden" name="token" value="{token}">'
+                         '<label for="code">Authenticator code</label><input id="code" type="password" '
+                         'inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" '
+                         f'name="code" required><button type="submit">{button}</button></form>')
+        else:
+            return self.deny(who, "approval", 405, "GET or POST required")
+        page = ctx["template"].replace("Credential entry", title).replace("{{result}}", "").replace("{{pending}}", card)
+        self.send_bytes(200, page.encode(), "text/html; charset=utf-8")
+        self.audit(who, kind, 200)
 
     def only(self, method, who, route):
         if self.command != method and not (method == "GET" and self.command == "HEAD"):
@@ -608,6 +695,12 @@ def parse_args(argv):
     return ap.parse_args(argv)
 
 
+def qr_png(uri):
+    # qrencode reads stdin. No seed in argv, a file, a URL request or a third-party QR service.
+    return subprocess.run(["/usr/bin/qrencode", "-t", "PNG", "-s", "4", "-o", "-"],
+                          input=uri.encode(), capture_output=True, check=True, timeout=5).stdout
+
+
 def build_server(args, **overrides):
     """Configured, not yet serving. Overrides (tests): whois, clock, audit_out."""
     if not isinstance(args, argparse.Namespace):
@@ -641,6 +734,9 @@ def build_server(args, **overrides):
         "owners": set(entry_conf.owner_nodes),
         "agent_nodes": set(routes.agent_nodes),
         "csp": csp,
+        "approval_front": approval_rpc.front_key(),
+        "qr_png": qr_png,
+        "approval_rpc": approval_rpc.request,
         "whois": overrides.pop("whois", None) or Whois(),
         "clock": clock,
         "loopback_secret": secret,

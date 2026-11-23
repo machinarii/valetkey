@@ -16,15 +16,17 @@ import sys
 import urllib.parse
 
 if __package__:
+    from .relaylib import approval_rpc
     from .relaylib.httpbase import RelayHandler, RelayServer
 else:  # installed as a script next to relaylib/
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from relaylib import approval_rpc
     from relaylib.httpbase import RelayHandler, RelayServer
 
 MAX_BODY = 50 * 1024 * 1024
 HOP = {"connection", "keep-alive", "proxy-authenticate", "proxy-authorization", "te", "trailer",
        "transfer-encoding", "upgrade", "host", "content-length"}
-DROP_IN = HOP | {"x-relay-peer", "x-relay-loopback"}
+DROP_IN = HOP | {"x-relay-peer", "x-relay-loopback", approval_rpc.HEADER.lower()}
 # Added by this server (or by send_response) on every reply, so the backend's copy is dropped.
 DROP_OUT = HOP | {"server", "date", "strict-transport-security", "x-frame-options",
                   "x-content-type-options"}
@@ -87,6 +89,11 @@ class Handler(RelayHandler):
         headers = {k: v for k, v in self.headers.items() if k.lower() not in DROP_IN}
         headers["Host"] = f"{host}:{port}"
         headers["X-Relay-Peer"] = who
+        if prefix == "entry" and approval_rpc.sensitive(rest):
+            key = self.server.ctx["approval_front"]
+            if not key:
+                return self.deny("approval", 503, "broker approvals unavailable")
+            headers[approval_rpc.HEADER] = approval_rpc.proof(key, self.command, rest, who)
         target = rest + ("?" + parts.query if parts.query else "")
         conn = http.client.HTTPConnection(host, port, timeout=600)
         try:
@@ -151,7 +158,7 @@ def build_server(args, **overrides):
     """Configured, not yet serving. Overrides (tests): audit_out."""
     if not isinstance(args, argparse.Namespace):
         args = parse_args(args)
-    ctx = {"backends": dict(args.backend)}
+    ctx = {"backends": dict(args.backend), "approval_front": approval_rpc.front_key()}
     ctx.update(overrides)
     if args.plain:
         host, _, port = args.bind.rpartition(":")

@@ -1,4 +1,5 @@
 """Load and validate /etc/relay/routes.toml and entry.toml."""
+import json
 import re
 import urllib.parse
 import tomllib
@@ -166,6 +167,32 @@ def api_path_allowed(path, paths):
                for p in paths)
 
 
+def proposed_api(spec, node):
+    """Web grants can create a new bearer API for the authenticated agent only."""
+    if not isinstance(spec, dict) or set(spec) != {"name", "org", "item", "upstream", "methods", "paths"}:
+        raise RoutesError("expected route name, org, item, upstream, methods and paths")
+    name, org, item, origin = (spec[k] for k in ("name", "org", "item", "upstream"))
+    if not all(isinstance(x, str) for x in (name, org, item, origin, node)):
+        raise RoutesError("invalid route fields")
+    if not ROUTE_NAME_RE.fullmatch(name) or name in RESERVED_ROUTES or org not in ORGS:
+        raise RoutesError("invalid or reserved route name or org")
+    if not ROUTE_NAME_RE.fullmatch(node) or len(item) > 128 or validate_item_name(item, None):
+        raise RoutesError("invalid agent or item name")
+    label = r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"
+    if (len(origin) > 253 or not re.fullmatch(r"https://(?:" + label + r"\.)+[a-z]{2,63}", origin)
+            or "xn--" in origin or origin.endswith((".localhost", ".local", ".internal", ".ts.net"))):
+        raise RoutesError("use the provider's canonical public HTTPS origin")
+    methods, paths = spec["methods"], spec["paths"]
+    if not isinstance(methods, list) or not 1 <= len(methods) <= 7 or any(
+            m not in ("GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS") for m in methods):
+        raise RoutesError("invalid HTTP methods")
+    if not isinstance(paths, list) or not 1 <= len(paths) <= 16 or any(
+            not isinstance(p, str) or not re.fullmatch(r"/[a-zA-Z0-9_~./-]{1,255}", p)
+            or canonical_api_path(p) != p for p in paths):
+        raise RoutesError("use explicit canonical path prefixes")
+    return ApiRoute(name, org, item, origin, "Bearer {}", sorted(set(methods)), sorted(set(paths)), [node])
+
+
 def load_routes(path):
     with open(path, "rb") as f:
         conf = tomllib.load(f)
@@ -219,6 +246,16 @@ def load_routes(path):
     for r in (*routes.values.values(), *routes.projects.values()):
         if set(r.nodes) & set(routes.agent_nodes):
             raise RoutesError(f"route {r.name}: agent_nodes cannot be granted raw-value routes")
+    grants = Path(path).parent / "approved-routes.d"
+    for file in sorted(grants.glob("*.json")):
+        grant = json.loads(file.read_bytes())
+        if not isinstance(grant, dict) or set(grant) != {"spec", "node", "request"}:
+            raise RoutesError("invalid web-approved grant")
+        route = proposed_api(grant["spec"], grant["node"])
+        if file.stem != route.name or route.name in routes.api:
+            raise RoutesError("web-approved route name conflicts with another route")
+        if grant["node"] in routes.agent_nodes:
+            routes.api[route.name] = route
     return routes
 
 

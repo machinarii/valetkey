@@ -28,6 +28,7 @@ for n in $names; do
   fi
   inner=(/usr/bin/python3 -I "$libexec/vault-info.py" check "$n"
          --routes /etc/relay/routes.toml --org-ids "$home/org.json")
+  if [ "${2:-}" = --api-only ]; then inner+=(--api-only); fi
   run=(systemd-run --quiet --wait --pipe --collect -p "User=$user" -p "WorkingDirectory=$home"
        -E "HOME=$home" -E "BITWARDENCLI_APPDATA_DIR=$home/bw-cli")
   if [ "$n" != entry ] && systemctl is-active --quiet "relay-$n.service" && [ -f "/run/relay-$n/bw.env" ]; then
@@ -36,6 +37,7 @@ for n in $names; do
     out=$("${run[@]}" -p "LoadCredentialEncrypted=bw-unlock-$n" \
           "$libexec/with-bw-session" "bw-unlock-$n" "${inner[@]}" --lock); r=$?
   fi
+  if [ "${2:-}" = --api-only ]; then exit "$r"; fi
   if [ -z "$out" ]; then
     echo "relay-$n: locked (unlock failed; re-run: sudo relay-login $n <email>)"
   else
@@ -44,6 +46,7 @@ for n in $names; do
   [ "$r" = 0 ] || rc=1
 done
 
+if [ "${2:-}" = --api-only ]; then exit 1; fi
 echo "== units"
 for u in relay-local relay-infra relay-entry relay-front relay-cert.timer; do
   s=$(systemctl is-active "$u" 2>/dev/null); [ -n "$s" ] || s=unknown

@@ -17,6 +17,7 @@ RuntimeDirectory=relay-entry
 RuntimeDirectoryMode=0700
 LoadCredentialEncrypted=bw-unlock-entry
 LoadCredentialEncrypted=relay-loopback
+LoadCredentialEncrypted=relay-approval-front
 Environment=HOME=/var/lib/relay-entry BITWARDENCLI_APPDATA_DIR=/var/lib/relay-entry/bw-cli
 ExecStartPre=/bin/sh -c 'umask 077 && echo BITWARDENCLI_APPDATA_DIR=/var/lib/relay-entry/bw-cli > /run/relay-entry/bw.env'
 ExecStart=/usr/bin/python3 -I /usr/local/libexec/relay/relay_entry.py --port 8443 \

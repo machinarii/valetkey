@@ -152,6 +152,23 @@ def print_visible(bw, rep, label, block, org):
             rep.fail(f"collection {c} is new: re-run relay-login to add it to org.json")
 
 
+def check_api_items(bw, name, routes_path, org_ids_path):
+    """Positive readiness check for a web grant; fail closed without printing vault records."""
+    with open(org_ids_path) as f:
+        block = json.load(f)
+    bw.sync()
+    items = bw.list_items(block["org_id"])
+    collections = set(block["collections"].values())
+    for route in routes_mod.load_routes(routes_path).for_org(name).api.values():
+        ref, field = split_ref(route.item)
+        matches = [it for it in items if ref.lower() in it.get("name", "").lower()]
+        if (len(matches) != 1 or matches[0]["name"] != ref
+                or not collections.intersection(matches[0].get("collectionIds") or [])
+                or not value_of(matches[0], field)):
+            return 1
+    return 0
+
+
 def cmd_check(bw, name, routes_path, org_ids_path):
     rep = Report()
     status = json.loads(bw._run(["status"])).get("status", "unknown")
@@ -183,6 +200,7 @@ def main(argv=None):
     ck.add_argument("name", choices=("local", "infra", "entry"))
     ck.add_argument("--routes", required=True)
     ck.add_argument("--org-ids", required=True)
+    ck.add_argument("--api-only", action="store_true")
     ck.add_argument("--lock", action="store_true", help="bw lock when done")
     args = ap.parse_args(argv)
     bw = bw_from_env()
@@ -190,6 +208,8 @@ def main(argv=None):
         if args.cmd == "org-json":
             cmd_org_json(bw, args.name)
             return 0
+        if args.api_only:
+            return check_api_items(bw, args.name, args.routes, args.org_ids)
         return cmd_check(bw, args.name, args.routes, args.org_ids)
     except (Fail, BwError, routes_mod.RoutesError, OSError, ValueError, KeyError) as e:
         print(f"FAIL  {e}", file=sys.stderr)

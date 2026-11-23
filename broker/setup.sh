@@ -62,11 +62,11 @@ install_code() {
   install -d -m 755 "$libexec" "$libexec/relaylib"
   rm -rf "$libexec/__pycache__" "$libexec/relaylib/__pycache__"
   install -m 644 "$src"/relaylib/*.py "$libexec/relaylib/"
-  install -m 644 "$src/relay_read.py" "$src/relay_entry.py" "$src/relay_front.py" \
+  install -m 644 "$src/relay_read.py" "$src/relay_entry.py" "$src/relay_front.py" "$src/approval_worker.py" \
     "$src/entry-page.html" "$src/tools/gen-fnox-config.py" "$src/tools/vault-info.py" "$libexec/"
   install -m 755 "$here/bin/with-bw-session" "$here/bin/relay-cert" "$libexec/"
   install -m 755 "$here/bin/relay-login" "$here/bin/relay-check" "$here/bin/relay-routes" \
-    "$here/bin/relay-update" /usr/local/sbin/
+    "$here/bin/relay-update" "$here/bin/relay-approval" /usr/local/sbin/
   bash "$repo/client/install-version-tools" || return 1
   install -m 644 "$repo/VERSION" "$libexec/VERSION"
   install -m 644 "$here/CONFIG_EPOCH" "$libexec/CONFIG_EPOCH"
@@ -78,7 +78,7 @@ install_code() {
 step "valetkey $(cat "$repo/VERSION") in $libexec; relay-login/relay-check/relay-routes/relay-update in /usr/local/sbin" install_code
 
 # --- configuration (the owner's edits are never overwritten) ---
-install -d -m 755 /etc/relay
+install -d -m 755 /etc/relay /etc/relay/approved-routes.d
 for f in routes.toml entry.toml vault.env; do
   case $f in vault.env) example=vault.example.env ;; *) example=${f%.toml}.example.toml ;; esac
   if [ -f "/etc/relay/$f" ]; then
@@ -97,19 +97,26 @@ fi
 step "routes and entry config valid" /usr/local/sbin/relay-routes check
 
 # --- loopback secret shared by the three services (32 random bytes, hex), generated once ---
-if [ -f "$credstore/relay-loopback" ]; then
-  ok "kept existing $credstore/relay-loopback"
-else
-  /usr/bin/python3 -I -c 'import secrets, sys; sys.stdout.write(secrets.token_hex(32))' \
-    | systemd-creds encrypt --name=relay-loopback - "$credstore/relay-loopback"
-  chmod 600 "$credstore/relay-loopback"
-  ok "generated $credstore/relay-loopback"
-fi
+for name in relay-loopback relay-approval-front; do
+  if [ -f "$credstore/$name" ]; then
+    ok "kept existing $credstore/$name"
+  else
+    /usr/bin/python3 -I -c 'import secrets, sys; sys.stdout.write(secrets.token_hex(32))' \
+      | systemd-creds encrypt --name="$name" - "$credstore/$name"
+    chmod 600 "$credstore/$name"
+    ok "generated $credstore/$name"
+  fi
+done
 
 # --- units ---
 step "units in /etc/systemd/system" install -m 644 "$here"/systemd/relay-*.service \
   "$here"/systemd/relay-cert.timer /etc/systemd/system/
+install -d -m 755 /etc/systemd/system/relay-front.service.d
+install -m 644 "$here/systemd/approval-front.conf" /etc/systemd/system/relay-front.service.d/approval-front.conf
 systemctl daemon-reload
+if [ -f "$credstore/relay-approval-key" ]; then
+  step "restart enrolled approval worker" systemctl restart relay-approval.service
+fi
 for u in relay-local relay-infra relay-entry relay-front; do
   systemctl enable "$u.service" >/dev/null 2>&1 || fail "enable $u"
 done

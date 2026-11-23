@@ -33,7 +33,7 @@ def _relay_url():
 
 # Keep the version in the executable so copied clients and Homebrew symlinks identify themselves.
 # The install test checks it against the repository VERSION.
-CLIENT_VERSION = "0.1.1"
+CLIENT_VERSION = "0.1.2"
 TAGS_URL = "https://api.github.com/repos/machinarii/valetkey/tags"
 STABLE_TAG = re.compile(r"v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)")
 BASE = ""
@@ -208,6 +208,23 @@ def cmd_request(a):
     return 0
 
 
+def cmd_request_route(a):
+    status, text = call("POST", "/entry/v1/route-requests", {
+        "name": a.name, "org": a.org, "item": a.item, "upstream": a.upstream,
+        "methods": a.method, "paths": a.path})
+    if status != 201:
+        errors = {400: "invalid route specification", 403: "device not authorized", 409: "route exists",
+                  429: "too many requests", 503: "check broker approval service and enrollment"}
+        sys.exit(f"relay: route request failed ({status}): {errors.get(status, 'broker unavailable')}")
+    try:
+        rid = json.loads(text)["id"]
+        if not isinstance(rid, str) or not re.fullmatch("[0-9a-f]{40}", rid):
+            raise ValueError
+    except (ValueError, KeyError, TypeError):
+        sys.exit("relay: invalid route request response")
+    print(f"{BASE}/entry/approve/{rid}")
+
+
 def cmd_status(a):
     status, text = call("GET", f"/entry/v1/requests/{urllib.parse.quote(a.id, safe='')}")
     if status != 200:
@@ -241,6 +258,14 @@ def add_client_commands(sub):
     r.add_argument("--notes", action="store_true")
     r.add_argument("--replace", action="store_true")
     r.set_defaults(fn=cmd_request)
+    route = sub.add_parser("request-route", help="request owner approval for a new bearer API route")
+    route.add_argument("name")
+    route.add_argument("--org", choices=("local", "infra"), required=True)
+    route.add_argument("--item", required=True)
+    route.add_argument("--upstream", required=True)
+    route.add_argument("--method", action="append", required=True)
+    route.add_argument("--path", action="append", required=True)
+    route.set_defaults(fn=cmd_request_route)
     s = sub.add_parser("status")
     s.add_argument("id")
     s.set_defaults(fn=cmd_status)

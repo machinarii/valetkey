@@ -86,6 +86,8 @@ class Fake(BaseHTTPRequestHandler):
         n = int(self.headers.get("Content-Length") or 0)
         body = json.loads(self.rfile.read(n) or b"{}")
         self.server.log.append(("POST", self.path, body, self.headers.get("Content-Type")))
+        if self.path == "/entry/v1/route-requests":
+            return self.reply(201, {"id": "a" * 40})
         if self.path == "/entry/v1/requests":
             if body.get("name") == "dup":
                 return self.reply(409, "exists")
@@ -182,6 +184,13 @@ class LatestVersionTests(unittest.TestCase):
 
 
 class RelayTests(ClientCase):
+    def test_request_route_prints_owner_link(self):
+        p = self.run_tool("relay", "request-route", "reports", "--org", "local", "--item", "reports-api-key",
+                          "--upstream", "https://api.example.com", "--method", "GET", "--path", "/v1/reports")
+        self.assertEqual((p.returncode, self.out(p)), (0, (self.base + "/entry/approve/" + "a" * 40 + "\n", "")))
+        self.assertEqual(self.srv.log[0][2], dict(name="reports", org="local", item="reports-api-key",
+                         upstream="https://api.example.com", methods=["GET"], paths=["/v1/reports"]))
+
     def test_check_prints_per_name_and_exit_code(self):
         p = self.run_tool("relay", "check", "infra", "a", "b", "c")
         out, err = self.out(p)

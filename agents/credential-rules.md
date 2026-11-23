@@ -47,6 +47,9 @@ For a broker-managed credential, follow these steps.
    browser, or agent-controlled machine.
 6. Use `relay status <id>` until `stored` or `replaced`, then `relay check`. An entry request
    does not grant a route: broker configuration still controls who can use the item.
+   For a new fixed bearer API route, run `relay request-route --help` and submit the provider's
+   origin, required methods and narrow path prefixes from the consuming agent. Give the owner
+   the approval link. Only the owner scans pairing QR codes and enters authenticator codes.
 7. If upstream authentication fails, report the item name and failure status. An owner can
    authorize replacement with `--replace`. Agents must never fetch backups or change a route
    to a backup themselves. Backup use belongs to a trusted consumer/operator, with verification.

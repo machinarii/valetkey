@@ -72,17 +72,18 @@ api_item_problems() {  # relay-check's FAIL lines about [api.*] items of <org>; 
 install_org() {
   local org=$1 user=relay-$1 home=/var/lib/relay-$1 org_id tmp n bad
   if [ ! -f "$home/org.json" ]; then
+    [ "${verified:-no}" = yes ] && return 1
     echo "skip  relay-$org: no org.json yet; run relay-login $org <email> first"
     return 0
   fi
-  org_id=$(jq -er '.org_id' "$home/org.json") || { echo "FAIL  $home/org.json has no org_id" >&2; return 1; }
-  tmp=$home/api.toml.tmp
+  org_id=$(runuser -u "$user" -- jq -er '.org_id' "$home/org.json") || { echo "FAIL  $home/org.json has no org_id" >&2; return 1; }
+  tmp=$(mktemp /run/relay-fnox.XXXXXXXX) || return 1
   if ! /usr/bin/python3 -I "$libexec/gen-fnox-config.py" --routes "$routes" --org "$org" \
         --org-id "$org_id" > "$tmp"; then
     rm -f "$tmp"; echo "FAIL  api.toml for $org not generated" >&2; return 1
   fi
   n=$(grep -c '^\[\[proxy.rules\]\]' "$tmp" || true)
-  if [ "$n" != 0 ] && [ -f "/etc/credstore.encrypted/bw-unlock-$org" ]; then
+  if [ "${verified:-no}" != yes ] && [ "$n" != 0 ] && [ -f "/etc/credstore.encrypted/bw-unlock-$org" ]; then
     bad=$(api_item_problems "$org")
     if [ -n "$bad" ]; then
       rm -f "$tmp"
@@ -91,26 +92,32 @@ install_org() {
       return 1
     fi
   fi
-  chown "$user:$user" "$tmp"
-  chmod 600 "$tmp"
-  if [ -f "$home/api.toml" ]; then cp -p "$home/api.toml" "$home/api.toml.prev"; fi
-  mv -f "$tmp" "$home/api.toml"
+  # All writes in this service-owned directory run with the service's own privileges.
+  if ! runuser -u "$user" -- /bin/bash -ec '
+    cd "$1"
+    umask 077
+    tmp=$(mktemp .api.XXXXXXXX)
+    trap '\''rm -f -- "$tmp"'\'' EXIT
+    cat > "$tmp"
+    if [ -f api.toml ]; then cp -p --remove-destination api.toml api.toml.prev; fi
+    mv -fT -- "$tmp" api.toml
+  ' bash "$home" < "$tmp"; then rm -f "$tmp"; return 1; fi
+  rm -f "$tmp"
   echo "ok    $home/api.toml: $n api routes"
   if [ ! -f "/etc/credstore.encrypted/bw-unlock-$org" ]; then
+    [ "${verified:-no}" = yes ] && return 1
     echo "skip  relay-$org: run relay-login $org <email> first"
     return 0
   fi
   systemctl enable "relay-$org.service" >/dev/null 2>&1 || true
-  systemctl restart "relay-$org.service"
-  if wait_listening "$org"; then
+  if systemctl restart "relay-$org.service" && wait_listening "$org"; then
     echo "ok    relay-$org running"
     return 0
   fi
   echo "FAIL  relay-$org did not start; see: journalctl -u relay-$org -n 30" >&2
   if [ -f "$home/api.toml.prev" ]; then
-    cp -p "$home/api.toml.prev" "$home/api.toml"
-    systemctl restart "relay-$org.service"
-    if wait_listening "$org"; then
+    runuser -u "$user" -- cp -p --remove-destination "$home/api.toml.prev" "$home/api.toml" || return 1
+    if systemctl restart "relay-$org.service" && wait_listening "$org"; then
       echo "FAIL  relay-$org runs again with its previous api.toml; the new [api.*] routes are not active" >&2
     else
       echo "FAIL  relay-$org is still down with its previous api.toml" >&2
@@ -122,7 +129,16 @@ install_org() {
 case ${1:-} in
   check)
     check ;;
-  install)
+  install|install-verified)
+    exec 9>/run/valetkey-install.lock
+    flock -x 9
+    verified=no
+    if [ "$1" = install-verified ]; then
+      verified=yes
+      case ${2:-} in local|infra) ;; *) exit 2 ;; esac
+      [ -f "/var/lib/relay-$2/org.json" ] && [ -f "/etc/credstore.encrypted/bw-unlock-$2" ] || exit 1
+      "$(dirname "$0")/relay-check" "$2" --api-only >/dev/null || exit 1
+    fi
     case ${2:-all} in local|infra|all) ;; *) echo "$usage" >&2; exit 2 ;; esac
     check
     rc=0

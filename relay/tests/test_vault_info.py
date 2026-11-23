@@ -65,6 +65,22 @@ class VaultInfoTests(unittest.TestCase):
         return subprocess.run([sys.executable, "-I", str(TOOL), *args], env=env,
                               capture_output=True, text=True)
 
+    def test_api_readiness_is_silent_and_requires_visible_unique_item(self):
+        ids = self.run_tool("org-json", "infra")
+        org_ids = Path(self.dir.name) / "org.json"
+        org_ids.write_bytes(ids.stdout.encode())
+        with open(self.routes, "a") as f:
+            f.write('\n[api.reports]\norg="infra"\nnodes=["bot"]\nitem="database-url-shop-qa"\n'
+                    'upstream="https://api.example.com"\nauth="Bearer {}"\nmethods=["GET"]\npaths=["/reports"]\n')
+        args = ("check", "infra", "--routes", self.routes, "--org-ids", str(org_ids), "--api-only")
+        success = self.run_tool(*args)
+        self.assertEqual((success.returncode, success.stdout, success.stderr), (0, "", ""))
+        state = json.loads(json.dumps(STATE))
+        state["items"][0]["collectionIds"] = ["c-other-id"]
+        support.write_state(self.state, state)
+        fail = self.run_tool(*args)
+        self.assertEqual((fail.returncode, fail.stdout, fail.stderr), (1, "", ""))
+
     def test_org_json_collects_broker_collection_and_nested(self):
         r = self.run_tool("org-json", "infra")
         self.assertEqual(r.returncode, 0, r.stderr)

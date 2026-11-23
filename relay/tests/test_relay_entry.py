@@ -191,6 +191,93 @@ class RelayEntryTest(unittest.TestCase):
         h.update(headers or {})
         return call(self.base + path, method, h, data)
 
+    def test_owner_pairing_page_and_confirmation(self):
+        self.start()
+        ctx = self.srv.ctx
+        rpc = relay_entry.approval_rpc
+        key = b"synthetic front key"
+        ctx["approval_front"] = key
+        ctx["approval_rpc"] = mock.Mock(return_value=(200, "synthetic-uri"))
+        ctx["qr_png"] = mock.Mock(return_value=b"test-png")
+        rid = "a" * 40
+        path = "/pair/" + rid
+
+        def signed(peer, method="GET", **kw):
+            headers = {rpc.HEADER: rpc.proof(key, method, path, peer)}
+            return self.req(path, method, peer=peer, headers=headers, **kw)
+
+        self.assertEqual(self.req(path, peer=OWNER_IP)[0], 403)
+        self.assertEqual(signed(AGENT_IP)[0], 403)
+        ctx["approval_rpc"].assert_not_called()
+        status, headers, body = signed(OWNER_IP)
+        self.assertEqual(status, 200)
+        self.assertEqual(headers["Cache-Control"], "no-store")
+        self.assertIn(b"data:image/png;base64,", body)
+        self.assertNotIn(b"synthetic-uri", body)
+        ctx["qr_png"].assert_called_once_with("synthetic-uri")
+        token = re.search(rb'name="token" value="([0-9a-f]+)"', body)[1].decode()
+        self.assertEqual(signed(OWNER_IP, "POST", form={"code": "123456"})[0], 403)
+        ctx["approval_rpc"].return_value = (200, "Authenticator paired")
+        result = signed(OWNER_IP, "POST", form={"code": "123456", "token": token})
+        self.assertIn(b"Authenticator paired", result[2])
+        ctx["approval_rpc"].assert_called_with(dict(peer=OWNER_IP, op="pair-confirm", id=rid, code="123456"))
+        self.assertNotIn(rid, self.audit.getvalue())
+        self.assertNotIn("123456", self.audit.getvalue())
+
+    def test_owner_approves_exact_agent_proposal(self):
+        from pathlib import Path
+        from relay import approval_worker
+        from relay.relaylib.approvals import Approvals, Refused, totp
+        from relay.relaylib.routes import load_routes
+        from relay.tests.test_approvals import SPEC
+
+        self.start()
+        routes = Path(self.write("routes.toml", '[security]\nagent_nodes=["devbox"]\n'))
+        (routes.parent / "approved-routes.d").mkdir()
+        ctx = self.srv.ctx
+        install = mock.Mock(return_value=True)
+        def store():
+            return Approvals(self.path("approvals.sqlite"), bytes(range(32)), routes, self.path("entry.toml"),
+                             install, clock=lambda: self.now)
+
+        def rpc(message):
+            state = store()
+            try:
+                return 200, approval_worker.dispatch(state, ctx["whois"], message, False)
+            except Refused as e:
+                return e.status, str(e)
+            finally:
+                state.db.close()
+
+        ctx["approval_rpc"] = rpc
+        ctx["approval_front"] = b"test-front"
+        def call(path, peer, method="GET", **kwargs):
+            proof = relay_entry.approval_rpc.proof(b"test-front", method, path, peer)
+            return self.req(path, method, peer=peer, headers={relay_entry.approval_rpc.HEADER: proof}, **kwargs)
+
+        state = store()
+        self.addCleanup(state.db.close)
+        ticket = state.open_pairing("laptop")
+        seed = state.seed("laptop", ticket)
+        state.pair("laptop", ticket, totp(seed, int(self.now) // 30))
+        self.now += 30
+        status, _, data = call("/v1/route-requests", AGENT_IP, "POST", body=SPEC)
+        self.assertEqual(status, 201)
+        path = "/approve/" + json.loads(data)["id"]
+        self.assertEqual(call(path, AGENT_IP)[0], 403)
+        status, _, page = call(path, OWNER_IP)
+        self.assertEqual(status, 200)
+        for value in (b"devbox", b"local/reports-api-key", b"https://reports.example.com", b"/v1/reports"):
+            self.assertIn(value, page)
+        install.assert_not_called()
+        token = re.search(rb'name="token" value="([0-9a-f]+)"', page)[1].decode()
+        response = call(path, OWNER_IP, "POST", form=dict(token=token, code=totp(seed, int(self.now) // 30),
+                                                          upstream="https://ignored.example"))
+        self.assertEqual(response[0], 200)
+        self.assertIn(b"Route active", response[2])
+        self.assertEqual(load_routes(routes).api["reports"].upstream, SPEC["upstream"])
+        install.assert_called_once()
+
     def request(self, name, org="infra", project=None, field="password", purpose="testing",
                 replace=False, peer=AGENT_IP):
         return self.req("/v1/requests", "POST", {"name": name, "org": org, "project": project,

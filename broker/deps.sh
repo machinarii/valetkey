@@ -21,7 +21,7 @@ log=/var/log/valetkey-install.log
 export DEBIAN_FRONTEND=noninteractive
 
 apt-get update -q
-apt-get install -y -q curl ca-certificates unzip jq gpg python3 git openssh-client >/dev/null
+apt-get install -y -q curl ca-certificates unzip jq gpg python3 qrencode git openssh-client >/dev/null
 /usr/bin/python3 -c 'import sys; sys.exit(sys.version_info < (3, 11))' \
   || { echo "python3 >= 3.11 needed (Debian 12+, Ubuntu 24.04+)." >&2; exit 1; }
 command -v systemd-creds >/dev/null || { echo "systemd-creds missing (systemd >= 250 needed)." >&2; exit 1; }

@@ -106,6 +106,18 @@ class FrontTest(unittest.TestCase):
             out += d
         return out.decode("latin-1")
 
+    def test_approval_identity_proof(self):
+        rpc = relay_front.approval_rpc
+        path = "/entry/pair/" + "b" * 40
+        headers = {rpc.HEADER: "client supplied"}
+        self.assertEqual(self.get(path, headers=headers)[0], 503)
+        self.srv.ctx["approval_front"] = b"synthetic"
+        self.assertEqual(self.get(path, headers=headers)[0], 200)
+        seen = self.backends["entry"].seen[-1]["headers"]
+        self.assertEqual(seen[rpc.HEADER.lower()], rpc.proof(b"synthetic", "GET", path[6:], "127.0.0.1"))
+        self.get("/local/other", headers=headers)
+        self.assertNotIn(rpc.HEADER.lower(), self.backends["local"].seen[-1]["headers"])
+
     def test_dispatch_strips_prefix_and_adds_peer(self):
         status, headers, body = self.get("/infra/v1/items/x?a=1&b=2", "POST", {"X-Custom": "yes"}, b"payload")
         self.assertEqual((status, body), (200, b"hello from infra"))

@@ -11,9 +11,9 @@ machine, and you use them from here through `bellhop`.
   `bellhop --list` when it is ready.
 - When the user asks for an MCP server that uses a fixed key: it goes through the credential
   broker, not this machine and not the desk. File a request for the key by name with
-  `relay request NAME-api-key --org local --purpose "..."`, then give the user the route to add
-  on the broker console (the server's address, the machines that may use it). The owner types
-  the key on the broker's entry page; you never see it. Point the MCP client at the broker's
+  `relay request NAME-api-key --org local --purpose "..."`, use `relay request-route` from the consuming machine and give the owner
+  its approval link. The owner enters a missing key on the broker's entry page and approves
+  the proposed route with their paired authenticator. Point the MCP client at the broker's
   address for that route, with no key.
 - For an MCP server with native OAuth sign-in, skip the key request and both the broker and desk
   routes. Use the provider’s endpoint from an approved client that keeps tokens off agent machines.

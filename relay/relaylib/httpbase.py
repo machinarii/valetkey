@@ -43,6 +43,7 @@ class RelayHandler(http.server.BaseHTTPRequestHandler):
     def audit(self, who, route, status, note=""):
         """`who route method path status [note]` — path without its query string, never values."""
         path = urllib.parse.urlsplit(self.path).path
+        path = re.sub(r"(/(?:pair|approve)/)[0-9a-f]{40}(?=/|$)", r"\1[link]", path)
         line = f"{who or '?'} {route or '-'} {self.command} {path} {status}" + (" " + note if note else "")
         # A request target may carry control bytes (ESC, NUL); journalctl hides such a line as
         # "[blob data]", so a caller could blank its own audit record.

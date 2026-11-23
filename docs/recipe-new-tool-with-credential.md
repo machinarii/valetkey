@@ -85,25 +85,16 @@ deny_options = ["--debug", "--token"]
 2. **Owner enters the key**, on their own device: the broker's entry page at
    `https://broker.<tailnet>.ts.net/entry`, or `vault-entry <request id>` in a private terminal.
    Enter the bare key. Do not add "Bearer"; the route adds it.
-3. **Owner adds the route** at the broker console, at the end of `/etc/relay/routes.toml`:
-   ```toml
-   [api.acme]
-   org      = "local"
-   item     = "acme-api-key"
-   upstream = "https://api.acme.example"
-   auth     = "Bearer {}"
-   methods  = ["GET"]
-   paths    = ["/v1/reports"]
-   nodes    = ["agent-dev"]
-   ```
-   Then:
+3. **Agent requests the route** from the machine that will use it.
+
    ```sh
-   sudo relay-routes check
-   sudo relay-check local            # the [api.acme] line must say ok
-   sudo relay-routes install local
+   relay request-route acme --org local --item acme-api-key \
+     --upstream https://api.acme.example --method GET --path /v1/reports
    ```
-   Before saving, check that `upstream` really is the service's own address. A key sent to the
-   wrong address is a leaked key.
+
+   Give the owner the printed link. On a paired owner device, review the destination, scope
+   and requesting machine, then approve with a fresh authenticator code. Wait for **Route active**.
+   See [Pair an authenticator and approve an API route](route-approval.md) for first-time setup.
 4. **Agent points the client at the broker.** The address is
    `https://broker.<tailnet>.ts.net/local/acme/...`, with no key. For an MCP server, that is the
    URL in the client's settings, with no headers.

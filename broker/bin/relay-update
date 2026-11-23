@@ -63,12 +63,17 @@ healthy() {  # every port in $1 listens, and still does 3 s later
 restore() {  # the installed code becomes exactly what $backup holds
   [ -d "$backup/libexec" ] || fail "no copy of the previous code in $backup"
   set +e  # best effort to the end: stopping half-way would leave neither version in place
+  systemctl stop relay-approval.service 2>/dev/null || true
   rm -rf "$libexec"
   cp -a "$backup/libexec" "$libexec"
   find "$sbin" "$units" -maxdepth 1 \( -type f -o -type l \) -name 'relay-*' -delete
   cp -a "$backup/sbin/." "$sbin/"
+  rm -f "$units/relay-front.service.d/approval-front.conf"
   cp -a "$backup/units/." "$units/"
   systemctl daemon-reload
+  if [ -f "$units/relay-approval.service" ] && [ -f "$root/etc/credstore.encrypted/relay-approval-key" ]; then
+    systemctl restart relay-approval.service
+  fi
   # api.toml was written by the new generator: let the previous one write it again.
   "$sbin/relay-routes" install
   systemctl restart relay-entry.service relay-front.service
