@@ -5,7 +5,7 @@
 <h1 align="center">valetkey</h1>
 
 <p align="center">
-  <b>Your machines get a valet key, never the master.</b><br>
+  <h2>Your machines get a valet key, never the master.</h2><br>
   Give an AI agent access to a tool while the tool's credentials stay on a separate machine:<br>
   a credential broker and a tool desk on their own machines, joined over your private Tailscale network.
 </p>
