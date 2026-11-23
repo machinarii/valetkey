@@ -15,6 +15,14 @@ class ValetkeyAgent < Formula
   def install
     bin.install "client/relay"
     (share/"valetkey").install "agents/credential-rules.md"
+    # Claude Code and Codex rules and settings; the same step as `./install.sh claude`.
+    (libexec/"agents").install "agents/claude-setup.py", "agents/credential-rules.md"
+    (libexec/"bellhop").install "bellhop/agent-rules.md"
+    (bin/"valetkey-agent-setup").write <<~SH
+      #!/bin/sh
+      exec python3 -I "#{libexec}/agents/claude-setup.py" --repo "#{libexec}" "$@"
+    SH
+    (bin/"valetkey-agent-setup").chmod 0755
   end
 
   def caveats
@@ -24,12 +32,14 @@ class ValetkeyAgent < Formula
         relay set-url https://broker.<tailnet>.ts.net
       This is an agent machine: list it in the broker's [security].agent_nodes,
       never in trusted_value_nodes or owner_nodes. Agent rules: relay guide
-      For Claude Code and Codex settings, run from a copy of the repo: ./install.sh claude
+      Then set up Claude Code and Codex (it asks before each change):
+        valetkey-agent-setup
     EOS
   end
 
   test do
     assert_equal version.to_s, shell_output("#{bin}/relay version").strip unless build.head?
     assert_match "Machine boundaries", shell_output("#{bin}/relay guide")
+    assert_match "install.sh claude", shell_output("#{bin}/valetkey-agent-setup --help")
   end
 end

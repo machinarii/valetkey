@@ -1,102 +1,84 @@
-# Install Valetkey
+# Install valetkey
 
-## Installation
+valetkey runs on two kinds of machines:
 
-Every machine installs with the same command, on Linux and on macOS. Open a terminal on that
-machine and run:
+- **Your devices:** the machines where your agents run, the device where you type keys, and any
+  server whose app must read a key itself. Install these with **Homebrew**, on macOS or Linux.
+- **Three small Linux servers** that hold the keys and the tools: the vault, the broker and,
+  optionally, the desk. Install these with the **installer**.
+
+Put each role on its own machine; [Containment](system-design.md#containment-where-everything-runs)
+explains why. Every machine needs Tailscale; see [Requirements](#requirements).
+
+## Your devices: Homebrew
+
+Add valetkey's Homebrew tap once on each device:
+
+```sh
+brew tap machinarii/valetkey https://github.com/machinarii/valetkey
+brew trust machinarii/valetkey
+```
+
+Then install the package for that machine's role, and point it at your broker:
+
+| This machine | Install | Then |
+|---|---|---|
+| **Runs AI agents** (Claude Code, Codex, …) | `brew install valetkey-agent` | `relay set-url https://broker.<tailnet>.ts.net`, then `valetkey-agent-setup`: valetkey's rules and settings for Claude Code and Codex, asking before each change |
+| **Where you type keys** and approve routes | `brew install valetkey-owner` | `relay set-url https://broker.<tailnet>.ts.net` |
+| **A server whose app reads a key itself** (optional) | `brew install valetkey-consumer` | `relay set-url https://broker.<tailnet>.ts.net`, and install [fnox](https://fnox.jdx.dev) |
+
+- One machine, one role: the packages refuse to install side by side.
+- `brew upgrade` keeps them current.
+- A phone or tablet where you type keys needs nothing installed: open the broker's entry page in
+  its browser.
+- On a **Linux agent machine**, `sudo ./install.sh agent` does more than the package: it also adds
+  the hourly sweep, the desk's tool stand-ins and a root-owned Claude Code policy. Use it instead of
+  Homebrew there if you want those ([Installer reference](#installer-reference)).
+
+## The servers: the installer
+
+On a **Proxmox VE host**, one command creates the vault, broker and desk and installs each one:
+
+```sh
+git clone https://github.com/machinarii/valetkey.git && cd valetkey
+sudo ./install.sh proxmox          # add --no-desk to skip the desk
+```
+
+Without Proxmox, run this on each Linux server and choose **Vault host**, **Broker** or **Desk**:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/machinarii/valetkey/main/install.sh | bash
 ```
 
-It asks one question, which machine this is, and does the rest:
-
-- It lists only the roles that fit this computer: all seven on Linux, three on a Mac (a Mac is
-  only ever a client). On a Proxmox host it suggests "Proxmox host".
-- It fills in your tailnet's broker and desk addresses from Tailscale; press Enter to accept them.
-- It asks for `sudo` only for the steps that need root.
-- Before it changes Claude Code or Codex settings, it says what it will change and why, and asks.
-- It never asks for a key or password.
-
-| On this machine | Choose | What happens |
-|---|---|---|
-| **Proxmox host** (Linux) | Proxmox host | Creates the vault container and the broker and desk VMs, and installs each one. Replaces the next three rows. |
-| **Vault host** (Linux) | Vault host | Docker, Tailscale and Vaultwarden, reachable only on the tailnet. |
-| **Broker** (Linux VM) | Broker | Tailscale, the Bitwarden CLI, fnox and the relay services. |
-| **Desk** (Linux VM, optional) | Desk | The desk service and its front door. No tools or logins yet. |
-| **Agent machine** (Linux) | Agent machine | `relay` and `bellhop` in agent mode, the hourly sweep, the Claude Code policy (asked first), then the agent rules for Claude Code and Codex. Asks for the desk address and which desk tools to link. |
-| **Agent machine** (Mac) | Agent machine | `relay` in agent mode in `~/.local/bin`, no root, then the agent rules for Claude Code and Codex. |
-| **Computer where you enter keys** | Approver device | Use this device to enter keys and approve requested routes. The installer adds the hidden terminal prompt, `vault-entry`. To enter keys in a browser on an approved phone or computer, skip this install. |
-| **Server where an application needs the key itself** (optional) | Trusted server | For example, a web app reads its database password at startup. The broker must explicitly grant that server access. Skip this role if all your tools use brokered API routes. |
-
-Read [Containment](system-design.md#containment-where-everything-runs) first: which machine each part runs on is
-what keeps the keys away from agents. Never pick two roles on one machine.
+The installer asks for `sudo` only when it needs it, fills in your tailnet's addresses, and never
+asks for a key or password. To read the code first, clone the repository and run `./install.sh`.
 
 ### Fresh installation on Proxmox VE
 
-From a reviewed checkout on the Proxmox host, run:
+`sudo ./install.sh proxmox` checks guest IDs across the cluster before creating the vault container
+(210), broker VM (211) and desk VM (212), then runs each guest's installer. To choose other IDs, run
+for example `sudo env CTID=310 BROKER_VMID=311 DESK_VMID=312 ./install.sh proxmox`. Authorize each
+guest to join your tailnet when asked. If one guest fails, the others stay in place; fix that guest
+before continuing.
 
-```sh
-sudo ./install.sh proxmox
-```
+## Then set it up
 
-The installer detects Proxmox VE and checks guest IDs across the cluster before
-creating the vault container (210), broker VM (211) and desk VM (212). It runs
-each guest’s installer. Add `--no-desk` to skip the desk. To choose other IDs,
-run, for example, `sudo env CTID=310 BROKER_VMID=311 DESK_VMID=312 ./install.sh proxmox`.
-
-During setup, authorize each guest to join your tailnet. Finish vault account
-setup, broker sign-in and access grants on your approved devices. If a guest
-installation fails, existing guests stay in place. Resolve the failure on that
-guest before continuing with the individual provisioning scripts. For an
-existing deployment, follow [Updating valetkey](updating-valetkey.md).
-
-### Client tools with Homebrew (macOS and Linux)
-
-The client tools are also Homebrew packages, one per role, on macOS and on Linux with Homebrew:
-
-```sh
-brew tap machinarii/valetkey https://github.com/machinarii/valetkey
-brew trust machinarii/valetkey      # Homebrew asks you to trust a third-party tap once
-brew install valetkey-agent       # agent machine: relay only
-brew install valetkey-owner       # approver device: relay and vault-entry
-brew install valetkey-consumer    # trusted server: relay and the vault shim (add fnox)
-relay set-url https://broker.<tailnet>.ts.net
-```
-
-They use the `python3` already on the machine (3.9 or newer). The three packages refuse to install side by side, because one machine has one role.
-`brew upgrade` keeps them current. On Linux, Homebrew may first install its own compiler and C library (a few hundred MB); the installer above needs neither. On a Linux agent machine, the installer above still does more
-than the package: the desk stand-in, the sweep and the Claude Code policy. `./install.sh claude`
-adds the agent rules to Claude Code and Codex in either case.
-
-**No access to GitHub on that machine, or prefer to read the code first?** Clone the repository,
-or copy it over, and run the same menu from the copy:
-
-```sh
-git clone https://github.com/machinarii/valetkey && cd valetkey && ./install.sh
-# from another computer: git archive HEAD | ssh <machine> 'mkdir -p valetkey && tar -x -C valetkey'
-```
-
-The installer fetches the code with git, or with curl when git is missing, into a temporary
-folder that it deletes afterwards. `VALETKEY_REF=<tag or branch>` before `bash` installs that
-version instead of `main`. The commands behind each choice are under
-[One command per machine](#one-command-per-machine).
-
-Set the machines up in this order. [Getting started](#getting-started) has every step:
+Installing puts the programs in place; the setup is where you decide who may use what. Follow
+[Getting started](#getting-started), in this order:
 
 1. [Prepare the tailnet](#1-prepare-the-tailnet)
 2. [Run Vaultwarden](#2-run-vaultwarden) on the vault host
 3. [Create the accounts and organizations](#3-create-the-accounts-and-organizations)
 4. [Install the broker](#4-install-the-broker)
 5. [Log the relays in](#5-log-the-relays-in)
-6. [Set up the machines that use keys](#6-set-up-the-machines-that-use-keys): agent machines, your key-entry device, and any service that needs a raw key
+6. [Set up the machines that use keys](#6-set-up-the-machines-that-use-keys)
 7. [Wire up a project](#7-wire-up-a-project)
 8. [Add the desk](#8-add-the-desk-optional) (optional)
 9. [Verify](#9-verify)
 
 Already installed? See [Updating valetkey](updating-valetkey.md).
 
-### Requirements
+## Requirements
 
 | Where | Needs |
 |---|---|
@@ -110,9 +92,9 @@ On Linux, `./install.sh client --with-deps` can install Tailscale and, for a tru
 
 The broker installer checks for the Bitwarden CLI (`bw`), fnox, Tailscale, `jq`, `systemd-creds` and `systemd-run`. On supported Debian and Ubuntu systems, `sudo ./install.sh broker --with-deps` installs the broker dependencies, including `qrencode` for authenticator pairing. See [version-command requirements](updating-valetkey.md) and [model launcher requirements](model-api-accounts.md#requirements) for those workflows.
 
-### One command per machine
+## Installer reference
 
-Each machine gets exactly one installer. Run it on that machine, from a copy of this repository. `./install.sh` with no arguments asks which machine this is and runs the right row for you.
+What the installer runs for each role, if you'd rather name the role yourself. Run it on that machine, from a copy of this repository; `./install.sh` with no arguments asks instead.
 
 | Machine | Command | What it installs |
 |---|---|---|
@@ -138,7 +120,7 @@ What no installer can do for you, because each step is a decision or a secret:
 
 Allow about an hour for the first setup, most of it creating Vaultwarden accounts. You type every password yourself, into a hidden prompt or Vaultwarden's own web page. None of them goes into this repo, a command argument or a chat.
 
-The table under [One command per machine](#one-command-per-machine) is the map: each step below runs on a different machine.
+The [Installer reference](#installer-reference) is the map: each step below runs on a different machine.
 
 ### 1. Prepare the tailnet
 

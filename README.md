@@ -100,24 +100,26 @@ administers those machines. An optional **trusted server** runs an application t
 directly, such as a web app that reads its database password. Skip this role if all your tools use
 brokered API routes. [Secure setup](docs/secure-setup.md)
 
-1. Prepare your tailnet and decide where each role will run.
-   [Requirements and machine roles](docs/installation.md#requirements)
-2. Run the installer on each machine and select its role. Linux and macOS share the same installer.
+1. **Your devices** (macOS or Linux): install with Homebrew, one package per role.
 
    ```sh
-   git clone https://github.com/machinarii/valetkey.git
-   cd valetkey
-   ./install.sh
+   brew tap machinarii/valetkey https://github.com/machinarii/valetkey
+   brew trust machinarii/valetkey
+   brew install valetkey-agent      # where agents run; then: valetkey-agent-setup
+   brew install valetkey-owner      # where you type keys
+   relay set-url https://broker.<tailnet>.ts.net
+   ```
+
+2. **The servers** (vault, broker, optional desk; Linux): on a Proxmox VE host,
+   `sudo ./install.sh proxmox` creates and installs all three. Otherwise run the installer on each
+   server and choose its role:
+
+   ```sh
+   curl -fsSL https://raw.githubusercontent.com/machinarii/valetkey/main/install.sh | bash
    ```
 
 3. Follow the guide to sign the broker in, authorize your first route and verify it with a test
-   credential. [First setup and verification](docs/installation.md#getting-started)
-
-| Where | How | Guide |
-|---|---|---|
-| Any machine, Linux or macOS | `./install.sh`, then choose the machine's role | [Installation](docs/installation.md) |
-| A fresh Proxmox VE host | `sudo ./install.sh proxmox` creates the infrastructure guests and installs their services | [Proxmox setup](docs/installation.md#fresh-installation-on-proxmox-ve) |
-| Client tools only, macOS or Linux | Homebrew: `valetkey-agent`, `valetkey-owner` or `valetkey-consumer` | [Homebrew option](docs/installation.md#client-tools-with-homebrew-macos-and-linux) |
+   credential. [Installation and first setup](docs/installation.md)
 
 <a id="upgrading"></a>
 
