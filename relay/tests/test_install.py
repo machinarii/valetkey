@@ -40,9 +40,9 @@ class InstallClientTests(unittest.TestCase):
             self.assertEqual(r.stdout, (ROOT / "VERSION").read_text())
 
     def test_version_tools_install_upgrade_and_preserve_full_client(self):
-        args = ("version-tools", "--prefix", str(self.prefix))
-        for _ in range(2):
-            result = self.run_install(*args)
+        args = ("--prefix", str(self.prefix))
+        for command in ("version-tools", "update"):
+            result = self.run_install(command, *args)
             self.assertEqual(result.returncode, 0, result.stderr)
         relay = self.prefix / "relay"
         self.assertTrue(relay.is_symlink())
@@ -54,7 +54,7 @@ class InstallClientTests(unittest.TestCase):
         self.assertFalse((self.home / ".config").exists())
         result = self.run_install("client", "--agent", "--prefix", str(self.prefix))
         self.assertEqual(result.returncode, 0, result.stderr)
-        result = self.run_install(*args)
+        result = self.run_install("update", *args)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("request", subprocess.check_output([relay, "--help"], text=True))
 
@@ -64,7 +64,7 @@ class InstallClientTests(unittest.TestCase):
         foreign.write_text("unmanaged")
         relay = self.prefix / "relay"
         relay.symlink_to(foreign)
-        result = self.run_install("version-tools", "--prefix", str(self.prefix))
+        result = self.run_install("update", "--prefix", str(self.prefix))
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(relay.resolve(), foreign)
         self.assertEqual(foreign.read_text(), "unmanaged")

@@ -3,9 +3,9 @@
 ## Upgrading
 
 To update the version commands on an existing broker, vault, desk, desk-only agent or Proxmox
-host, run `sudo ./install.sh version-tools` from the reviewed Valetkey checkout on that
+host, run `sudo ./install.sh update` from the reviewed Valetkey checkout on that
 machine. This updates the CLI without restarting services or provisioning guests. For a
-user-local client, use `./install.sh version-tools --prefix "$HOME/.local/bin"`. A full
+user-local client, use `./install.sh update --prefix "$HOME/.local/bin"`. A full
 client keeps its existing subcommands. Run `relay version` for the installed Valetkey CLI
 and `relay latest-version` to check the latest public release. The vault server image and
 Bellhop services have their own upgrade procedures.

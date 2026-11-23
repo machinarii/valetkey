@@ -107,7 +107,7 @@ After changing org or collection names, run `relay-login` again for the affected
 |---|---|---|
 | `sudo ./install.sh vaultwarden` | vault host | Installs Docker and Tailscale, runs Vaultwarden and publishes it on the tailnet only. |
 | `./install.sh client [--relay-url URL] [--agent\|--owner] [--prefix DIR] [--with-deps]` | client | `--agent`: metadata CLI and guidance only. Otherwise installs consumer tools; `--owner` adds private entry; `--with-deps` adds Tailscale and fnox. |
-| `sudo ./install.sh version-tools` | existing Linux installation | Refreshes just the version commands from the checkout. Preserves the commands of an existing full client. Use `--prefix BIN_DIR` for a nondefault install. |
+| `sudo ./install.sh update` | existing Linux installation | Refreshes just the version commands from the checkout. Preserves the commands of an existing full client. Use `--prefix BIN_DIR` for a nondefault install. |
 | `relay version` or `relay --version` | all roles | Prints the installed Valetkey CLI version offline, for example `0.1.2`. |
 | `sudo relay-approval pair OWNER_NODE` | trusted broker console | Issue a ten-minute authenticator pairing link with a locally rendered QR code. [Pair and approve a route](route-approval.md). |
 | `relay request-route --help` | agent | Propose a fixed bearer API route and print its owner approval link. |

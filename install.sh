@@ -13,7 +13,7 @@
 #   ./install.sh doctor
 #   ./install.sh guidance   (offline rules for agent memory; never reads credentials)
 #   ./install.sh version
-#   sudo ./install.sh version-tools [--prefix BIN_DIR]  (updates the version commands only)
+#   sudo ./install.sh update [--prefix BIN_DIR]  (updates the version commands only)
 #   sudo ./install.sh proxmox [--no-desk]
 #                                       (Proxmox host: creates the vault, broker and desk guests)
 #   ./install.sh                        (on a terminal: asks which machine this is, then runs the above)
@@ -513,7 +513,7 @@ case ${1:-} in
   uninstall-client) shift; cmd_uninstall_client "$@" ;;
   doctor) cmd_doctor ;;
   guidance) cat "$repo/agents/credential-rules.md" ;;
-  version-tools) shift; exec bash "$repo/client/install-version-tools" "$@" ;;
+  update|version-tools) shift; exec bash "$repo/client/install-version-tools" "$@" ;;
   version|--version) echo "valetkey $version" ;;
   proxmox) shift; cmd_proxmox "$@" ;;
   "") if { : <"$tty"; } 2>/dev/null; then cmd_menu; else usage; fi ;;
