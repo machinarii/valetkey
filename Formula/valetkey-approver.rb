@@ -5,7 +5,7 @@
 class ValetkeyApprover < Formula
   desc "valetkey client for an approver device: relay and vault-entry"
   homepage "https://github.com/machinarii/valetkey"
-  url "https://github.com/machinarii/valetkey.git", tag: "v0.2.1"
+  url "https://github.com/machinarii/valetkey.git", tag: "v0.2.2"
   license "MIT"
   head "https://github.com/machinarii/valetkey.git", branch: "main"
 

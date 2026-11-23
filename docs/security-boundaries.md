@@ -51,7 +51,7 @@ The [MIT license](../LICENSE) is the governing text; this section explains it an
 
 ## Status and license
 
-Version 0.2.1. In daily use on a small fleet of Proxmox, macOS and Linux machines with AI agents; the Proxmox scripts are the most tested path. bellhop is newer than the broker: it has run on one Proxmox desk with three tools, and its keyless tool standard is a draft that nothing enforces yet.
+Version 0.2.2. In daily use on a small fleet of Proxmox, macOS and Linux machines with AI agents; the Proxmox scripts are the most tested path. bellhop is newer than the broker: it has run on one Proxmox desk with three tools, and its keyless tool standard is a draft that nothing enforces yet.
 
 It is not a bulletproof solution for protecting keys from agents. It is a practical way to reduce risk in a home agentic setup, built by one person, without an independent security audit. Treat it as a reasonable set of precautions, not a guarantee.
 

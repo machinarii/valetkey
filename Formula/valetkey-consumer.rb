@@ -5,7 +5,7 @@
 class ValetkeyConsumer < Formula
   desc "valetkey client for a trusted server whose application needs the key itself"
   homepage "https://github.com/machinarii/valetkey"
-  url "https://github.com/machinarii/valetkey.git", tag: "v0.2.1"
+  url "https://github.com/machinarii/valetkey.git", tag: "v0.2.2"
   license "MIT"
   head "https://github.com/machinarii/valetkey.git", branch: "main"
 
