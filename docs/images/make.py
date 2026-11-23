@@ -163,8 +163,7 @@ def base(focus):
     for i in range(3):
         key(d, right - 92 + i * 30, top + 24, 26, c(GOLD, "vault"), c(PANEL, "vault"))
     left, top, right, bottom = BOXES["desk"][:4]                        # the tool's login lives on the desk
-    login(d, left + 34, bottom - 30, 30, c(TEXT, "desk"), c(PANEL, "desk"))
-    d.text(sc(left + 60, bottom - 39), "the tool's login", font=font(13), fill=c(MUTED, "desk"))
+    d.text(sc(left + 16, bottom - 39), "the tool's login", font=font(13), fill=c(MUTED, "desk"))
     d.rectangle(sc(0, 0, W, TOP), fill=PANEL)
     d.line(sc(0, TOP, W, TOP), fill=EDGE, width=S)
     d.text(sc(40, 15), "valetkey", font=font(20, True), fill=TEXT)
@@ -248,7 +247,7 @@ def caption(d, number, text, k=1.0, step=0):
             d.ellipse(sc(cx - 3, cy - 3, cx + 3, cy + 3), outline=EDGE, width=S)
 
 
-CHECK = [("caller: agent-dev  ✓", TEAL), ("fits this route  ✓", TEAL, "valet")]
+CHECK = [("caller: agent-dev  ✓", TEAL), ("fits this route  ✓", TEAL)]
 
 # (seconds, caption number, caption, boxes in the spotlight (None: all), what moves; t runs 0..1)
 PHASES = [
