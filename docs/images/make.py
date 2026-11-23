@@ -130,11 +130,13 @@ def base(focus):
         on = focus is not None and a in focus and b in focus
         colour = (120, 158, 196) if on else (EDGE if lit(a) and lit(b) else mix(EDGE, NAVY, 0.4))
         (ax, ay), (bx, by) = edge(a, b)
-        d.line(sc(ax, ay, bx - 6, by), fill=colour, width=(3 if on else 2) * S)
-        ang = math.atan2(by - ay, bx - ax)                                  # arrowhead at the far box
-        tip = [(bx, by), (bx - 11 * math.cos(ang - 0.45), by - 11 * math.sin(ang - 0.45)),
-               (bx - 11 * math.cos(ang + 0.45), by - 11 * math.sin(ang + 0.45))]
-        d.polygon([v * S for p in tip for v in p], fill=colour)
+        length = math.hypot(bx - ax, by - ay)
+        ux, uy = (bx - ax) / length, (by - ay) / length                     # along the line
+        tx, ty = bx - ux * 3, by - uy * 3                                   # tip, just outside the far box
+        hx, hy = tx - ux * 12, ty - uy * 12                                 # where the arrowhead starts
+        d.line(sc(ax, ay, hx, hy), fill=colour, width=(3 if on else 2) * S)
+        head = [(tx, ty), (hx - uy * 5.5, hy + ux * 5.5), (hx + uy * 5.5, hy - ux * 5.5)]
+        d.polygon([v * S for p in head for v in p], fill=colour)
         if label:
             d.text(sc((ax + bx) / 2 - 14, (ay + by) / 2 - 20), label, font=font(11),
                    fill=MUTED if lit(a) and lit(b) else mix(MUTED, NAVY, DIM))
