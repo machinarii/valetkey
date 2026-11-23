@@ -1,7 +1,8 @@
 # Tools that need a login live on the desk, not on this machine
 
-This machine holds no keys and no logins. Tools that sign in to a service run on a separate desk
-machine, and you use them from here through `bellhop`.
+External tools that require a login run on the desk and are available through `bellhop`.
+Claude Code’s own subscription sign-in follows the machine-specific owner approval in the
+credential safety rules. Only the owner handles that login.
 
 - See what is available with `bellhop --list`. Listed tools are called by their own name, for
   example `higgsfield upload scene.png`. Files you name are sent along; result files come back.

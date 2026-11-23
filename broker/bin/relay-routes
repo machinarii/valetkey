@@ -34,10 +34,12 @@ try:
 except (OSError, ValueError, RoutesError) as err:
     sys.exit(f"FAIL  {sys.argv[3]}: {err}")
 print(f"ok    {sys.argv[3]}: {len(ec.owner_nodes)} owner nodes")
-print(f"policy: {len(r.agent_nodes)} broker-only agent nodes; {len(r.trusted_value_nodes)} trusted raw-value consumers")
+print(f"policy: {len(r.agent_nodes)} agent nodes; {len(r.trusted_value_nodes)} trusted raw-value consumers")
 for kind, entries in (("value", r.values), ("project", r.projects)):
     for name, route in entries.items():
-        if any(not r.may_read_values(n) for n in route.nodes):
+        if kind == "value" and route.claude_setup_token:
+            print(f"grant [{kind}.{name}]: any process on {route.nodes[0]} may read its Claude setup token")
+        elif any(not r.may_read_values(n) for n in route.nodes):
             print(f"warn  [{kind}.{name}]: raw reads denied for nodes outside security.trusted_value_nodes")
 ' "$libexec" "$routes" "$entry"
 }

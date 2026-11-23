@@ -90,6 +90,25 @@ class LoadRoutesTests(unittest.TestCase):
         with self.assertRaises(routes.RoutesError):
             r.validate_owners(["devbox"])
 
+    def test_claude_opt_in_bound_to_one_exact_local_agent_and_item(self):
+        config = ('[security]\nagent_nodes=["worker", "other"]\n'
+                  '[value.claude-code-oauth-worker]\norg="local"\n'
+                  'item="claude-code-oauth-worker"\nnodes=["worker"]\nclaude_setup_token=true')
+        policy = self.load_text(config)
+        ref = "claude-code-oauth-worker"
+        self.assertTrue(policy.for_org("local").allows_claude_setup_token("worker", ref))
+        self.assertFalse(policy.for_org("infra").allows_claude_setup_token("worker", ref))
+        self.assertFalse(policy.allows_claude_setup_token("other", ref))
+        self.assertFalse(policy.may_read_values("worker"))
+        for old, new in (("true", "false"), ("true", '"true"'), ('org="local"', 'org="infra"'),
+                         ('item="' + ref, 'item="other'),
+                         ('item="' + ref + '"', 'item="' + ref + '/notes"'),
+                         ("value." + ref, "value.alias"), ('nodes=["worker"]', 'nodes=["other"]'),
+                         ('nodes=["worker"]', 'nodes=["worker","other"]'),
+                         ('agent_nodes=["worker", "other"]', 'agent_nodes=[]')):
+            with self.subTest(new=new), self.assertRaises(routes.RoutesError):
+                self.load_text(config.replace(old, new))
+
     def test_policy_rejects_role_conflicts_and_typos(self):
         for text in ('[security]\nagent_nodes=["a"]\ntrusted_value_nodes=["a"]',
                      '[security]\ntrusted_values_nodes=["a"]',

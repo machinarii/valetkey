@@ -8,7 +8,7 @@ Unix user or an ordinary Docker container on the agent's host does not provide t
 
 | Role | May hold credentials | May run agents | Allowed interfaces |
 |---|---|---|---|
-| Agent VM | No provider keys, vault sessions or unlock passwords | Yes | Broker HTTPS API routes, checks and named requests |
+| Agent VM | Optional, explicitly granted Claude subscription token only | Yes | Broker HTTPS API routes, checks, named requests and the optional setup-token route |
 | Broker VM | Unlock material, vault sessions and injected keys | No | Agent-facing HTTPS 443; backend ports on loopback only |
 | Desk VM (optional) | The logins of command-line tools it runs for agents | No | Agent-facing HTTPS 443; the desk service on loopback only |
 | Vault server | Encrypted vault database and server secrets | No | HTTPS from broker and separate owner devices |
@@ -25,6 +25,37 @@ Docker socket, mount host paths, or share the host's Tailscale identity.
 Keep agents off the **owner entry device** too. Hidden input prevents terminal echo; it cannot
 protect against code on that device capturing keystrokes, browser fields or process memory.
 Never use a recorded agent terminal or shared agent browser for entry.
+
+## Claude Code subscription sign-in
+
+`claude setup-token` generates a long-lived subscription OAuth token. Claude Code accepts
+it in its process through `CLAUDE_CODE_OAUTH_TOKEN`. An existing setup-token installation
+does not require a browser login for each launch. Leave the owner's chosen authentication
+method in place when installing Valetkey. Only the owner provisions the model credential.
+
+For an owner-approved launcher that reads its setup token from Valetkey, keep the machine
+in `agent_nodes`. Any process on that machine can copy the token and use the subscription.
+In the broker's `/etc/relay/routes.toml`, configure the value route as shown. If the
+table already exists, edit it in place.
+
+```toml
+[value.claude-code-oauth-agent-dev]
+org = "local"
+item = "claude-code-oauth-agent-dev"
+nodes = ["agent-dev"]
+claude_setup_token = true
+```
+
+The broker accepts one agent per flagged route and requires the route and item to match
+that agent's name exactly. The grant covers the current password field only. Backups,
+notes, other nodes and the infra organization are outside this grant.
+
+The broker updater validates the complete routes file before installing. Resolve any other
+agent/value or agent/project conflicts through the existing consumer migration procedure
+before rollout. Once the updated broker is installed, apply a route edit with
+`sudo relay-routes check && sudo relay-routes install local`. On the agent VM,
+`relay check local claude-code-oauth-agent-dev` should return `ok`. That verifies storage
+and permission. Verify subscription authentication separately with a short T3 model turn.
 
 ## Network and identity
 
@@ -73,11 +104,9 @@ item = "database-url-shop-prod"
 nodes = ["app-prod"]
 ```
 
-`trusted_value_nodes` is an additional gate, not a grant to the whole vault. A raw read requires
-both membership there **and** the relevant `[value]`/`[project]` route. The default is an empty
-list, so raw reads are denied even if a legacy route lists the caller. Agent membership overrides
-raw access. Configuration rejects agent/raw and agent/owner role conflicts. Keep `owner_nodes`
-in `/etc/relay/entry.toml` limited to separate owner devices.
+Ordinary raw reads require membership in `trusted_value_nodes` and a matching value or
+project route. The Claude subscription exception above grants one item to one agent through
+an explicit value route. Keep owner nodes and trusted consumers on separate machines.
 
 Use exact item names over suffix wildcards. Split development and production routes. An API
 prefix without a trailing slash permits that endpoint and its children, not similarly named
@@ -132,7 +161,7 @@ checkout. Neither command reads a credential or installs instructions into unrel
 
 ## Migrate an existing deployment without breaking its consumers
 
-This is a behavior change: absent `trusted_value_nodes`, raw routes now return 403. Do not
+Ordinary raw routes return 403 when `trusted_value_nodes` is empty. Do not
 deploy the new broker code blindly onto a running raw-value setup.
 
 1. Inventory **references and consuming services only**, from approved metadata. Identify which

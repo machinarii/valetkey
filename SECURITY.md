@@ -12,9 +12,10 @@ reduce risk in a home agentic setup, and it has had no independent security audi
 See [secure setup](docs/secure-setup.md) for required machine separation, policy, migration and
 verification, and [the threat model](docs/valetkey-threat-model.md) for evidence and limits.
 
-**Agent default: broker-only.** Raw-value endpoints deny access unless the caller is explicitly
-in `[security].trusted_value_nodes` and authorized by a raw route. `[security].agent_nodes`
-cannot overlap raw-route or owner roles. Installations without the new policy deny all raw reads.
+Agents use broker-only API access by default. Ordinary raw reads require both a matching
+route and membership in `trusted_value_nodes`. An explicit `claude_setup_token = true`
+route lets every process on the named agent VM read its current Claude subscription token.
+See [Claude Code subscription sign-in](docs/secure-setup.md#claude-code-subscription-sign-in).
 
 **Assets:** credential values in Vaultwarden; the three relay unlock passwords on the broker.
 

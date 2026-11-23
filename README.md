@@ -100,7 +100,7 @@ Software alone does not keep a key from an agent. **Where each part runs matters
 - **No agent-side provider key required.** Approved broker API routes inject keys remotely. Existing credentials and Tailscale machine state still need protection. Revoke route access in `routes.toml` or the tailnet policy.
 - **Key injection.** `[api.*]` routes add credentials to outgoing HTTPS calls (exact host, methods and path prefixes) through `fnox proxy`. The calling process never has the key.
 - **Works with fnox as is.** Uses fnox's own `vault` provider with a 100-line shim. Keep `fnox exec`, profiles and `if_missing = "error"`.
-- **Broker-only agent policy.** Agent nodes can check and request; raw reads require a separate trusted-consumer grant. Includes offline guidance for agent memory.
+- **Broker-only agent policy.** Agent nodes can check and request; ordinary raw reads require a separate trusted-consumer grant. Includes offline guidance for agent memory.
 - **Owner entry, two ways.** Hidden terminal prompt (`vault-entry`) or a plain, phone-friendly web page that only your devices can submit to.
 - **Replace with backup.** Each replace keeps `<name>-backup-YYYYMMDD`; same-day collisions are refused. Backups require the same trusted raw-consumer policy as the original.
   fnox may find multiple items when a backup contains the original name. The owner must resolve that ambiguity privately before restarting the route; agents must not delete backups. `relay-check` and `relay-routes install` report it.
@@ -242,7 +242,7 @@ For Homebrew installs, run `brew update` and then `brew upgrade valetkey-agent`,
 `brew upgrade valetkey-owner`, or `brew upgrade valetkey-consumer` for the installed role.
 
 Read [the migration procedure](docs/secure-setup.md#migrate-an-existing-deployment-without-breaking-its-consumers)
-first. Raw routes now need explicit `trusted_value_nodes`; no list means no raw reads. Prepare
+first. Ordinary raw routes require explicit `trusted_value_nodes`. Prepare
 the policy and verify replacement consumers before the change window. No deployed state is
 changed by the source test suite.
 
@@ -333,7 +333,7 @@ valetkey takes a different route:
 |---|---|
 | Keys copied onto every machine | Agent machines receive no raw provider key through approved API routes. Separate trusted consumers fetch only what their processes need. Existing secret files are not removed by Valet. |
 | Broker client tokens to protect and rotate | **Identity is the machine.** The broker asks Tailscale who is calling (`tailscale whois`). There is no additional Valet bearer token; Tailscale identity still needs protecting. |
-| Agents that can read and print secrets | Declared agent machines use API routes and cannot read raw values. `relay check` reports storage/access status, not upstream authentication. |
+| Agents that can read and print secrets | Declared agent machines use API routes by default. A Claude setup-token exception exposes that token to the named machine. `relay check` reports storage/access status, not upstream authentication. |
 | Pasting a new key into chat | The owner types the value into a **hidden terminal prompt or a web page on the tailnet**. The agent picks the name, so naming can't drift. |
 | A key that silently expired | **Replace with backup**: the old value is kept as `<name>-backup-YYYYMMDD`. Only trusted consumers/operators may use backups. |
 
@@ -379,9 +379,9 @@ Each unlock password is stored with `systemd-creds`, encrypted to the VM's TPM/v
 
 An unknown caller (not a tailnet peer) gets `403`. A tailnet machine that isn't listed gets `not-allowed`. There is no endpoint that lists the vault.
 
-`[security].agent_nodes` declares broker-only machines. Raw routes additionally require
-`[security].trusted_value_nodes` membership (empty by default). Agent/raw and agent/owner role
-conflicts are rejected. The fnox pull examples below are for separate trusted consumers only.
+Agent machines belong in `[security].agent_nodes`. Ordinary raw reads require a matching
+route and membership in `trusted_value_nodes`. Owners can explicitly grant a machine
+its own Claude subscription token. See [Claude Code subscription sign-in](docs/secure-setup.md#claude-code-subscription-sign-in).
 
 **Three flows.**
 
@@ -847,7 +847,7 @@ After changing org or collection names, run `relay-login` again for the affected
 - a value at rest on any client machine: in files, `.env`, Keychain, shell history or logs;
 - a client token leaking: there is none;
 - a machine reading outside its routes, or one org's relay reading the other org;
-- raw reads by a declared agent machine: broker policy refuses them, including direct HTTP requests;
+- raw reads by an agent machine are denied by default, including direct HTTP requests. An owner-approved Claude setup-token route grants one machine its own model credential;
 - typos and naming drift when keys are added: the agent names, you type only the value;
 - losing the old key on a replace: a dated backup is always kept;
 - writes from non-owner machines: only untagged, non-agent `owner_nodes` may submit; stored values are verified by hash.
@@ -937,6 +937,8 @@ Start with [bellhop/README.md](bellhop/README.md). To add a tool step by step, f
 ---
 
 ## Working with AI agents
+
+For Claude Code subscribers, see [subscription authentication](docs/secure-setup.md#claude-code-subscription-sign-in) for the owner approval, login steps and broker access rules.
 
 [`agents/credential-rules.md`](agents/credential-rules.md) is a drop-in section for `CLAUDE.md`, `AGENTS.md` or any agent instruction file. It teaches the agent to:
 

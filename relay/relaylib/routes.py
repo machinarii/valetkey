@@ -60,6 +60,7 @@ class ValueRoute:
     org: str
     item: str
     nodes: list
+    claude_setup_token: bool = False
 
 
 @dataclass
@@ -80,6 +81,12 @@ class Routes:
 
     def may_read_values(self, node):
         return node in self.trusted_value_nodes and node not in self.agent_nodes
+
+    def allows_claude_setup_token(self, node, ref):
+        route = self.values.get(ref)
+        return (node in self.agent_nodes and ref == f"claude-code-oauth-{node}"
+                and route is not None and route.claude_setup_token
+                and route.org == "local" and route.item == ref and route.nodes == [node])
 
     def validate_owners(self, owners):
         if set(owners) & set(self.agent_nodes):
@@ -235,7 +242,13 @@ def load_routes(path):
                                     methods, paths, nodes)
     for name, e in conf.get("value", {}).items():
         org, nodes = _common("value", name, e)
-        routes.values[name] = ValueRoute(name, org, _item("value", name, e), nodes)
+        opt_in = e.get("claude_setup_token", False)
+        if not isinstance(opt_in, bool):
+            _fail("value", name, "claude_setup_token must be a boolean")
+        routes.values[name] = ValueRoute(name, org, _item("value", name, e), nodes, opt_in)
+        if opt_in and not routes.allows_claude_setup_token(nodes[0], name):
+            _fail("value", name, "claude_setup_token requires one agent node and its exact "
+                  "local/claude-code-oauth-<node> route and item")
     for name, e in conf.get("project", {}).items():
         org, nodes = _common("project", name, e)
         items = _str_list("project", name, e, "items")
@@ -244,6 +257,8 @@ def load_routes(path):
                 _fail("project", name, f"bad items entry {pat!r}")
         routes.projects[name] = ProjectRoute(name, org, nodes, items)
     for r in (*routes.values.values(), *routes.projects.values()):
+        if isinstance(r, ValueRoute) and r.claude_setup_token:
+            continue  # Exact local route and single agent were validated above.
         if set(r.nodes) & set(routes.agent_nodes):
             raise RoutesError(f"route {r.name}: agent_nodes cannot be granted raw-value routes")
     grants = Path(path).parent / "approved-routes.d"

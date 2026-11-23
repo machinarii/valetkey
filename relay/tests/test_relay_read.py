@@ -122,7 +122,7 @@ class RelayReadTest(unittest.TestCase):
         return self.path(name)
 
     def start(self, org="infra", machine="devbox", upstream_port=9, entry_url="http://127.0.0.1:9",
-              extra_whois=None):
+              extra_whois=None, routes=ROUTES):
         whois = {"127.0.0.1": f"{machine}.test.ts.net."} if machine else {}
         whois.update(extra_whois or {})
         env = support.fresh_env(self.state_path, whois)
@@ -134,7 +134,7 @@ class RelayReadTest(unittest.TestCase):
             f"PATH={support.fake_path()}", f"FAKE_BW_STATE={self.state_path}",
             "BW_SESSION=test-session", f"BITWARDENCLI_APPDATA_DIR={self.tmp.name}", ""]))
         argv = ["--org", org,
-                "--routes", self.write("routes.toml", ROUTES.format(upstream_port=upstream_port)),
+                "--routes", self.write("routes.toml", routes.format(upstream_port=upstream_port)),
                 "--port", "0",
                 "--org-ids", self.write(f"org-ids-{org}.json", json.dumps(ORG_IDS[org])),
                 "--loopback-secret-file", self.write("loopback", SECRET + "\n"),
@@ -634,6 +634,31 @@ class RelayReadTest(unittest.TestCase):
             self.assertEqual(self.get(path)[0], 403, path)
         status, _, body = self.get("/check?names=database-url-shop-qa")
         self.assertEqual(json.loads(body), {"database-url-shop-qa": "not-allowed"})
+
+    def test_claude_token_grant_serves_only_current_password_to_its_node(self):
+        name = "claude-code-oauth-worker"
+        backup = name + "-backup-20261117"
+        fixture = "synthetic-subscription-value"
+        self.state(base_items() + [item("6", name, "org-local", ["c-local"], pw=fixture),
+                                   item("7", backup, "org-local", ["c-local"], pw="synthetic-old")])
+        config = ROUTES.replace("[security]", '[security]\nagent_nodes=["worker", "other"]')
+        config += (f'\n[value.{name}]\norg="local"\nitem="{name}"\n'
+                   'nodes=["worker"]\nclaude_setup_token=true\n')
+        self.start(org="local", machine="worker", routes=config)
+        self.assertEqual(self.get("/value/" + name)[::2], (200, fixture.encode()))
+        for path in ("/value/" + backup, "/backups/" + name, "/value/" + name + "/notes",
+                     "/value/agentbot-hooks-token-bot1"):
+            self.assertEqual(self.get(path)[0], 403, path)
+        self.assertEqual(self.get("/value/" + name, method="POST")[0], 405)
+        check = "/check?names=" + ",".join([name, backup, name + "/notes"])
+        self.assertEqual(json.loads(self.get(check)[2]),
+                         {name: "ok", backup: "not-allowed", name + "/notes": "not-allowed"})
+        self.assertNotIn(fixture, self.audit.getvalue())
+        self.start(org="local", machine="other", routes=config)
+        self.assertEqual(self.get("/value/" + name)[0], 403)
+        self.assertEqual(json.loads(self.get("/check?names=" + name)[2]), {name: "not-allowed"})
+        self.start(org="infra", machine="worker", routes=config)
+        self.assertEqual(self.get("/value/" + name)[0], 403)
 
     def test_agent_policy_overrides_value_project_and_backup_routes(self):
         self.start(org="local", machine="bot1")

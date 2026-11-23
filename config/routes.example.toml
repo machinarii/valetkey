@@ -23,10 +23,17 @@
 #
 # Route names may not be: value, check, refresh, names, v1, backups.
 
-# Raw reads require BOTH this trusted-consumer policy and a route. Never trust an agent node.
+# Ordinary raw reads require BOTH this trusted-consumer policy and a route. Never trust an agent node.
 [security]
 agent_nodes = ["devbox", "bot1"]
 trusted_value_nodes = ["app-shop", "monitor"]
+
+# Optional Claude subscription login. Any process on devbox could copy this token.
+# [value.claude-code-oauth-devbox]
+# org = "local"
+# item = "claude-code-oauth-devbox"
+# nodes = ["devbox"]
+# claude_setup_token = true
 
 # A trusted deployed web shop consumer; no agents or agent-controlled code run here.
 [project.shop]

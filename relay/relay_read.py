@@ -183,7 +183,9 @@ class Handler(RelayHandler):
     def serve_value(self, who, route, ref):
         ctx = self.server.ctx
         # Final enforcement point: HTTP clients and modified shims cannot bypass this.
-        if not ctx["routes"].may_read_values(who):
+        routes = ctx["routes"]
+        setup_token = route == f"value/{ref}" and routes.allows_claude_setup_token(who, ref)
+        if not (routes.may_read_values(who) or setup_token):
             return self.deny(who, route, 403, "not allowed")
         if not ctx["limiter"].take(who):
             return self.deny(who, route, 429, "rate limited", "rate-limited")
@@ -273,7 +275,8 @@ class Handler(RelayHandler):
             for n in names:  # n is a ref (name or name/notes), as the shim would fetch it
                 api_allowed = any(r.item == n and who in r.nodes
                                   for r in self.server.ctx["routes"].api.values())
-                if not api_allowed and not self.allowed(who, split_ref(n)[0]):
+                setup_token = self.server.ctx["routes"].allows_claude_setup_token(who, n)
+                if not (api_allowed or setup_token or self.allowed(who, split_ref(n)[0])):
                     result[n] = "not-allowed"
                 else:
                     result[n] = "ok" if self.server.ctx["cache"].get(n) is not None else "missing"
