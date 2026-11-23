@@ -191,10 +191,10 @@ class ModelLauncherTests(unittest.TestCase):
 
 
 class LatestVersionTests(unittest.TestCase):
-    def lookup(self, pages):
+    def lookup(self, pages, command="update"):
         output = io.StringIO()
         with mock.patch("urllib.request.build_opener") as opener, \
-                mock.patch.object(sys, "argv", ["relay", "latest-version"]), \
+                mock.patch.object(sys, "argv", ["relay", command]), \
                 contextlib.redirect_stdout(output):
             responses = [io.BytesIO(json.dumps(page).encode()) for page in pages]
             opener.return_value.open.side_effect = responses
@@ -207,6 +207,9 @@ class LatestVersionTests(unittest.TestCase):
     def test_highest_stable_tag_across_pages(self):
         first = [{"name": "v1.9.1"}, {"name": "v2.0.0-rc.1"}] + [{"name": "nightly"}] * 98
         self.assertEqual(self.lookup([first, [{"name": "v1.10.0"}]]), (None, "1.10.0\n"))
+
+    def test_latest_version_alias(self):
+        self.assertEqual(self.lookup([[{"name": "v1.2.3"}]], "latest-version"), (None, "1.2.3\n"))
 
     def test_no_version_on_empty_or_invalid_response(self):
         for pages in ([[]], [[{"name": "v2.0.0-beta"}]], [{"unexpected": "response"}],

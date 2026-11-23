@@ -111,7 +111,7 @@ After changing org or collection names, run `relay-login` again for the affected
 | `relay version` or `relay --version` | all roles | Prints the installed Valetkey CLI version offline, for example `0.1.2`. |
 | `sudo relay-approval pair OWNER_NODE` | trusted broker console | Issue a ten-minute authenticator pairing link with a locally rendered QR code. [Pair and approve a route](route-approval.md). |
 | `relay request-route --help` | agent | Propose a fixed bearer API route and print its owner approval link. |
-| `relay latest-version` | all roles | Prints the highest stable `vMAJOR.MINOR.PATCH` tag from the public Valetkey repository on GitHub. Requires network access and only checks for updates. |
+| `relay update` | all roles | Prints the highest stable `vMAJOR.MINOR.PATCH` tag from the public Valetkey repository on GitHub. Requires network access and only checks for updates. |
 | `relay guide` / `./install.sh guidance` | any | Prints offline safety rules for persistent agent instructions; no credential access. |
 | `sudo ./install.sh broker [--with-deps]` | broker | Installs or updates the broker. Idempotent. |
 | `./install.sh doctor` / `version` / `uninstall-client` | any | Status, version, removal. |

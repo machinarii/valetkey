@@ -5,7 +5,7 @@ host, run `sudo ./install.sh update` from the reviewed Valetkey checkout on that
 machine. This updates the CLI without restarting services or provisioning guests. For a
 user-local client, use `./install.sh update --prefix "$HOME/.local/bin"`. A full
 client keeps its existing subcommands. Run `relay version` for the installed Valetkey CLI
-and `relay latest-version` to check the latest public release. The vault server image and
+and `relay update` to check the latest public release. The vault server image and
 Bellhop services have their own update procedures.
 
 From a reviewed release checkout on an existing Proxmox host, run

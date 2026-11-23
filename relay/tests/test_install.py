@@ -49,7 +49,7 @@ class InstallClientTests(unittest.TestCase):
         for cmd in ("version", "--version"):
             self.assertEqual(subprocess.check_output([relay, cmd], text=True), (ROOT / "VERSION").read_text())
         help_text = subprocess.check_output([relay, "--help"], text=True)
-        self.assertIn("latest-version", help_text)
+        self.assertIn("update", help_text)
         self.assertNotIn("request", help_text)
         self.assertFalse((self.home / ".config").exists())
         result = self.run_install("client", "--agent", "--prefix", str(self.prefix))

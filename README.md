@@ -39,7 +39,7 @@ Use a private Tailscale network. Run agents on dedicated machines. Keep them sep
 
 ## Updating valetkey
 
-Run `relay version` for the installed CLI version and `relay latest-version` for the latest public release. The broker, vault, desk and clients have different update procedures. [Update by role](docs/updating-valetkey.md)
+Run `relay version` for the installed CLI version and `relay update` for the latest public release. The broker, vault, desk and clients have different update procedures. [Update by role](docs/updating-valetkey.md)
 
 ## Guides
 
