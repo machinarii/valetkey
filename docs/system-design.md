@@ -6,7 +6,7 @@ valetkey is a self-hosted credential broker. It pairs [Vaultwarden](https://gith
 
 A valet key starts the car but won't open the trunk. valetkey gives each machine the same kind of key: it can use the few credentials its routes allow, for as long as it is on your tailnet, and nothing else. The master key stays in one place: a small broker VM that is the only thing allowed to unlock the vault.
 
-Software alone does not keep a key from an agent. **Where each part runs matters as much as what it does.** Read [Containment](#containment-where-everything-runs) before installing anything, then follow [secure setup](secure-setup.md). Never run agents on the broker, the desk, the vault server, an approver device, a trusted server or their management host. Raw reads are denied by default; existing deployments need the migration steps in that guide before upgrading.
+Software alone does not keep a key from an agent. **Where each part runs matters as much as what it does.** Read [Containment](#containment-where-everything-runs) before installing anything, then follow [secure setup](secure-setup.md). Never run agents on the broker, the desk, the vault server, an approver device, a trusted server or their management host. Raw reads are denied by default; existing deployments need the migration steps in that guide before updating valetkey.
 
 ## Why
 

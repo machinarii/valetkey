@@ -193,7 +193,7 @@ cmd_install() {
   epoch_cur=$(cat "$libexec/CONFIG_EPOCH" 2>/dev/null || true)
   if [ -n "$cur" ] && [ "$epoch_new" != "$epoch_cur" ]; then
     echo "WARNING: this update needs manual steps first (broker/CONFIG_EPOCH changed)."
-    echo "         Read \"Upgrading\" in the new README and do them before typing y."
+    echo "         Read \"Updating valetkey\" in the new README and do them before typing y."
   fi
   echo
   while :; do

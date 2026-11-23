@@ -197,7 +197,7 @@ Changes since the first review, each with a regression test:
 - TM-003: a short name now counts only under the broker's own tailnet DNS suffix, so a device
   shared in from another tailnet cannot borrow an owner's or trusted server's name
   (`relaylib/identity.py`). Renamed or newly enrolled devices in the same tailnet remain an
-  administration matter. After upgrading, confirm that known machines are still recognised
+  administration matter. After updating valetkey, confirm that known machines are still recognised
   (`relay check` from one of them).
 - TM-008: one machine may hold at most 20 pending entry requests (429 beyond); the owner's
   listing and page name the machine that asked (`relay_entry.py`, `relaylib/requests_store.py`).

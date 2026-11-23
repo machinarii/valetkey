@@ -35,9 +35,11 @@ Use a private Tailscale network. Run agents on dedicated machines. Keep them sep
 
 3. Follow the guide to sign the broker in, authorize your first route and verify it with a test credential. [First setup and verification](docs/installation.md#getting-started)
 
-## Upgrading
+<a id="upgrading"></a>
 
-Run `relay version` for the installed CLI version and `relay latest-version` for the latest public release. The broker, vault, desk and clients have different update procedures. [Upgrade by role](docs/upgrading.md)
+## Updating valetkey
+
+Run `relay version` for the installed CLI version and `relay latest-version` for the latest public release. The broker, vault, desk and clients have different update procedures. [Update by role](docs/updating-valetkey.md)
 
 ## Guides
 

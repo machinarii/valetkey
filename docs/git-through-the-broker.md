@@ -137,7 +137,7 @@ fnox can look items up by id, do not leave backups of `[api.*]` items in the vau
 | Symptom on the client | Cause and fix |
 |---|---|
 | `502 backend unavailable` on every route of the org, and `relay check` fails too | The read relay is not running: fnox could not resolve one `[api.*]` item (missing, or its name is contained in another item's name). `sudo relay-check <org>` names it; fix the item, then `sudo relay-routes install <org>`. |
-| `502 upstream error: SSLCertVerificationError` | A relay from before the Python 3.13 fix: fnox's proxy certificates have no Authority Key Identifier and the strict default check rejects them. Upgrade the broker. |
+| `502 upstream error: SSLCertVerificationError` | A relay from before the Python 3.13 fix: fnox's proxy certificates have no Authority Key Identifier and the strict default check rejects them. Update the broker. |
 | `400` with no message | The item holds the raw token, not the encoded form (section 1). |
 | `401` | The token expired, was revoked or regenerated, or does not cover that repository. The entry page marks the item *may be expired*. |
 | `403 not allowed` | The calling machine is not in the route's `nodes`. |

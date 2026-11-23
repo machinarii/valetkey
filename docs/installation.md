@@ -49,7 +49,7 @@ During setup, authorize each guest to join your tailnet. Finish vault account
 setup, broker sign-in and access grants on your approved devices. If a guest
 installation fails, existing guests stay in place. Resolve the failure on that
 guest before continuing with the individual provisioning scripts. For an
-existing deployment, follow the upgrade procedure.
+existing deployment, follow [Updating valetkey](updating-valetkey.md).
 
 ### Client tools with Homebrew (macOS and Linux)
 
@@ -94,7 +94,7 @@ Set the machines up in this order. [Getting started](#getting-started) has every
 8. [Add the desk](#8-add-the-desk-optional) (optional)
 9. [Verify](#9-verify)
 
-Already installed? See [Upgrading](upgrading.md#upgrading).
+Already installed? See [Updating valetkey](updating-valetkey.md).
 
 ### Requirements
 
