@@ -75,8 +75,10 @@ def base():
         if sub:
             d.text(sc(left + 16, top + 37), sub, font=font(12), fill=MUTED, spacing=4 * S)
     left, top, right, bottom = BOXES["agent"][:4]                       # the agent holds nothing
-    d.rounded_rectangle(sc(left + 16, bottom - 44, left + 108, bottom - 16), radius=14 * S, outline=TEAL, width=2 * S)
-    d.text(sc(left + 30, bottom - 39), "0 keys", font=font(14, True), fill=TEAL)
+    label, f = "holds no keys", font(14, True)
+    w = d.textlength(label, font=f) / S + 28
+    d.rounded_rectangle(sc(left + 16, bottom - 44, left + 16 + w, bottom - 16), radius=14 * S, outline=TEAL, width=2 * S)
+    d.text(sc(left + 30, bottom - 39), label, font=f, fill=TEAL)
     left, top, right, bottom = BOXES["vault"][:4]
     for i in range(3):
         key(d, right - 92 + i * 30, top + 24, 26, GOLD, PANEL)
