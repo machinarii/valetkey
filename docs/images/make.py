@@ -52,8 +52,8 @@ BOXES = {  # name: (left, top, right, bottom, title, subtitle)
     "broker": (365, 60, 595, 220, "Broker", "checks the caller, adds the key"),
     "desk": (365, 290, 595, 450, "Desk", "runs tools that sign in"),
     "vault": (700, 30, 920, 110, "Vault", "every key, encrypted"),
-    "api": (700, 150, 920, 230, "A service's API", ""),
-    "svc": (700, 330, 920, 410, "A tool's service", ""),
+    "api": (700, 150, 920, 230, "Service API", ""),
+    "svc": (700, 330, 920, 410, "Service tool", ""),
 }
 
 
