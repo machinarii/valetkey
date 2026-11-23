@@ -1,5 +1,7 @@
 # Updating valetkey
 
+Both version commands use Python 3.9+ and its standard library. `relay version` works offline. `relay update` (available since 0.2.1) checks public GitHub tags anonymously and prints the newest stable version. It needs DNS, direct outbound HTTPS to `api.github.com` on TCP 443 and a working TLS trust store. It bypasses environment proxy settings. The check runs independently of Git, the broker and the vault.
+
 To update the version commands on an existing broker, vault, desk, desk-only agent or Proxmox
 host, run `sudo ./install.sh update` from the reviewed Valetkey checkout on that
 machine. This updates the CLI without restarting services or provisioning guests. For a

@@ -11,9 +11,13 @@ Use a funded Anthropic, OpenAI or OpenRouter API account with the native CLI. Th
 
 Claude Code uses the Anthropic Messages protocol. OpenRouter recommends Anthropic models for Claude Code. Codex uses the streaming Responses protocol and needs a model that supports the tools your session uses. Choose a model available to your account. The broker forwards the ID you select. [Claude gateway compatibility](https://code.claude.com/docs/en/llm-gateway) · [OpenRouter for Claude Code](https://openrouter.ai/docs/guides/coding-agents/claude-code-integration) · [OpenRouter for Codex](https://openrouter.ai/docs/guides/coding-agents/codex-cli)
 
-## 1. Store the provider key
+## Requirements
 
-Update the broker and install the full Valetkey client from a revision with `relay model --help`. Install the native Claude Code or Codex CLI on the agent. Keep the broker URL configured through the existing client install.
+- **Agent machine.** Install the full Valetkey client (0.2.0+) with Python 3.9+. Configure its broker URL and allow HTTPS to the broker over Tailscale. The native `claude` or `codex` executable must be on the launcher’s `PATH`, including when T3 starts it. OpenRouter uses the same native CLI.
+- **Broker.** Use Valetkey 0.2.0+ with its Vaultwarden and fnox integration. Allow outbound HTTPS on TCP 443 to the provider you select (`api.anthropic.com`, `api.openai.com` or `openrouter.ai`).
+- **Provider account.** Enable API billing with the selected provider and choose a model that account can use. Store the API key through the approver workflow below.
+
+## 1. Store the provider key
 
 For OpenRouter, request an item by name from the agent:
 

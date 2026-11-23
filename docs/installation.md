@@ -104,7 +104,11 @@ Already installed? See [Updating valetkey](updating-valetkey.md).
 | **Vaultwarden** | Any host with Docker (the Proxmox LXC script is optional). Vaultwarden 1.37.2+ for current Bitwarden clients. |
 | **Broker** | Debian 12+ or Ubuntu 24.04+ with systemd ≥ 250, Python ≥ 3.11 and a TPM or vTPM (for `systemd-creds`). 2 vCPU, 2 GB RAM and 8 GB disk. Each relay runs the Bitwarden CLI, which is heavy: 1 GB runs out once an org has more than a few `[api.*]` routes. |
 | **Desk** (optional) | Debian 12+ or Ubuntu 24.04+ with systemd and Python ≥ 3.11, on its own VM. 2 vCPU, 2 GB RAM and 16 GB disk is enough for a few tools. No TPM needed. |
-| **Clients** | Python ≥ 3.9 (macOS's `/usr/bin/python3` works), Tailscale, and [fnox](https://fnox.jdx.dev) for project pulls (`install.sh client --with-deps` installs both). |
+| **Clients** | Python 3.9+ on `PATH` and Tailscale access to the broker for broker commands. Trusted servers that pull project secrets also need fnox. |
+
+On Linux, `./install.sh client --with-deps` can install Tailscale and, for a trusted server, fnox. On macOS, install Tailscale separately and join the tailnet.
+
+The broker installer checks for the Bitwarden CLI (`bw`), fnox, Tailscale, `jq`, `systemd-creds` and `systemd-run`. On supported Debian and Ubuntu systems, `sudo ./install.sh broker --with-deps` installs the broker dependencies, including `qrencode` for authenticator pairing. See [version-command requirements](updating-valetkey.md) and [model launcher requirements](model-api-accounts.md#requirements) for those workflows.
 
 ### One command per machine
 
