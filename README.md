@@ -4,7 +4,7 @@
 
 <h1 align="center">valetkey</h1>
 
-<h2 align="center">Your machines get a valet key, never the master.</h2>
+<h2 align="center">Your agents use the key. They never see it.</h2>
 
 <p align="center">
   Give an AI agent access to a tool while the tool's credentials stay on a separate machine:<br>
