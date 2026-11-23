@@ -7,7 +7,7 @@
 <h2 align="center">Your agents use the key, but they never see it.</h2>
 
 <p align="center">
-  Give an AI agent access to a tool while the tool's credentials stay on a separate machine:<br>
+  Give an AI agent access to a tool while the credentials stay on a separate machine:<br>
   a credential broker and a tool desk on their own machines, joined over your private Tailscale network.
 </p>
 
