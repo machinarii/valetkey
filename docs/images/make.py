@@ -18,7 +18,8 @@ from PIL import Image, ImageDraw, ImageFont
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 S = 2                     # draw at twice the size, then shrink: smooth edges
-W, H, FPS = 960, 540, 10
+W, H, FPS = 960, 580, 10
+TOP, STEP = 56, (68, 112)  # top bar height; step description band (top, bottom)
 PAUSE = 1.0  # seconds each step holds still once its motion ends, so it can be read
 NAVY, PANEL, EDGE = (15, 27, 42), (24, 42, 64), (58, 88, 120)
 TEXT, MUTED = (232, 238, 245), (150, 168, 188)
@@ -67,12 +68,12 @@ ICONS = {"master": lambda d, x, y, bg: key(d, x, y, 24, GOLD, bg),
 
 
 BOXES = {  # name: (left, top, right, bottom, title, subtitle)
-    "agent": (40, 170, 270, 370, "Agent machine", "runs your AI agents"),
-    "broker": (365, 60, 595, 220, "Broker", "checks the caller, adds the key"),
-    "desk": (365, 290, 595, 450, "Desk", "runs MCPs & other tools\nthat require sign in"),
-    "vault": (700, 30, 920, 110, "Vault", "every key, encrypted"),
-    "api": (700, 150, 920, 230, "Service API", ""),
-    "svc": (700, 330, 920, 410, "Service tool", ""),
+    "agent": (40, 270, 270, 470, "Agent machine", "runs your AI agents"),
+    "broker": (365, 160, 595, 320, "Broker", "checks the caller, adds the key"),
+    "desk": (365, 390, 595, 550, "Desk", "runs MCPs & other tools\nthat require sign in"),
+    "vault": (700, 130, 920, 210, "Vault", "every key, encrypted"),
+    "api": (700, 250, 920, 330, "Service API", ""),
+    "svc": (700, 430, 920, 510, "Service tool", ""),
 }
 
 
@@ -103,14 +104,18 @@ def base():
     left, top, right, bottom = BOXES["desk"][:4]                        # the tool's login lives on the desk
     login(d, left + 34, bottom - 30, 30, GOLD, PANEL)
     d.text(sc(left + 60, bottom - 39), "the tool's login", font=font(12), fill=MUTED)
-    d.text(sc(40, 22), "valetkey", font=font(20, True), fill=TEXT)
-    d.text(sc(152, 27), "how a key gets used", font=font(13), fill=MUTED)
-    x = 330
-    for icon, text in (("master", "master key"), ("valet", "valet key"), ("login", "a tool's login")):
-        ICONS[icon](d, x + 12, 35, NAVY)
-        d.text(sc(x + 30, 28), text, font=font(12), fill=MUTED)
-        x += 40 + d.textlength(text, font=font(12)) / S + 18
-    d.text(sc(288, 232), "tailnet", font=font(11), fill=MUTED)
+    d.rectangle(sc(0, 0, W, TOP), fill=PANEL)
+    d.line(sc(0, TOP, W, TOP), fill=EDGE, width=S)
+    d.text(sc(40, 15), "valetkey", font=font(20, True), fill=TEXT)
+    d.text(sc(152, 20), "how a key gets used", font=font(13), fill=MUTED)
+    legend = (("master", "master key"), ("valet", "valet key"), ("login", "a tool's login"))
+    widths = [30 + d.textlength(text, font=font(12)) / S for _, text in legend]
+    x = 920 - sum(widths) - 22 * (len(legend) - 1)  # right-aligned with the boxes
+    for (icon, text), w in zip(legend, widths):
+        ICONS[icon](d, x + 12, TOP / 2, PANEL)
+        d.text(sc(x + 30, TOP / 2 - 8), text, font=font(12), fill=MUTED)
+        x += w + 22
+    d.text(sc(288, 332), "tailnet", font=font(11), fill=MUTED)
     return img
 
 
@@ -160,13 +165,14 @@ def broker_key(d, alpha=1.0):
 
 
 def caption(d, number, text):
-    d.rounded_rectangle(sc(40, 478, 920, 522), radius=12 * S, fill=PANEL)
+    top, bottom = STEP
+    d.rounded_rectangle(sc(40, top, 920, bottom), radius=12 * S, fill=PANEL)
     x = 58
     if number:
-        d.ellipse(sc(54, 487, 80, 513), fill=TEAL)
-        d.text(sc(67 - d.textlength(str(number), font=font(14, True)) / S / 2, 491), str(number), font=font(14, True), fill=NAVY)
+        d.ellipse(sc(54, top + 9, 80, top + 35), fill=TEAL)
+        d.text(sc(67 - d.textlength(str(number), font=font(14, True)) / S / 2, top + 13), str(number), font=font(14, True), fill=NAVY)
         x = 92
-    d.text(sc(x, 490), text, font=font(15), fill=TEXT)
+    d.text(sc(x, top + 12), text, font=font(15), fill=TEXT)
 
 
 CHECK = [("valet key: agent-dev  ✓", TEAL), ("route allows it  ✓", TEAL)]
