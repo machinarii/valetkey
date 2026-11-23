@@ -52,3 +52,21 @@ make dist     # dist/valetkey-<version>.tar.gz
 ```
 
 The tests cover the policy edges as well as the happy path: unknown callers, callers not in `nodes`, items outside `items`, wrong org, list attempts, values never appearing in logs or error bodies, name validation, near-duplicate flags, replace-with-backup, hash verification and lock-on-every-path. CI runs them on Python 3.11 to 3.13.
+
+### Redrawing the README animation
+
+`docs/images/how-it-works.gif` is drawn by `docs/images/make.py`. Only this script needs extra
+tools; valetkey itself, its tests and its installers do not use them.
+
+| Needs | Install |
+|---|---|
+| Python 3.9+ with [Pillow](https://pypi.org/project/pillow/) | `python3 -m pip install --user Pillow`, or `sudo apt-get install python3-pil` |
+| [ffmpeg](https://ffmpeg.org) (builds the GIF palette and file) | `sudo apt-get install ffmpeg`, or `brew install ffmpeg` |
+| DejaVu Sans fonts (falls back to Pillow's default font) | `sudo apt-get install fonts-dejavu-core` |
+
+```sh
+python3 docs/images/make.py    # rewrites docs/images/how-it-works.gif and prints its frame count and size
+```
+
+Timing and look are set near the top of the script: `PAUSE` (seconds each step holds still), `FADE`
+(cross-fade frames between steps) and `DIM` (how far boxes outside the current step fade).
