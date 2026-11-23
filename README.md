@@ -67,6 +67,7 @@
 - [What it is](#what-it-is)
 - [Features](#features)
 - [Installation](#installation): [requirements](#requirements), [one command per machine](#one-command-per-machine)
+- [Upgrading](#upgrading)
 - [The parts and where each runs](#the-parts-and-where-each-runs)
 - [Why](#why)
 - [How it works](#how-it-works)
@@ -80,7 +81,6 @@
 - [The desk: tools with their own login](#the-desk-tools-with-their-own-login)
 - [Working with AI agents](#working-with-ai-agents)
 - [What it costs: tokens and time](#what-it-costs-tokens-and-time)
-- [Upgrading](#upgrading)
 - [Troubleshooting](#troubleshooting)
 - [Project layout](#project-layout)
 - [Development](#development)
@@ -225,6 +225,67 @@ What no installer can do for you, because each step is a decision or a secret:
 - sign the relays in (`relay-login`) and sign tools in on the desk;
 - write the routes and the desk's tool list: who may use what;
 - take `sudo` away from the agent's user.
+
+---
+
+## Upgrading
+
+To update the version commands on an existing broker, vault, desk, desk-only agent or Proxmox
+host, run `sudo ./install.sh version-tools` from the reviewed Valetkey checkout on that
+machine. This updates the CLI without restarting services or provisioning guests. For a
+user-local client, use `./install.sh version-tools --prefix "$HOME/.local/bin"`. A full
+client keeps its existing subcommands. Run `relay version` for the installed Valetkey CLI
+and `relay latest-version` to check the latest public release. The vault server image and
+Bellhop services have their own upgrade procedures.
+
+For Homebrew installs, run `brew update` and then `brew upgrade valetkey-agent`,
+`brew upgrade valetkey-owner`, or `brew upgrade valetkey-consumer` for the installed role.
+
+Read [the migration procedure](docs/secure-setup.md#migrate-an-existing-deployment-without-breaking-its-consumers)
+first. Raw routes now need explicit `trusted_value_nodes`; no list means no raw reads. Prepare
+the policy and verify replacement consumers before the change window. No deployed state is
+changed by the source test suite.
+
+```sh
+git pull
+sudo ./install.sh broker      # on the broker: replaces code and units, keeps /etc/relay and logins
+./install.sh client --agent   # on an agent, using its existing install prefix
+```
+
+The broker reports its installed version in `/usr/local/libexec/relay/VERSION` and in `./install.sh doctor`.
+
+### Updating the broker in one command
+
+After a one-time setup the broker fetches its own code, so nothing has to be copied to it:
+
+```sh
+sudo relay-update setup https://github.com/machinarii/valetkey.git   # once
+sudo relay-update install                                            # each update
+```
+
+Point `setup` at this repository or at your own fork. A public repository is read over https and
+needs no key. For a private one, give the `git@github.com:<owner>/<repo>.git` address instead:
+`setup` then makes a read-only deploy key (the private half is encrypted with `systemd-creds`),
+prints the public half for the repository's Settings → Deploy keys (leave write access off), and
+prints GitHub's SSH host key fingerprint to compare with the published one.
+
+`install` fetches the branch, shows the commit ids, the commit titles and a GitHub link to the
+diff, and waits for `yes`. Nothing from the repository runs before that. It then checks
+`/etc/relay` with the new parser, keeps a copy of the installed code, runs `install.sh broker`,
+and waits until the relay ports that listened before listen again. If they do not, it puts the
+previous code back and says so. `sudo relay-update rollback` does the same on request, for an
+update that starts but misbehaves.
+
+Run it only from the broker's console or LAN SSH, and review the diff first: anyone who can push
+to the repository decides what that command installs. There is deliberately no remote or
+automatic trigger.
+
+`broker/CONFIG_EPOCH` is a number that changes whenever an update needs you to do something
+first (edit `/etc/relay`, change the vault or the tailnet). `install` warns when it differs from
+the installed one; the steps are listed here, newest first:
+
+- **1** (first numbered epoch): raw routes need `[security].trusted_value_nodes`, see the
+  migration procedure above.
 
 ---
 
@@ -995,67 +1056,6 @@ rules and settings                      44,128  +5,820        1,626
 ```
 
 The response times in that output come from three runs each and swing widely; the ten-run figures in the table above are the ones to trust.
-
----
-
-## Upgrading
-
-To update the version commands on an existing broker, vault, desk, desk-only agent or Proxmox
-host, run `sudo ./install.sh version-tools` from the reviewed Valetkey checkout on that
-machine. This updates the CLI without restarting services or provisioning guests. For a
-user-local client, use `./install.sh version-tools --prefix "$HOME/.local/bin"`. A full
-client keeps its existing subcommands. Run `relay version` for the installed Valetkey CLI
-and `relay latest-version` to check the latest public release. The vault server image and
-Bellhop services have their own upgrade procedures.
-
-For Homebrew installs, run `brew update` and then `brew upgrade valetkey-agent`,
-`brew upgrade valetkey-owner`, or `brew upgrade valetkey-consumer` for the installed role.
-
-Read [the migration procedure](docs/secure-setup.md#migrate-an-existing-deployment-without-breaking-its-consumers)
-first. Raw routes now need explicit `trusted_value_nodes`; no list means no raw reads. Prepare
-the policy and verify replacement consumers before the change window. No deployed state is
-changed by the source test suite.
-
-```sh
-git pull
-sudo ./install.sh broker      # on the broker: replaces code and units, keeps /etc/relay and logins
-./install.sh client --agent   # on an agent, using its existing install prefix
-```
-
-The broker reports its installed version in `/usr/local/libexec/relay/VERSION` and in `./install.sh doctor`.
-
-### Updating the broker in one command
-
-After a one-time setup the broker fetches its own code, so nothing has to be copied to it:
-
-```sh
-sudo relay-update setup https://github.com/machinarii/valetkey.git   # once
-sudo relay-update install                                            # each update
-```
-
-Point `setup` at this repository or at your own fork. A public repository is read over https and
-needs no key. For a private one, give the `git@github.com:<owner>/<repo>.git` address instead:
-`setup` then makes a read-only deploy key (the private half is encrypted with `systemd-creds`),
-prints the public half for the repository's Settings → Deploy keys (leave write access off), and
-prints GitHub's SSH host key fingerprint to compare with the published one.
-
-`install` fetches the branch, shows the commit ids, the commit titles and a GitHub link to the
-diff, and waits for `yes`. Nothing from the repository runs before that. It then checks
-`/etc/relay` with the new parser, keeps a copy of the installed code, runs `install.sh broker`,
-and waits until the relay ports that listened before listen again. If they do not, it puts the
-previous code back and says so. `sudo relay-update rollback` does the same on request, for an
-update that starts but misbehaves.
-
-Run it only from the broker's console or LAN SSH, and review the diff first: anyone who can push
-to the repository decides what that command installs. There is deliberately no remote or
-automatic trigger.
-
-`broker/CONFIG_EPOCH` is a number that changes whenever an update needs you to do something
-first (edit `/etc/relay`, change the vault or the tailnet). `install` warns when it differs from
-the installed one; the steps are listed here, newest first:
-
-- **1** (first numbered epoch): raw routes need `[security].trusted_value_nodes`, see the
-  migration procedure above.
 
 ---
 
