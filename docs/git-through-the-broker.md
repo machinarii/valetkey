@@ -11,6 +11,31 @@ the raw token to the client, where every process of that user can read it.
 The examples use GitHub, an account called `acme` and a client called `devbox`. Tested with
 fnox 1.35.3 and Python 3.13 on the broker.
 
+## Publishing GitHub Actions workflow changes
+
+Keep the broker's Git credential scoped to the intended repositories with Contents write access.
+Leave Workflows write access with the owner. An agent that can use a broker route can exercise
+the permissions behind it even when it cannot read the token. A writable deploy key on the agent
+machine would also grant repository write access. Personal SSH keys authenticate as the owner
+and have no separate workflow scope. [GitHub token permissions](https://docs.github.com/en/rest/repos/contents#create-or-update-file-contents) · [Deploy keys](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/managing-deploy-keys)
+
+For an occasional edit, use GitHub's web editor on a separate owner device. Review the proposed
+workflow, commit to a topic branch, and open a pull request. Keep that browser session and any
+Git credential or SSH agent used for the push beyond the reach of agent tooling, including
+remote browser debugging and forwarded authentication sockets.
+
+For a change prepared locally, use the owner device to fetch the proposed branch and review
+its diff against the target branch. After adding or editing the workflow, stage the intended
+files and run `git diff --cached -- .github/workflows/` to check the exact YAML going into the
+commit. Review the complete change as well, including local actions, Makefile targets, and
+scripts the jobs execute. Then commit and push the reviewed change to the topic branch.
+
+Complete that review **before the first push or pull request that can trigger the workflow**.
+A branch push or PR can start a job before merge approval. Keep ordinary test jobs on a
+read-only `GITHUB_TOKEN` with no deployment secrets. An agent that can edit scripts called by
+an existing job can influence what runs even without permission to edit the workflow file.
+[GitHub Actions secure use](https://docs.github.com/en/actions/reference/security/secure-use)
+
 ## 1. Store the credential in the form the git host expects
 
 Git logs in to GitHub over HTTPS with a `Basic` header. fnox swaps a placeholder for the stored
