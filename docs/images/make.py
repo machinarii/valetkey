@@ -50,7 +50,7 @@ def key(d, cx, cy, size, color, hole):
 BOXES = {  # name: (left, top, right, bottom, title, subtitle)
     "agent": (40, 170, 270, 370, "Agent machine", "runs your AI agents"),
     "broker": (365, 60, 595, 220, "Broker", "checks the caller, adds the key"),
-    "desk": (365, 290, 595, 450, "Desk", "runs tools that sign in"),
+    "desk": (365, 290, 595, 450, "Desk", "runs MCPs & other tools\nthat require sign in"),
     "vault": (700, 30, 920, 110, "Vault", "every key, encrypted"),
     "api": (700, 150, 920, 230, "Service API", ""),
     "svc": (700, 330, 920, 410, "Service tool", ""),
@@ -72,7 +72,7 @@ def base():
         d.rounded_rectangle(sc(left, top, right, bottom), radius=14 * S, fill=PANEL, outline=EDGE, width=2 * S)
         d.text(sc(left + 16, top + 12), title, font=font(17, True), fill=TEXT)
         if sub:
-            d.text(sc(left + 16, top + 37), sub, font=font(12), fill=MUTED)
+            d.text(sc(left + 16, top + 37), sub, font=font(12), fill=MUTED, spacing=4 * S)
     left, top, right, bottom = BOXES["agent"][:4]                       # the agent holds nothing
     d.rounded_rectangle(sc(left + 16, bottom - 44, left + 108, bottom - 16), radius=14 * S, outline=TEAL, width=2 * S)
     d.text(sc(left + 30, bottom - 39), "0 keys", font=font(14, True), fill=TEAL)
