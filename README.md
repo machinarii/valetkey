@@ -143,7 +143,7 @@ The broker, vault, desk and clients have different update procedures.
 ## Status
 
 > [!IMPORTANT]
-> **valetkey 0.2.1 is for home setups.** It is a practical way to reduce the risk of running AI
+> **valetkey is for home setups.** It is a practical way to reduce the risk of running AI
 > agents on your own machines, not a bulletproof one, and it has had no independent security audit.
 > If you have compliance requirements, many users or keys whose loss you could not absorb, use it as
 > a starting point and not as your only control.
