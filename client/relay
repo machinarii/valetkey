@@ -4,6 +4,8 @@ import argparse
 import json
 import os
 from pathlib import Path
+from http.client import HTTPException
+import re
 import socket
 import sys
 import time
@@ -29,7 +31,12 @@ def _relay_url():
     return url.rstrip("/")
 
 
-BASE = _relay_url()
+# Keep the version in the executable so copied clients and Homebrew symlinks identify themselves.
+# The install test checks it against the repository VERSION.
+CLIENT_VERSION = "0.1.0"
+TAGS_URL = "https://api.github.com/repos/machinarii/valetkey/tags"
+STABLE_TAG = re.compile(r"v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)")
+BASE = ""
 NO_URL = ("no broker URL: set RELAY_URL=https://broker.<tailnet>.ts.net or run "
           "`relay set-url https://broker.<tailnet>.ts.net`")
 
@@ -90,6 +97,44 @@ def good_addr(addr):
                     and (u.scheme == "https" or (u.scheme == "http" and u.hostname in ("127.0.0.1", "localhost"))))
     except ValueError:
         return False
+
+
+def cmd_version(a):
+    print(CLIENT_VERSION)
+
+
+def cmd_latest_version(a):
+    latest = None
+    page = 1
+    while True:
+        try:
+            with OPENER.open(f"{TAGS_URL}?per_page=100&page={page}", timeout=10) as response:
+                data = response.read(1024 * 1024 + 1)
+            if len(data) > 1024 * 1024:
+                raise ValueError
+            tags = json.loads(data)
+            if not isinstance(tags, list):
+                raise ValueError
+            for tag in tags:
+                if not isinstance(tag, dict) or not isinstance(tag.get("name"), str):
+                    raise ValueError
+                match = STABLE_TAG.fullmatch(tag["name"])
+                if match:
+                    version = tuple(map(int, match.groups()))
+                    if latest is None or version > latest:
+                        latest = version
+        except urllib.error.HTTPError as error:
+            sys.exit(f"relay: GitHub tag lookup failed (HTTP {error.code})")
+        except (OSError, HTTPException):
+            sys.exit("relay: could not reach GitHub to check the latest version")
+        except (ValueError, RecursionError):
+            sys.exit("relay: invalid tag list from GitHub")
+        if len(tags) < 100:
+            break
+        page += 1
+    if latest is None:
+        sys.exit("relay: no stable Valetkey version tag found")
+    print(".".join(map(str, latest)))
 
 
 def cmd_guide(a):
@@ -175,8 +220,12 @@ def cmd_status(a):
 
 
 def main():
+    global BASE
     p = argparse.ArgumentParser(prog="relay")
+    p.add_argument("--version", action="version", version=CLIENT_VERSION)
     sub = p.add_subparsers(dest="cmd", required=True)
+    sub.add_parser("version", help="print the installed client version offline").set_defaults(fn=cmd_version)
+    sub.add_parser("latest-version", help="print the latest stable public Valetkey tag").set_defaults(fn=cmd_latest_version)
     g = sub.add_parser("guide", help="print offline credential safety rules for agent memory")
     g.set_defaults(fn=cmd_guide)
     u = sub.add_parser("set-url", help="save the broker URL, e.g. https://broker.<tailnet>.ts.net")
@@ -202,8 +251,10 @@ def main():
     s.add_argument("id")
     s.set_defaults(fn=cmd_status)
     a = p.parse_args()
-    if a.cmd not in ("guide", "set-url") and not BASE:
-        sys.exit(f"relay: {NO_URL}")
+    if a.cmd not in ("guide", "version", "latest-version", "set-url"):
+        BASE = _relay_url()
+        if not BASE:
+            sys.exit(f"relay: {NO_URL}")
     sys.exit(a.fn(a))
 
 

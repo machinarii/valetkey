@@ -1,7 +1,10 @@
 """Client tools (client/relay, client/vault, client/vault-entry) against a fake broker."""
+import contextlib
+import io
 import json
 import os
 import pty
+import runpy
 import select
 import socket
 import struct
@@ -11,6 +14,7 @@ import tempfile
 import threading
 import time
 import unittest
+from unittest import mock
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -149,6 +153,32 @@ class ClientCase(unittest.TestCase):
 
     def out(self, p):
         return p.stdout.decode(), p.stderr.decode()
+
+
+class LatestVersionTests(unittest.TestCase):
+    def lookup(self, pages):
+        output = io.StringIO()
+        with mock.patch("urllib.request.build_opener") as opener, \
+                mock.patch.object(sys, "argv", ["relay", "latest-version"]), \
+                contextlib.redirect_stdout(output):
+            responses = [io.BytesIO(json.dumps(page).encode()) for page in pages]
+            opener.return_value.open.side_effect = responses
+            with self.assertRaises(SystemExit) as result:
+                runpy.run_path(os.path.join(CLIENT, "relay"), run_name="__main__")
+            for number, call in enumerate(opener.return_value.open.call_args_list, 1):
+                self.assertEqual(call.args, (f"https://api.github.com/repos/machinarii/valetkey/tags?per_page=100&page={number}",))
+        return result.exception.code, output.getvalue()
+
+    def test_highest_stable_tag_across_pages(self):
+        first = [{"name": "v1.9.1"}, {"name": "v2.0.0-rc.1"}] + [{"name": "nightly"}] * 98
+        self.assertEqual(self.lookup([first, [{"name": "v1.10.0"}]]), (None, "1.10.0\n"))
+
+    def test_no_version_on_empty_or_invalid_response(self):
+        for pages in ([[]], [[{"name": "v2.0.0-beta"}]], [{"unexpected": "response"}],
+                      [[{"name": "v1.2.3"}] * 100, [None]]):
+            code, output = self.lookup(pages)
+            self.assertTrue(code)
+            self.assertEqual(output, "")
 
 
 class RelayTests(ClientCase):

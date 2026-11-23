@@ -29,6 +29,16 @@ class InstallClientTests(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(r.stdout.strip(), "valetkey " + (ROOT / "VERSION").read_text().strip())
 
+    def test_installed_client_version_without_broker(self):
+        r = self.run_install("client", "--agent", "--prefix", str(self.prefix))
+        self.assertEqual(r.returncode, 0, r.stderr)
+        for flag in ("version", "--version"):
+            r = subprocess.run([str(self.prefix / "relay"), flag], cwd=self.home,
+                               env={"HOME": str(self.home), "PATH": os.environ["PATH"]},
+                               capture_output=True, text=True, timeout=10)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            self.assertEqual(r.stdout, (ROOT / "VERSION").read_text())
+
     def test_client_installs_tools_and_saves_url(self):
         r = self.run_install("client", "--prefix", str(self.prefix),
                              "--relay-url", "https://broker.example.ts.net/")
