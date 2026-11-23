@@ -14,9 +14,9 @@ class ValetkeyAgent < Formula
 
   def install
     bin.install "client/relay"
-    (share/"valetkey").install "agents/credential-rules.md"
     # Claude Code and Codex rules and settings; the same step as `./install.sh claude`.
     (libexec/"agents").install "agents/claude-setup.py", "agents/credential-rules.md"
+    (share/"valetkey").install_symlink libexec/"agents/credential-rules.md"  # `relay guide` reads it here
     (libexec/"bellhop").install "bellhop/agent-rules.md"
     (bin/"valetkey-agent-setup").write <<~SH
       #!/bin/sh
