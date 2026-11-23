@@ -4,6 +4,8 @@
 
 # valetkey
 
+## Your machines get a valet key, never the master.
+
 Give an AI agent access to a tool while keeping the tool’s credentials on a separate machine. **Valetkey is designed for Claude Code with a Claude subscription and Codex with a ChatGPT subscription.** Credit-based model API accounts are outside this guide’s scope. The tools your agent calls can still use API keys. Memory capture with **claude-mem is optional**.
 
 ## How it works
