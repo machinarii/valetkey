@@ -28,9 +28,9 @@
 <br>
 
 <p align="center">
-  <img src="docs/images/how-it-works.gif" width="860" alt="Animation in nine steps. An agent machine that holds no keys sends a request to the broker. The broker checks which machine is calling and what its routes allow, takes one key from the vault, adds it and forwards the request to the service. The answer comes back and the key stays on the broker. For a tool with its own login, the agent calls the desk, which runs the real tool and returns the output. A command that would print the login is refused.">
+  <img src="docs/images/how-it-works.gif" width="860" alt="Animation in eleven steps, with a legend: a gold key is a master key (the real credential), a teal key is a valet key (permission to use a route, no secret), a gold card is a tool's own login. An agent machine that holds no keys calls the broker with its valet key. The broker checks which machine is calling and what its routes allow, takes that route's master key from the vault, adds it and forwards the request to the service. The answer comes back without the master key. For a tool with its own login, the agent calls the desk, which runs the real tool with that login. A command that would print the login is refused.">
   <br>
-  <sub>The agent's machine holds no keys. The broker adds a key to a request on its way out; the desk runs tools that keep their own login.</sub>
+  <sub>Agents get a valet key, never the master. The broker adds the master key to a request on its way out; the desk runs tools that keep their own login.</sub>
 </p>
 
 > [!WARNING]

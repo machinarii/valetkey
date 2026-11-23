@@ -48,6 +48,24 @@ def key(d, cx, cy, size, color, hole):
         d.rectangle(sc(right - size * (off + 0.07), cy, right - size * off, cy + size * 0.17), fill=color)
 
 
+def login(d, cx, cy, size, color, hole):
+    """A sign-in card (a head beside two lines), for a tool's own login. Not a vault key."""
+    w, h = size, size * 0.72
+    d.rounded_rectangle(sc(cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2), radius=size * 0.12 * S, fill=color)
+    hx, r = cx - w * 0.22, h * 0.15
+    d.ellipse(sc(hx - r, cy - h * 0.26, hx + r, cy - h * 0.26 + 2 * r), fill=hole)
+    d.pieslice(sc(hx - r * 1.8, cy + h * 0.06, hx + r * 1.8, cy + h * 0.06 + r * 3.6), 180, 360, fill=hole)
+    for i in (0, 1):
+        d.rectangle(sc(cx + w * 0.04, cy - h * 0.16 + i * h * 0.28, cx + w * 0.38, cy - h * 0.05 + i * h * 0.28), fill=hole)
+
+
+# master key: the real credential (vault, broker, service). valet key: permission to use one route,
+# no secret (the agent's requests). login: a tool's own sign-in (desk, tool's service).
+ICONS = {"master": lambda d, x, y, bg: key(d, x, y, 24, GOLD, bg),
+         "valet": lambda d, x, y, bg: key(d, x, y, 24, TEAL, bg),
+         "login": lambda d, x, y, bg: login(d, x, y, 22, GOLD, bg)}
+
+
 BOXES = {  # name: (left, top, right, bottom, title, subtitle)
     "agent": (40, 170, 270, 370, "Agent machine", "runs your AI agents"),
     "broker": (365, 60, 595, 220, "Broker", "checks the caller, adds the key"),
@@ -83,10 +101,15 @@ def base():
     for i in range(3):
         key(d, right - 92 + i * 30, top + 24, 26, GOLD, PANEL)
     left, top, right, bottom = BOXES["desk"][:4]                        # the tool's login lives on the desk
-    key(d, left + 36, bottom - 30, 34, GOLD, PANEL)
+    login(d, left + 34, bottom - 30, 30, GOLD, PANEL)
     d.text(sc(left + 60, bottom - 39), "the tool's login", font=font(12), fill=MUTED)
     d.text(sc(40, 22), "valetkey", font=font(20, True), fill=TEXT)
     d.text(sc(152, 27), "how a key gets used", font=font(13), fill=MUTED)
+    x = 330
+    for icon, text in (("master", "master key"), ("valet", "valet key"), ("login", "a tool's login")):
+        ICONS[icon](d, x + 12, 35, NAVY)
+        d.text(sc(x + 30, 28), text, font=font(12), fill=MUTED)
+        x += 40 + d.textlength(text, font=font(12)) / S + 18
     d.text(sc(288, 232), "tailnet", font=font(11), fill=MUTED)
     return img
 
@@ -107,13 +130,13 @@ def ease(t):
     return 0.5 - 0.5 * math.cos(math.pi * max(0, min(1, t)))
 
 
-def pill(d, x, y, text, color=TEAL, with_key=False, width=None):
+def pill(d, x, y, text, color=TEAL, icon=None, width=None):
     f = font(12, True)
-    w = width or d.textlength(text, font=f) / S + 24 + (26 if with_key else 0)
+    w = width or d.textlength(text, font=f) / S + 24 + (28 if icon else 0)
     d.rounded_rectangle(sc(x - w / 2, y - 13, x + w / 2, y + 13), radius=13 * S, fill=NAVY, outline=color, width=2 * S)
     d.text(sc(x - w / 2 + 12, y - 8), text, font=f, fill=color)
-    if with_key:
-        key(d, x + w / 2 - 20, y, 24, GOLD, NAVY)
+    if icon:
+        ICONS[icon](d, x + w / 2 - 20, y, NAVY)
 
 
 def travel(d, a, b, t, text, back=False, **kw):
@@ -127,7 +150,8 @@ def travel(d, a, b, t, text, back=False, **kw):
 def note(d, box, lines):
     left, top, right, bottom = BOXES[box][:4]
     for i, (text, color) in enumerate(lines):
-        d.text(sc(left + 16, top + 66 + i * 22), text, font=font(13, True), fill=color)
+        below = 16 if "\n" in BOXES[box][5] else 0  # clear a two-line subtitle
+        d.text(sc(left + 16, top + 66 + below + i * 22), text, font=font(13, True), fill=color)
 
 
 def broker_key(d, alpha=1.0):
@@ -145,32 +169,33 @@ def caption(d, number, text):
     d.text(sc(x, 490), text, font=font(15), fill=TEXT)
 
 
-CHECK = [("caller: agent-dev  ✓", TEAL), ("route allows it  ✓", TEAL)]
+CHECK = [("valet key: agent-dev  ✓", TEAL), ("route allows it  ✓", TEAL)]
 
 # (seconds, caption number, caption, what moves; t runs 0..1 within the phase)
 PHASES = [
     (1.6, None, "The agent's machine holds no keys and no logins.", lambda d, t: None),
-    (1.6, 1, "An agent calls the broker. The request carries no key.",
-     lambda d, t: travel(d, "agent", "broker", t, "request")),
+    (1.6, 1, "An agent calls the broker with its valet key: who it is, no secret.",
+     lambda d, t: travel(d, "agent", "broker", t, "request", icon="valet")),
     (1.6, 2, "The broker checks which machine is calling and what its routes allow.",
      lambda d, t: note(d, "broker", CHECK[:1 + (t > 0.45)])),
-    (1.5, 3, "It takes that one key from the vault.",
-     lambda d, t: (note(d, "broker", CHECK), travel(d, "broker", "vault", t, "key", back=True, color=GOLD))),
-    (1.6, 4, "It adds the key and forwards the request to the service.",
-     lambda d, t: (note(d, "broker", CHECK), broker_key(d), travel(d, "broker", "api", t, "request", with_key=True))),
-    (1.8, 5, "The answer comes back. The key never left the broker.",
+    (1.5, 3, "It takes that route's master key from the vault.",
+     lambda d, t: (note(d, "broker", CHECK), travel(d, "broker", "vault", t, "master key", back=True, color=GOLD,
+                                                    icon="master"))),
+    (1.6, 4, "It adds the master key and forwards the request to the service.",
+     lambda d, t: (note(d, "broker", CHECK), broker_key(d), travel(d, "broker", "api", t, "request", icon="master"))),
+    (1.8, 5, "The answer comes back without the master key. The agent never sees it.",
      lambda d, t: (broker_key(d), travel(d, "broker", "api", t * 2, "answer", back=True) if t < 0.5
                    else travel(d, "agent", "broker", t * 2 - 1, "answer", back=True))),
     (1.6, 6, "For a tool with its own login, the agent calls the desk instead.",
-     lambda d, t: travel(d, "agent", "desk", t, "tool upload a.png")),
+     lambda d, t: travel(d, "agent", "desk", t, "tool upload a.png", icon="valet")),
     (1.8, 7, "The desk runs the real tool with its login, within a list you wrote.",
-     lambda d, t: (note(d, "desk", [("on the list  ✓", TEAL)]), travel(d, "desk", "svc", t, "upload", with_key=True))),
+     lambda d, t: (note(d, "desk", [("on the list  ✓", TEAL)]), travel(d, "desk", "svc", t, "upload", icon="login"))),
     (1.6, 8, "The output comes back. The login stays on the desk.",
      lambda d, t: travel(d, "agent", "desk", t, "output", back=True)),
     (2.0, 9, "A command that would print the login is refused.",
      lambda d, t: (travel(d, "agent", "desk", min(t * 1.5, 0.62), "tool auth token", color=RED),
                    note(d, "desk", [("", RED), ("not on the list  ✗", RED)]) if t > 0.45 else None)),
-    (2.6, None, "Keys live where no agent runs. The agent's machine holds none.",
+    (2.6, None, "Master keys and logins stay where no agent runs. Agents get valet keys.",
      lambda d, t: d.rounded_rectangle(sc(*[v + o for v, o in zip(BOXES["agent"][:4], (-5, -5, 5, 5))]),
                                       radius=18 * S, outline=TEAL, width=(2 + round(2 * abs(math.sin(t * math.pi * 2)))) * S)),
 ]
