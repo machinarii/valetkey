@@ -41,13 +41,13 @@ def sc(*values):
     return [v * S for v in values]
 
 
-def key(d, cx, cy, size, color, hole):
-    """A key lying flat, bow on the left, centred on (cx, cy)."""
+def key(d, cx, cy, size, color, hole, teeth=2):
+    """A key lying flat, bow on the left, centred on (cx, cy). The valet key has one tooth."""
     r, t, left, right = size * 0.24, size * 0.11, cx - size / 2, cx + size / 2
     d.ellipse(sc(left, cy - r, left + 2 * r, cy + r), fill=color)
     d.ellipse(sc(left + r * 0.55, cy - r * 0.45, left + r * 1.45, cy + r * 0.45), fill=hole)
     d.rounded_rectangle(sc(left + 2 * r - 2, cy - t / 2, right, cy + t / 2), radius=t / 2 * S, fill=color)
-    for off in (0.06, 0.20):
+    for off in (0.06, 0.20)[:teeth]:
         d.rectangle(sc(right - size * (off + 0.07), cy, right - size * off, cy + size * 0.17), fill=color)
 
 
@@ -70,7 +70,7 @@ def mix(a, b, k):
 # master key: the real credential (vault, broker, service). valet key: permission to use one route,
 # no secret (the agent's requests). login: a tool's own sign-in (desk, tool's service).
 ICONS = {"master": lambda d, x, y, bg, a=1: key(d, x, y, 24, mix(bg, GOLD, a), bg),
-         "valet": lambda d, x, y, bg, a=1: key(d, x, y, 24, mix(bg, TEAL, a), bg),
+         "valet": lambda d, x, y, bg, a=1: key(d, x, y, 24, mix(bg, TEAL, a), bg, teeth=1),
          "login": lambda d, x, y, bg, a=1: login(d, x, y, 22, mix(bg, GOLD, a), bg)}
 
 
