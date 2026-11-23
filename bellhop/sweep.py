@@ -11,7 +11,6 @@ MCP servers that do not go through the desk, and programs that appeared since th
 Expected items go in /etc/bellhop/sweep-allow, one path pattern, mcp:NAME or tool:NAME per line.
 MCP servers may live at the desk (/etc/bellhop/url) and at the addresses in /etc/bellhop/mcp-prefixes
 (one per line, for example the broker's).
-If /etc/bellhop/alert-url holds a push address (Uptime Kuma style), it is told up or down.
 """
 import argparse
 import fnmatch

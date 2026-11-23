@@ -8,7 +8,7 @@ Unix user or an ordinary Docker container on the agent's host does not provide t
 
 | Role | May hold credentials | May run agents | Allowed interfaces |
 |---|---|---|---|
-| Agent VM | Optional, explicitly granted Claude subscription token only | Yes | Broker HTTPS API routes, checks, named requests and the optional setup-token route |
+| Agent VM | Owner-approved Claude subscription credential (setup token or native web session) | Yes | Broker HTTPS API routes, checks, named requests and the optional setup-token route |
 | Broker VM | Unlock material, vault sessions and injected keys | No | Agent-facing HTTPS 443; backend ports on loopback only |
 | Desk VM (optional) | The logins of command-line tools it runs for agents | No | Agent-facing HTTPS 443; the desk service on loopback only |
 | Vault server | Encrypted vault database and server secrets | No | HTTPS from broker and separate owner devices |
@@ -28,10 +28,25 @@ Never use a recorded agent terminal or shared agent browser for entry.
 
 ## Claude Code subscription sign-in
 
-`claude setup-token` generates a long-lived subscription OAuth token. Claude Code accepts
-it in its process through `CLAUDE_CODE_OAUTH_TOKEN`. An existing setup-token installation
-does not require a browser login for each launch. Leave the owner's chosen authentication
-method in place when installing Valetkey. Only the owner provisions the model credential.
+Choose a method per machine. `relay guide claude` shows both choices offline.
+
+### Web login
+
+On a machine approved to hold a local Claude session, the owner runs `claude auth login`
+using the native Claude Code executable, as the same OS user and with the same Claude
+configuration directory as T3. Select the Claude subscription in the browser. Claude Code
+manages the local session. In T3, select that executable and use a launch environment
+without a setup-token or API credential override. Verify with a short model turn. This
+method requires no broker route. An existing setup-token route remains active until the
+owner removes it separately. [Claude Code authentication](https://code.claude.com/docs/en/authentication)
+
+### OAuth token from `claude setup-token`
+
+For a new token, the owner runs `claude setup-token` on a separate owner device in an
+unrecorded terminal, approves in the browser, then enters the token privately through the
+requested broker entry page or `vault-entry`. For an existing token, keep its Vaultwarden
+item. In T3, select the owner-approved launcher that supplies `CLAUDE_CODE_OAUTH_TOKEN`
+to the Claude process on each launch.
 
 For an owner-approved launcher that reads its setup token from Valetkey, keep the machine
 in `agent_nodes`. Any process on that machine can copy the token and use the subscription.

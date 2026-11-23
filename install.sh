@@ -140,6 +140,8 @@ sys.exit(0 if good else 1)
   echo "Check it: relay check local <item-name>     (ok / missing / not-allowed, never values)"
   echo "Safety rules: relay guide     (offline; reference these in agent instructions)"
   if [ "$agent" = yes ]; then
+    echo "Claude subscription: relay guide claude shows setup-token and web login options."
+    echo "Valetkey works with or without claude-mem. For memory capture setup, run relay guide claude-mem."
     echo "Broker must list this machine in [security].agent_nodes; never trusted_value_nodes or owner_nodes."
     echo "--agent does not remove existing tools or credentials and is not an access-control boundary."
   fi

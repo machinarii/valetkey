@@ -146,7 +146,7 @@ Three things on the agent machine, all owned by root so the agent's user cannot 
   MCP settings that hold a key, MCP servers that bypass the desk, and programs that appeared in
   the user's tool folders since the known list. It prints paths and reasons, never contents.
   Expected items go in `/etc/bellhop/sweep-allow`; `sweep.py --accept` takes the current tools as
-  known. Put an Uptime Kuma push address in `/etc/bellhop/alert-url` to be told up or down.
+  known.
 
 The policy covers Claude Code only. Codex reads its own settings; the sweep still reports MCP
 servers in `~/.codex/config.toml`.

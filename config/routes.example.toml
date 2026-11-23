@@ -26,7 +26,7 @@
 # Ordinary raw reads require BOTH this trusted-consumer policy and a route. Never trust an agent node.
 [security]
 agent_nodes = ["devbox", "bot1"]
-trusted_value_nodes = ["app-shop", "monitor"]
+trusted_value_nodes = ["app-shop"]
 
 # Optional Claude subscription login. Any process on devbox could copy this token.
 # [value.claude-code-oauth-devbox]
@@ -50,12 +50,6 @@ auth     = "Bearer {}"
 methods  = ["GET"]
 paths    = ["/v1/balance"]
 nodes    = ["devbox"]
-
-# A monitoring push URL that one machine's heartbeat must hold itself.
-[value.kuma-push-devbox]
-org   = "local"
-item  = "kuma-push-devbox"
-nodes = ["monitor"]
 
 # A token held by a trusted service, never by its agent callers.
 [value.agent-ingest-token]

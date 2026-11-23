@@ -430,6 +430,16 @@ class HardeningTests(ClientCase):
                 self.assertEqual(f.read(), "https://broker.example.ts.net\n")
         self.assertEqual(self.srv.log, [])
 
+    def test_claude_guide_offers_both_methods_offline(self):
+        with tempfile.TemporaryDirectory() as cfg:
+            p = self.run_tool("relay", "guide", "claude", env={"RELAY_URL": "", "XDG_CONFIG_HOME": cfg})
+            self.assertEqual(os.listdir(cfg), [])
+        self.assertEqual(p.returncode, 0, p.stderr)
+        self.assertIn(b"claude setup-token", p.stdout)
+        self.assertIn(b"claude auth login", p.stdout)
+        self.assertNotIn(b"## Allowed workflow", p.stdout)
+        self.assertEqual(self.srv.log, [])
+
     def test_relay_url_from_config_file(self):
         with tempfile.TemporaryDirectory() as cfg:
             os.makedirs(os.path.join(cfg, "valetkey"))

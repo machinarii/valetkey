@@ -29,12 +29,14 @@ class ClaudeSetup(unittest.TestCase):
     def test_recommended_answers_merge_and_keep_what_was_there(self):
         self.settings.parent.mkdir()
         self.settings.write_text(json.dumps({
+            "enabledPlugins": {"claude-mem@thedotmack": True},
             "model": "kept", "permissions": {"allow": ["Bash(git status *)"], "deny": ["Read(~/mine/**)"]},
             "sandbox": {"network": {"allowedDomains": ["github.com"]}}}))
         self.rules.write_text("# My own notes\n\nKeep this line.\n")
         r = self.run_setup("--yes", "--hide-env", "SOME_TOKEN")
         self.assertEqual(r.returncode, 0, r.stderr)
         s = json.loads(self.settings.read_text())
+        self.assertEqual(s["enabledPlugins"], {"claude-mem@thedotmack": True})
         self.assertEqual(s["model"], "kept")
         self.assertEqual(s["permissions"]["allow"], ["Bash(git status *)"])
         deny = s["permissions"]["deny"]

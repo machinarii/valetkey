@@ -138,6 +138,28 @@ class InstallClientTests(unittest.TestCase):
         self.assertEqual(log.read_text(), f"fnox@{pin}\n")
         self.assertEqual(os.readlink(self.prefix / "fnox"), "/opt/fake/fnox")
 
+    def test_optional_claude_mem_with_and_without_existing_install(self):
+        plugin = self.home / ".claude/plugins/cache/thedotmack/claude-mem"
+        marker = plugin / "fixture"
+        for installed in (False, True):
+            with self.subTest(installed=installed):
+                if installed:
+                    plugin.mkdir(parents=True)
+                    marker.write_text("existing plugin")
+                result = self.run_install("client", "--agent", "--prefix", str(self.prefix))
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn("works with or without claude-mem", result.stdout)
+                guide = subprocess.run([str(self.prefix / "relay"), "guide", "claude-mem"],
+                                       env={"HOME": str(self.home), "PATH": os.environ["PATH"]},
+                                       capture_output=True, text=True, timeout=10)
+                self.assertEqual(guide.returncode, 0, guide.stderr)
+                self.assertTrue(guide.stdout.startswith("## Optional claude-mem integration"))
+                self.assertIn("remote worker", guide.stdout)
+                self.assertNotIn("## Allowed workflow", guide.stdout)
+                self.assertEqual(plugin.exists(), installed)
+                if installed:
+                    self.assertEqual(marker.read_text(), "existing plugin")
+
     def test_agent_and_owner_install_modes_conflict(self):
         r = self.run_install("client", "--agent", "--owner", "--prefix", str(self.prefix))
         self.assertNotEqual(r.returncode, 0)
