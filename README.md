@@ -28,9 +28,9 @@
 <br>
 
 <p align="center">
-  <img src="docs/images/how-it-works.gif" width="860" alt="Animation in eleven steps, with a legend: a gold key is a master key (the real credential), a silver key with one tooth is a valet key (permission to use a route, no secret), a white card is a tool's own login. An agent machine that holds no keys calls the broker with its valet key. The broker checks which machine is calling and what its routes allow, takes that route's master key from the vault, adds it and forwards the request to the service. The answer comes back without the master key. For a tool with its own login, the agent calls the desk, which runs the real tool with that login. A command that would print the login is refused.">
+  <img src="docs/images/how-it-works.gif" width="860" alt="Animation in eleven steps, with a legend: a keyhole is a request with no key in it, a gold key is a master key (the real credential), a silver key with one tooth is a valet key (which routes a machine may use, kept on the broker), a white card is a tool's own login. An agent machine that holds no keys sends the broker a request with an empty keyhole. The broker checks which machine is calling and that its valet key fits the route, takes that route's master key from the vault, puts it in the keyhole and forwards the request to the service. The answer comes back without the master key. For a tool with its own login, the agent calls the desk, which runs the real tool with that login. A command that would print the login is refused.">
   <br>
-  <sub>Agents get a valet key, never the master. The broker adds the master key to a request on its way out; the desk runs tools that keep their own login.</sub>
+  <sub>Agents send keyholes, never keys. The broker puts the master key in a request on its way out; the desk runs tools that keep their own login.</sub>
 </p>
 
 > [!WARNING]
