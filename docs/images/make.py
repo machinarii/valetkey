@@ -9,6 +9,7 @@ The icon (valetkey-icon.png, valetkey-icon-512.png) is not drawn here. It was ge
 ChatGPT's image tool from the brief "a close-up robotic valet in a cap, holding a key beside its
 head", then cut out of its background and resized.
 """
+from functools import lru_cache
 import math
 import os
 import subprocess
@@ -17,26 +18,31 @@ import tempfile
 from PIL import Image, ImageDraw, ImageFont
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-S = 2                     # draw at twice the size, then shrink: smooth edges
-W, H, FPS = 960, 592, 10
+S = 3                     # supersample the logical canvas before export
+W, H = 960, 592
+OUTPUT = (860, round(H * 860 / W))  # match the README image width
+FPS, COLORS = 25, 256
 TOP, STEP = 56, (80, 124)  # top bar height; step description band (top, bottom)
 PAUSE = 1.0  # seconds each step holds still once its motion ends, so it can be read
-FADE = 4     # frames: the spotlight cross-fades between steps; captions and moving items fade in
-DIM = 0.6    # how far boxes outside the current step sink into the background
+FADE = 0.32  # seconds for the spotlight and caption transition
+DIM = 0.44    # how far boxes outside the current step sink into the background
 NAVY, PANEL, EDGE = (15, 27, 42), (24, 42, 64), (58, 88, 120)
 TEXT, MUTED = (232, 238, 245), (150, 168, 188)
 GOLD, TEAL, RED = (242, 184, 75), (72, 204, 176), (238, 104, 104)
 SILVER = (196, 206, 218)  # the valet key: gold is the master's
 
 
+@lru_cache(maxsize=None)
 def font(size, bold=False):
-    name = "DejaVuSans-Bold.ttf" if bold else "DejaVuSans.ttf"
-    for folder in ("/usr/share/fonts/truetype/dejavu", "/usr/share/fonts/dejavu", "/Library/Fonts"):
-        path = os.path.join(folder, name)
-        if os.path.exists(path):
-            return ImageFont.truetype(path, size * S)
+    dejavu = "DejaVuSans-Bold.ttf" if bold else "DejaVuSans.ttf"
+    arial = "Arial Bold.ttf" if bold else "Arial.ttf"
+    for name in (dejavu, os.path.join("/System/Library/Fonts/Supplemental", arial),
+                 os.path.join("/Library/Fonts", arial)):
+        try:
+            return ImageFont.truetype(name, size * S)
+        except OSError:
+            continue
     return ImageFont.load_default(size * S)
-
 
 def sc(*values):
     return [v * S for v in values]
@@ -112,6 +118,8 @@ def edge(a, b):
     (ax, ay), (bx, by) = centre(a), centre(b)
     if a == "agent":
         ay = ay - 40 if by < ay else ay + 40
+    if a == "agent" and b == "desk":
+        by += 18  # leave room for the returning label beneath the desk subtitle
     if a == "broker" and b in ("vault", "api"):
         ay = ay - 30 if b == "vault" else ay + 30
     return (ar, ay), (bl, by)
@@ -134,18 +142,18 @@ def base(focus):
         ux, uy = (bx - ax) / length, (by - ay) / length                     # along the line
         tx, ty = bx - ux * 3, by - uy * 3                                   # tip, just outside the far box
         hx, hy = tx - ux * 12, ty - uy * 12                                 # where the arrowhead starts
-        d.line(sc(ax, ay, hx, hy), fill=colour, width=(3 if on else 2) * S)
+        d.line(sc(ax, ay, hx, hy), fill=colour, width=2 * S)
         head = [(tx, ty), (hx - uy * 5.5, hy + ux * 5.5), (hx + uy * 5.5, hy - ux * 5.5)]
         d.polygon([v * S for p in head for v in p], fill=colour)
         if label:
-            d.text(sc((ax + bx) / 2 - 14, (ay + by) / 2 - 20), label, font=font(11),
+            d.text(sc((ax + bx) / 2, (ay + by) / 2 - 20), label, font=font(13), anchor="ms",
                    fill=MUTED if lit(a) and lit(b) else mix(MUTED, NAVY, DIM))
     for name, (left, top, right, bottom, title, sub) in BOXES.items():
         d.rounded_rectangle(sc(left, top, right, bottom), radius=14 * S, fill=c(PANEL, name),
                             outline=c(EDGE if focus is None or not lit(name) else (96, 132, 170), name), width=2 * S)
-        d.text(sc(left + 16, top + 12), title, font=font(17, True), fill=c(TEXT, name))
+        d.text(sc(left + 16, top + 12), title, font=font(19, True), fill=c(TEXT, name))
         if sub:
-            d.text(sc(left + 16, top + 37), sub, font=font(12), fill=c(MUTED, name), spacing=4 * S)
+            d.text(sc(left + 16, top + 37), sub, font=font(13), fill=c(MUTED, name), spacing=4 * S)
     left, top, right, bottom = BOXES["agent"][:4]                       # the agent holds nothing
     label, f = "holds no keys", font(14, True)
     d.text(sc(left + 16, bottom - 39), label, font=f, fill=c(TEXT, "agent"))
@@ -154,17 +162,17 @@ def base(focus):
         key(d, right - 92 + i * 30, top + 24, 26, c(GOLD, "vault"), c(PANEL, "vault"))
     left, top, right, bottom = BOXES["desk"][:4]                        # the tool's login lives on the desk
     login(d, left + 34, bottom - 30, 30, c(TEXT, "desk"), c(PANEL, "desk"))
-    d.text(sc(left + 60, bottom - 39), "the tool's login", font=font(12), fill=c(MUTED, "desk"))
+    d.text(sc(left + 60, bottom - 39), "the tool's login", font=font(13), fill=c(MUTED, "desk"))
     d.rectangle(sc(0, 0, W, TOP), fill=PANEL)
     d.line(sc(0, TOP, W, TOP), fill=EDGE, width=S)
     d.text(sc(40, 15), "valetkey", font=font(20, True), fill=TEXT)
     d.text(sc(152, 20), "how a key gets used", font=font(13), fill=MUTED)
     legend = (("keyhole", "keyhole"), ("master", "master key"), ("valet", "valet key"), ("login", "a tool's login"))
-    widths = [30 + d.textlength(text, font=font(12)) / S for _, text in legend]
+    widths = [30 + d.textlength(text, font=font(13)) / S for _, text in legend]
     x = 920 - sum(widths) - 22 * (len(legend) - 1)  # right-aligned with the boxes
     for (icon, text), w in zip(legend, widths):
         ICONS[icon](d, x + 12, TOP / 2, PANEL)
-        d.text(sc(x + 30, TOP / 2 - 8), text, font=font(12), fill=MUTED)
+        d.text(sc(x + 30, TOP / 2), text, font=font(13), fill=MUTED, anchor="lm")
         x += w + 22
     return img
 
@@ -178,9 +186,9 @@ def pill(d, x, y, text, color=TEAL, icon=None, width=None, a=1.0):
     w = width or d.textlength(text, font=f) / S + 24 + (28 if icon else 0)
     d.rounded_rectangle(sc(x - w / 2, y - 13, x + w / 2, y + 13), radius=13 * S, fill=NAVY,
                         outline=mix(NAVY, color, a), width=2 * S)
-    d.text(sc(x - w / 2 + 12, y - 8), text, font=f, fill=mix(NAVY, color, a))
+    d.text(sc(x - w / 2 + 12, y), text, font=f, fill=mix(NAVY, color, a), anchor="lm")
     if icon:
-        ICONS[icon](d, x + w / 2 - 20, y, NAVY, a)
+        ICONS[icon](d, (x + w / 2 - 20) if text else x, y, NAVY, a)
 
 
 def travel(d, a, b, t, text, back=False, **kw):
@@ -188,14 +196,14 @@ def travel(d, a, b, t, text, back=False, **kw):
     (ax, ay), (bx, by) = edge(a, b)
     if back:
         ax, ay, bx, by = bx, by, ax, ay
-    # Stop beside the destination box, not on top of its text.
-    w = d.textlength(text, font=font(12, True)) / S + 24 + (28 if kw.get("icon") else 0)
-    length = math.hypot(bx - ax, by - ay)
-    stop = min(w / 2 + 4, length * 0.6) / length
-    bx, by = bx - (bx - ax) * stop, by - (by - ay) * stop
-    f = ease(t)
+    w = d.textlength(text, font=font(13, True)) / S + 24 + (28 if kw.get("icon") else 0)
+    # Reserve clearance horizontally because the pill stays level on diagonal edges.
+    # Long pills can start over the empty body of the source box.
+    gap = abs(bx - ax)
+    end = w / 2 + 5
+    start = min(end, gap - end - 42)
+    f = (start + (gap - end - start) * ease(t)) / gap
     pill(d, ax + (bx - ax) * f, ay + (by - ay) * f, text, width=w, a=ease(t / 0.2), **kw)
-
 
 def note(d, box, lines):
     left, top, right, bottom = BOXES[box][:4]
@@ -203,7 +211,7 @@ def note(d, box, lines):
         below = 16 if "\n" in BOXES[box][5] else 0  # clear a two-line subtitle
         y, x = top + 66 + below + i * 22, left + 16
         if icon:
-            ICONS[icon[0]](d, x + 12, y + 8, PANEL)
+            ICONS[icon[0]](d, x + 12, y + 9, PANEL)
             x += 30
         d.text(sc(x, y), text, font=font(13, True), fill=color)
 
@@ -223,10 +231,11 @@ def caption(d, number, text, k=1.0, step=0):
     lift, x = (1 - k) * 6, 58
     if number:
         d.ellipse(sc(54, top + 9 + lift, 80, top + 35 + lift), fill=mix(PANEL, TEAL, k))
-        d.text(sc(67 - d.textlength(str(number), font=font(14, True)) / S / 2, top + 13 + lift), str(number),
-               font=font(14, True), fill=NAVY)
+        d.text(sc(67, (top + bottom) / 2 + lift), str(number),
+               font=font(15, True), fill=NAVY, anchor="mm")
         x = 92
-    d.text(sc(x, top + 12 + lift), text, font=font(15), fill=mix(PANEL, TEXT, k))
+    d.text(sc(x, (top + bottom) / 2 + lift), text, font=font(16),
+           fill=mix(PANEL, TEXT, k), anchor="lm")
     for i in range(STEPS):                                              # progress: done, current, to come
         cx, cy = 920 - 18 - (STEPS - 1 - i) * 13, (top + bottom) / 2
         if i + 1 == number:
@@ -262,10 +271,10 @@ PHASES = [
      lambda d, t: travel(d, "agent", "desk", t, "output", back=True)),
     (2.0, 9, "A command that would print the login is refused.", {"agent", "desk"},
      lambda d, t: (travel(d, "agent", "desk", min(t * 1.5, 0.62), "tool auth token", color=RED),
-                   note(d, "desk", [("", RED), ("not on the list  ✗", RED)]) if t > 0.45 else None)),
+                   note(d, "desk", [("not on the list  ✗", RED)]) if t > 0.45 else None)),
     (2.6, None, "Master keys and logins stay where no agent runs. Agents only send keyholes.", None,
      lambda d, t: d.rounded_rectangle(sc(*[v + o for v, o in zip(BOXES["agent"][:4], (-5, -5, 5, 5))]),
-                                      radius=18 * S, outline=TEAL, width=(2 + round(2 * abs(math.sin(t * math.pi * 2)))) * S)),
+                                      radius=18 * S, outline=mix(EDGE, TEAL, 0.45 + 0.55 * ease(t)), width=3 * S)),
 ]
 
 
@@ -276,22 +285,25 @@ def animation(path):
         for p, (seconds, number, text, focus, moving) in enumerate(PHASES):
             step = number or (0 if p == 0 else STEPS + 1)  # before the first step, or after the last
             k = frozenset(focus) if focus is not None else None
-            still = stills.setdefault(k, base(focus))
+            if k not in stills:
+                stills[k] = base(focus)
+            still = stills[k]
             frames = round(seconds * FPS)
             for i in range(frames + round(PAUSE * FPS)):
-                fade = ease(min(1.0, (i + 1) / FADE))
+                fade = ease(min(1.0, (i + 1) / (FADE * FPS)))
                 img = Image.blend(prev, still, fade) if prev is not None and fade < 1 else still.copy()
                 d = ImageDraw.Draw(img)
                 moving(d, min(i / max(frames - 1, 1), 1.0))
                 caption(d, number, text, fade, step)
-                img.resize((W, H), Image.LANCZOS).save(os.path.join(tmp, f"f{n:04d}.png"))
+                img.resize(OUTPUT, Image.Resampling.LANCZOS).save(
+                    os.path.join(tmp, f"f{n:04d}.png"), compress_level=1)
                 n += 1
             prev = still
         frames = os.path.join(tmp, "f%04d.png")
         palette = os.path.join(tmp, "palette.png")
         quiet = ["ffmpeg", "-loglevel", "error", "-y", "-framerate", str(FPS), "-i", frames]
-        subprocess.run(quiet + ["-vf", "palettegen=max_colors=48:stats_mode=diff", palette], check=True)
-        subprocess.run(quiet + ["-i", palette, "-lavfi", "paletteuse=dither=none:diff_mode=rectangle", path], check=True)
+        subprocess.run(quiet + ["-vf", f"palettegen=max_colors={COLORS}:stats_mode=full", palette], check=True)
+        subprocess.run(quiet + ["-i", palette, "-lavfi", "paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle", path], check=True)
     return n
 
 

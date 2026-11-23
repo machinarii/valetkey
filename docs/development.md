@@ -62,11 +62,12 @@ tools; valetkey itself, its tests and its installers do not use them.
 |---|---|
 | Python 3.9+ with [Pillow](https://pypi.org/project/pillow/) | `python3 -m pip install --user Pillow`, or `sudo apt-get install python3-pil` |
 | [ffmpeg](https://ffmpeg.org) (builds the GIF palette and file) | `sudo apt-get install ffmpeg`, or `brew install ffmpeg` |
-| DejaVu Sans fonts (falls back to Pillow's default font) | `sudo apt-get install fonts-dejavu-core` |
+| DejaVu Sans fonts (falls back to macOS Arial or Pillow’s scalable default) | `sudo apt-get install fonts-dejavu-core` |
 
 ```sh
 python3 docs/images/make.py    # rewrites docs/images/how-it-works.gif and prints its frame count and size
 ```
 
-Timing and look are set near the top of the script: `PAUSE` (seconds each step holds still), `FADE`
-(cross-fade frames between steps) and `DIM` (how far boxes outside the current step fade).
+`PAUSE` controls the hold after each step. `FADE` sets the spotlight transition in seconds, and
+`DIM` controls the contrast of boxes outside the spotlight. The script supersamples the artwork
+and exports an 860 px-wide GIF at 25 fps with a 256-entry palette and light ordered dithering.
