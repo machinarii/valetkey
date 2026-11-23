@@ -146,10 +146,7 @@ def base(focus):
             d.text(sc(left + 16, top + 37), sub, font=font(12), fill=c(MUTED, name), spacing=4 * S)
     left, top, right, bottom = BOXES["agent"][:4]                       # the agent holds nothing
     label, f = "holds no keys", font(14, True)
-    w = d.textlength(label, font=f) / S + 28
-    d.rounded_rectangle(sc(left + 16, bottom - 44, left + 16 + w, bottom - 16), radius=14 * S,
-                        outline=c(TEAL, "agent"), width=2 * S)
-    d.text(sc(left + 30, bottom - 39), label, font=f, fill=c(TEXT, "agent"))
+    d.text(sc(left + 16, bottom - 39), label, font=f, fill=c(TEXT, "agent"))
     left, top, right, bottom = BOXES["vault"][:4]
     for i in range(3):
         key(d, right - 92 + i * 30, top + 24, 26, c(GOLD, "vault"), c(PANEL, "vault"))
