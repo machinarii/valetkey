@@ -138,7 +138,6 @@ def base(focus):
         if label:
             d.text(sc((ax + bx) / 2 - 14, (ay + by) / 2 - 20), label, font=font(11),
                    fill=MUTED if lit(a) and lit(b) else mix(MUTED, NAVY, DIM))
-    d.text(sc(288, 344), "tailnet", font=font(11), fill=MUTED if lit("agent") else mix(MUTED, NAVY, DIM))
     for name, (left, top, right, bottom, title, sub) in BOXES.items():
         d.rounded_rectangle(sc(left, top, right, bottom), radius=14 * S, fill=c(PANEL, name),
                             outline=c(EDGE if focus is None or not lit(name) else (96, 132, 170), name), width=2 * S)
