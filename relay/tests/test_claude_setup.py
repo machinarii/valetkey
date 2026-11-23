@@ -76,10 +76,19 @@ class ClaudeSetup(unittest.TestCase):
         self.assertFalse(self.rules.exists())
 
     def test_declining_at_the_end_and_dry_run_write_nothing(self):
-        self.assertIn("Nothing written", self.run_setup(stdin="\n\n\n\n\n\n\nn\n").stdout)
+        self.assertIn("Nothing written", self.run_setup(stdin="y\ny\ny\ny\ny\nn\n\nn\n").stdout)
         self.assertIn("Nothing written", self.run_setup("--yes", "--dry-run").stdout)
         self.assertFalse(self.settings.exists())
         self.assertFalse(self.rules.exists())
+
+    def test_final_prompt_rejects_words_blank_and_uppercase(self):
+        for invalid in ("yes", "no", "", "Y", "nope"):
+            with self.subTest(answer=invalid):
+                r = self.run_setup(stdin="y\ny\ny\ny\ny\nn\n\n" + invalid + "\n")
+                self.assertIn("Enter y or n.", r.stdout)
+                self.assertIn("Nothing written.", r.stdout)
+                self.assertFalse(self.settings.exists())
+                self.assertFalse(self.rules.exists())
 
     def test_broken_settings_and_values_as_names_are_refused(self):
         self.settings.parent.mkdir()

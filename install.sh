@@ -301,10 +301,16 @@ Claude Code policy: /etc/claude-code/managed-settings.json, owned by root.
   Intent: give every Claude Code session on this machine valetkey's rules, and let it use MCP
   servers only at the broker and desk, in a file the agent's user cannot change.
   It also turns off every other MCP server here, including local and account-synced ones.
-  Recommended: Y, unless this machine needs other MCP servers (T3 Code's own tools, for example).
+  Recommended: y, unless this machine needs other MCP servers (T3 Code's own tools, for example).
 ASK
-    read -r -p "  Write it? [Y/n] " answer </dev/tty || answer=n
-    case $answer in [nN]*) policy=no; warn "Claude Code policy not written (run again, or ./install.sh claude for user-level rules)" ;; esac
+    while :; do
+      IFS= read -r -p "  Write it? [y/n] " answer </dev/tty || answer=n
+      case "$answer" in
+        y) break ;;
+        n) policy=no; warn "Claude Code policy not written (run again, or ./install.sh claude for user-level rules)"; break ;;
+        *) echo "Enter y or n." >&2 ;;
+      esac
+    done
   fi
   if [ "$policy" = yes ]; then  # Claude Code: MCP servers only at the broker and the desk; rules as standing instructions
     if [ -e /etc/claude-code/managed-settings.json ]; then
@@ -459,7 +465,7 @@ cmd_menu() {
     "owner|Approver device (where you enter keys and approve routes; never runs agents)"
     "consumer|Trusted server (runs an application that reads the key itself; never runs agents)")
   echo 'Which machine is this? Each part needs its own machine; see "Containment" in the README.' >&2
-  echo 'At each question, Enter keeps the value shown in [brackets].' >&2
+  echo 'For machine numbers and addresses, Enter keeps the value shown in [brackets].' >&2
   for i in "${!roles[@]}"; do
     [ "${roles[$i]}" != proxmox ] || ! is_proxmox_host || default=$((i + 1))
     for l in "${labels[@]}"; do

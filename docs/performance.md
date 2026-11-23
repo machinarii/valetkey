@@ -47,7 +47,7 @@ The figures are the API prices Claude Code reports. On a subscription they count
 - **Scripts that start many short sessions do.** A loop of `claude -p` calls costs far more with the sandbox on.
 - **This is Claude Code's behaviour, not text valetkey sends.** It may change between versions, so measure your own.
 
-The sandbox is still the recommended answer: it is what stops an agent's commands from reading files and reaching hosts you did not allow. If you run many short sessions and the cost matters more, answer No to that one question and keep the rest.
+The sandbox is still the recommended answer: it is what stops an agent's commands from reading files and reaching hosts you did not allow. If you run many short sessions and the cost matters more, answer `n` to that one question and keep the rest.
 
 ### Time
 

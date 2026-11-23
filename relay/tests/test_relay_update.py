@@ -81,7 +81,7 @@ class RelayUpdateTests(unittest.TestCase):
         self.git("commit", "--quiet", "-m", title)
         return self.git("rev-parse", "HEAD")
 
-    def install(self, answer="yes\n"):
+    def install(self, answer="y\n"):
         return sh("bash", str(TOOL), "install", env=self.env, stdin=answer)
 
     def payload(self):
@@ -107,7 +107,7 @@ class RelayUpdateTests(unittest.TestCase):
 
     def test_nothing_from_the_repository_runs_or_lands_without_yes(self):
         self.commit("second", payload="new\n")
-        for answer in ("", "no\n", "y\n", "YES\n"):
+        for answer in ("", "n\n", "yes\n", "no\n", "\n", "Y\n", "yes\nn\n"):
             r = self.install(answer)
             self.assertEqual(r.returncode, 1, (answer, r.stdout, r.stderr))
             self.assertEqual(self.payload(), "old\n")

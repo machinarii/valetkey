@@ -64,15 +64,19 @@ QUESTIONS = [  # key, question, recommended answer, one line of why
 ]
 
 
+def confirm(prompt):
+    while True:
+        answer = input(f"{prompt} [y/n] ")
+        if answer in ("y", "n"):
+            return answer == "y"
+        print("Enter y or n.")
+
+
 def ask(question, default, why, assume):
     if assume:
         return default
     print(f"\n{question}\n  {why}")
-    try:
-        answer = input(f"  Recommended: {'Y' if default else 'N'} [{'Y/n' if default else 'y/N'}] ").strip().lower()
-    except EOFError:
-        answer = ""
-    return default if not answer else answer.startswith("y")
+    return confirm(f"  Recommended: {'y' if default else 'n'}.")
 
 
 def table(parent, key, kind):
@@ -261,7 +265,7 @@ def main(argv=None):
           "Intent: an agent here asks for keys and tools by name, and cannot easily read, print or copy a\n"
           "key or login. " + ("--yes: taking the recommended answer to each question without asking."
                                if args.yes else "Each change is explained and asked about; nothing is\n"
-                               "written until you say yes at the end. Run again to change an answer."))
+                               "written until you enter y at the end. Run again to change an answer."))
 
     try:
         with open(settings_path) as f:
@@ -339,14 +343,9 @@ def main(argv=None):
     if args.dry_run or not (changes or new_rules is not None or new_codex is not None):
         print("\nNothing written." if args.dry_run else "\nAlready up to date.")
         return 0
-    if not args.yes:
-        try:
-            if input("\nWrite these changes? [Y/n] ").strip().lower().startswith("n"):
-                print("Nothing written.")
-                return 0
-        except EOFError:
-            print("Nothing written.")
-            return 0
+    if not args.yes and not confirm("\nWrite these changes?"):
+        print("Nothing written.")
+        return 0
     if changes:
         write(settings_path, json.dumps(after, indent=2) + "\n")
     if json.dumps(state, sort_keys=True) != old_state:
@@ -365,4 +364,7 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except EOFError:
+        print("Nothing written.")

@@ -48,7 +48,9 @@ prints the public half for the repository's Settings → Deploy keys (leave writ
 prints GitHub's SSH host key fingerprint to compare with the published one.
 
 `install` fetches the branch, shows the commit ids, the commit titles and a GitHub link to the
-diff, and waits for `yes`. Nothing from the repository runs before that. It then checks
+diff, and asks for confirmation. Enter `y` to install or `n` to cancel. The updater already
+on the broker handles this prompt, so an older installation may show its earlier wording.
+Code from the fetched revision runs only after approval. The updater then checks
 `/etc/relay` with the new parser, keeps a copy of the installed code, runs `install.sh broker`,
 and waits until the relay ports that listened before listen again. If they do not, it puts the
 previous code back and says so. `sudo relay-update rollback` does the same on request, for an

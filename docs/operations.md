@@ -131,7 +131,7 @@ After changing org or collection names, run `relay-login` again for the affected
 | `bellhop --request cli <name> [source] [why]` | agent machine | Asks the owner to install a tool on the desk. |
 | `desk.py --requests` · `desk.py --done <id>` | desk | Lists waiting install requests · clears one. |
 | `sweep.py [--accept]` | agent machine, as root | Reports logins and new tools by name · takes the current tools as known. |
-| `sudo relay-update setup <repo> \| install \| rollback` | broker | Fetches a new version, shows what changes, installs after `yes`; puts the previous code back if the relays do not return, or on request. |
+| `sudo relay-update setup <repo> \| install \| rollback` | broker | Fetches a new version, shows what changes, installs after `y`; puts the previous code back if the relays do not return, or on request. |
 
 ## Troubleshooting
 

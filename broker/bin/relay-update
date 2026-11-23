@@ -12,11 +12,11 @@
 #          deploy key (private half encrypted with systemd-creds), prints
 #          the public half to add on GitHub, records GitHub's SSH host key, writes
 #          /etc/relay/update.env (names only).
-# install  fetches the branch, shows what would change and waits for "yes". Then: checks
+# install  fetches the branch, shows what would change and waits for "y". Then: checks
 #          /etc/relay with the new parser, keeps a copy of the installed code, runs the new
 #          install.sh broker, waits until the relay ports that listened before listen again,
 #          and puts the previous code back if they do not. Nothing from the repository is run
-#          before the "yes".
+#          before the "y".
 # rollback puts back the code the last install replaced, for an update that starts but misbehaves.
 set -euo pipefail
 umask 077
@@ -193,11 +193,17 @@ cmd_install() {
   epoch_cur=$(cat "$libexec/CONFIG_EPOCH" 2>/dev/null || true)
   if [ -n "$cur" ] && [ "$epoch_new" != "$epoch_cur" ]; then
     echo "WARNING: this update needs manual steps first (broker/CONFIG_EPOCH changed)."
-    echo "         Read \"Upgrading\" in the new README and do them before typing yes."
+    echo "         Read \"Upgrading\" in the new README and do them before typing y."
   fi
   echo
-  read -r -p "Type yes to install $short: " answer || true
-  [ "$answer" = yes ] || { echo "Nothing installed."; return 1; }
+  while :; do
+    IFS= read -r -p "Install $short? [y/n] " answer || answer=n
+    case "$answer" in
+      y) break ;;
+      n) echo "Nothing installed."; return 1 ;;
+      *) echo "Enter y or n." >&2 ;;
+    esac
+  done
 
   # --- from here the commit is approved ---
   staged=$state/staged

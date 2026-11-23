@@ -217,7 +217,7 @@ the front door.
 ### Broker updates
 
 `relay-update install` fetches the repository on the broker and runs its installer as root. The
-boundary is the owner's `yes` at the broker console after reviewing the shown commit: nothing
+boundary is the owner's `y` at the broker console after reviewing the shown commit: nothing
 fetched is executed before it, and no network caller can start an install. Approval from the
 entry page is deliberately not offered, because a compromised entry service combined with push
 access would reach root. Remaining exposure: an owner who confirms without reviewing installs
