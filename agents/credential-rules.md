@@ -47,6 +47,15 @@ only. Keep existing rules for MCP, tools and project credentials.
 
 For optional memory capture, see `relay guide claude-mem`.
 
+## API-billed model access
+
+For an owner-approved API account, use `relay model <claude|codex> <route> <model-id>`.
+The owner configures a `[model.*]` route on the broker. Claude Code supports Anthropic
+and OpenRouter, and Codex supports OpenAI and OpenRouter. Request the provider API key
+by item name and offer private entry on the approver device. Keep the key on the broker
+side and use a separate launcher for subscriptions. A paid model turn uses credits.
+Check storage with `relay check` and verify billing and model access separately.
+
 ## Optional claude-mem integration
 
 Valetkey works with or without claude-mem. If you do not use memory capture, skip

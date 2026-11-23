@@ -59,16 +59,18 @@ def generate(routes, org, org_id, collection_id=None):
     for name in sorted(api):
         r = api[name]
         key = env_name(name)
-        host = urllib.parse.urlsplit(r.upstream).hostname
+        upstream = urllib.parse.urlsplit(r.upstream)
         paths = []
-        for path in r.paths:
+        for endpoint in r.paths:
+            path = upstream.path.rstrip("/") + endpoint
             if not path.endswith("/"):
                 paths.append(path)
-            paths.append(path.rstrip("/") + "/**")
+            if not r.model:
+                paths.append(path.rstrip("/") + "/**")
         out.append(f'{key} = {{ provider = "vw", value = {q(r.item)}, env = false, '
                    f'if_missing = "warn" }}\n')
         rules.append(
-            f"\n[[proxy.rules]]\nsecret = {q(key)}\ndomain = {q(host)}\nheader = \"authorization\"\n"
+            f"\n[[proxy.rules]]\nsecret = {q(key)}\ndomain = {q(upstream.hostname)}\nheader = {q(r.auth_header.lower())}\n"
             f"methods = {q(r.methods)}\npaths = {q(paths)}\n"
             f"placeholder = {q(placeholder(name))}\n")
     out.append('\n[proxy]\negress = "strict"\naudit = true\n')

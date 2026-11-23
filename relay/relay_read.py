@@ -294,7 +294,12 @@ class Handler(RelayHandler):
             return self.deny(who, route, 403, "not allowed")
         if self.command not in r.methods:
             return self.deny(who, route, 405, "method not allowed")
-        if not routes_mod.api_path_allowed(rest, r.paths):
+        if r.model:
+            # Model grants have exact operations. Prefix grants would also allow
+            # distinct provider products such as the Anthropic Message Batches API.
+            if rest not in r.paths or query not in ("", "beta=true"):
+                return self.deny(who, route, 403, "model endpoint not allowed")
+        elif not routes_mod.api_path_allowed(rest, r.paths):
             return self.deny(who, route, 403, "path not allowed")
         body = self.read_body(MAX_BODY)
         if body is None:
@@ -302,10 +307,14 @@ class Handler(RelayHandler):
             return self.deny(who, route, 413, "body too large")
 
         up = urllib.parse.urlsplit(r.upstream)
-        headers = {k: v for k, v in self.headers.items() if k.lower() not in DROP_IN}
+        if r.model:
+            allowed = {"content-type", "content-encoding", "accept", "anthropic-version", "anthropic-beta"}
+            headers = {k: v for k, v in self.headers.items() if k.lower() in allowed}
+        else:
+            headers = {k: v for k, v in self.headers.items() if k.lower() not in DROP_IN}
         headers["Host"] = up.hostname
-        headers["Authorization"] = r.auth.format(placeholder(route))
-        target = rest + ("?" + query if query else "")
+        headers[r.auth_header] = r.auth.format(placeholder(route))
+        target = up.path.rstrip("/") + rest + ("?" + query if query else "")
         try:
             if ctx["upstream_scheme"] == "http":  # tests only: plain HTTP, no proxy
                 conn = http.client.HTTPConnection(up.hostname, up.port or 80, timeout=600)
@@ -316,14 +325,23 @@ class Handler(RelayHandler):
         except Exception as e:
             return self.deny(who, route, 502, f"upstream error: {type(e).__name__}")
 
+        if r.model and 300 <= resp.status < 400:
+            conn.close()
+            return self.deny(who, route, 502, "unexpected model provider redirect")
         item = split_ref(r.item)[0]
         if resp.status in (401, 403):
             post_mark(ctx["entry_url"], ctx["loopback_secret"], "suspect", item, r.org)
         elif 200 <= resp.status < 300:
             post_mark(ctx["entry_url"], ctx["loopback_secret"], "unsuspect", item, r.org)
 
-        self.send_response(resp.status, resp.reason)
+        if r.model and resp.status >= 400:
+            # Providers can quote a rejected credential in error text.
+            conn.close()
+            return self.deny(who, route, resp.status, "model provider rejected the request")
+        self.send_response(resp.status, None if r.model else resp.reason)
         for k, v in resp.getheaders():
+            if r.model and k.lower() not in {"content-type", "content-encoding"}:
+                continue
             if k.lower() not in HOP | {"cache-control"}:
                 self.send_header(k, v)
         self.send_header("Cache-Control", "no-store")

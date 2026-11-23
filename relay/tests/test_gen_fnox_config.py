@@ -88,6 +88,25 @@ class GenFnoxConfigTests(unittest.TestCase):
         from relay import relay_read
         self.assertEqual(rule["placeholder"], relay_read.placeholder("stripe-shop"))
 
+    def test_model_rules_match_only_the_selected_provider_endpoints(self):
+        for client, provider, host, header, paths in (
+            ("claude", "anthropic", "api.anthropic.com", "x-api-key", ["/v1/messages", "/v1/messages/count_tokens"]),
+            ("codex", "openai", "api.openai.com", "authorization", ["/v1/responses", "/v1/responses/compact"]),
+            ("claude", "openrouter", "openrouter.ai", "authorization", ["/api/v1/messages", "/api/v1/messages/count_tokens"]),
+            ("codex", "openrouter", "openrouter.ai", "authorization", ["/api/v1/responses"]),
+        ):
+            with self.subTest(client=client, provider=provider):
+                Path(self.routes_path).write_text(
+                    f'[model.inference]\nprovider="{provider}"\nclient="{client}"\n'
+                    'org="local"\nitem="model-api-key"\nnodes=["agent"]\n')
+                self.routes = routes_mod.load_routes(self.routes_path)
+                _, config = self.generate("local")
+                rule, = config["proxy"]["rules"]
+                self.assertEqual((rule["domain"], rule["header"], rule["methods"], rule["paths"]),
+                                 (host, header, ["POST"], paths))
+                self.assertIs(config["secrets"][rule["secret"]]["env"], False)
+                self.assertFalse(self.routes.for_org("infra").api)
+
     def test_notes_ref_passes_through(self):
         _, conf = self.generate("infra")
         self.assertEqual(conf["secrets"]["RELAY_API_RESEND"]["value"], "resend-api-key/notes")

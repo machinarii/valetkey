@@ -56,3 +56,11 @@ nodes    = ["devbox"]
 org   = "local"
 item  = "agent-ingest-token"
 nodes = ["app-shop"]
+
+# Optional API-billed inference; see docs/model-api-accounts.md.
+# [model.router-codex]
+# org = "local"
+# nodes = ["devbox"]
+# item = "openrouter-api-key"
+# provider = "openrouter"
+# client = "codex"

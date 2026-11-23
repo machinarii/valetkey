@@ -30,6 +30,11 @@ Keep agents off the **approver device** too. Hidden input prevents terminal echo
 protect against code on that device capturing keystrokes, browser fields or process memory.
 Never use a recorded agent terminal or shared agent browser for entry.
 
+## Model API accounts
+
+Claude Code and Codex can use API credits through a broker route, including OpenRouter.
+Choose this per launcher and keep the provider key in Vaultwarden. [Configure an API account](model-api-accounts.md)
+
 ## Claude Code subscription sign-in
 
 Choose a method per machine. `relay guide claude` shows both choices offline.

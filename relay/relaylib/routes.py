@@ -52,6 +52,8 @@ class ApiRoute:
     methods: list
     paths: list
     nodes: list
+    auth_header: str = "Authorization"
+    model: bool = False
 
 
 @dataclass
@@ -200,6 +202,35 @@ def proposed_api(spec, node):
     return ApiRoute(name, org, item, origin, "Bearer {}", sorted(set(methods)), sorted(set(paths)), [node])
 
 
+# Fixed upstream origins and protocols for API-billed model traffic.
+MODEL_ORIGINS = {
+    "anthropic": "https://api.anthropic.com",
+    "openai": "https://api.openai.com",
+    "openrouter": "https://openrouter.ai/api",
+}
+
+
+def model_route(name, entry):
+    org, nodes = _common("model", name, entry)
+    if set(entry) != {"org", "item", "nodes", "provider", "client"}:
+        _fail("model", name, "expected org, item, nodes, provider and client")
+    provider, client = entry["provider"], entry["client"]
+    if client == "claude" and provider in ("anthropic", "openrouter"):
+        paths = ["/v1/messages", "/v1/messages/count_tokens"]
+    elif client == "codex" and provider in ("openai", "openrouter"):
+        paths = ["/v1/responses"]
+        if provider == "openai":
+            paths.append("/v1/responses/compact")
+    else:
+        _fail("model", name, "unsupported client/provider pair")
+    item = _item("model", name, entry)
+    if item.startswith("claude-code-oauth-") or "/" in item:
+        _fail("model", name, "use a dedicated provider API key item")
+    header, auth = ("x-api-key", "{}") if provider == "anthropic" else ("Authorization", "Bearer {}")
+    return ApiRoute(name, org, item, MODEL_ORIGINS[provider], auth, ["POST"], paths, nodes,
+                    auth_header=header, model=True)
+
+
 def load_routes(path):
     with open(path, "rb") as f:
         conf = tomllib.load(f)
@@ -240,6 +271,13 @@ def load_routes(path):
             _fail("api", name, "unsupported HTTP method")
         routes.api[name] = ApiRoute(name, org, _item("api", name, e), upstream, auth,
                                     methods, paths, nodes)
+    models = conf.get("model", {})
+    if not isinstance(models, dict):
+        raise RoutesError("model: expected named route tables")
+    for name, entry in models.items():
+        if name in routes.api or name in conf.get("project", {}):
+            _fail("model", name, "name conflicts with another route")
+        routes.api[name] = model_route(name, entry)
     for name, e in conf.get("value", {}).items():
         org, nodes = _common("value", name, e)
         opt_in = e.get("claude_setup_token", False)

@@ -140,6 +140,7 @@ def cmd_latest_version(a):
 GUIDE_TOPICS = {
     "claude": "## Claude Code subscription sign-in",
     "claude-mem": "## Optional claude-mem integration",
+    "models": "## API-billed model access",
 }
 
 
@@ -249,7 +250,54 @@ def cmd_status(a):
     return 0
 
 
+def cmd_model(a):
+    if not good_addr(BASE) or urllib.parse.urlsplit(BASE).path or "\\" in BASE:
+        sys.exit("relay: model access needs the broker origin without a path")
+    if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,62}", a.route):
+        sys.exit("relay: invalid model route name")
+    if not re.fullmatch(r"[a-zA-Z0-9~][a-zA-Z0-9._/:~+\[\]-]{0,199}", a.model):
+        sys.exit("relay: invalid provider model ID")
+    url = f"{BASE}/{a.org}/{a.route}"
+    marker = "valetkey-broker-placeholder"
+    env = os.environ.copy()
+    for key in ("OPENAI_API_KEY", "CODEX_API_KEY", "OPENROUTER_API_KEY", "ANTHROPIC_API_KEY",
+                "ANTHROPIC_AUTH_TOKEN", "CLAUDE_CODE_OAUTH_TOKEN"):
+        env.pop(key, None)
+    if a.client == "claude":
+        for key in ("ANTHROPIC_CUSTOM_HEADERS", "CLAUDE_CODE_USE_BEDROCK",
+                    "CLAUDE_CODE_USE_VERTEX", "CLAUDE_CODE_USE_FOUNDRY",
+                    "CLAUDE_CODE_USE_ANTHROPIC_AWS"):
+            env.pop(key, None)
+        env.update(ANTHROPIC_BASE_URL=url, ANTHROPIC_API_KEY="", ANTHROPIC_AUTH_TOKEN=marker,
+                   ANTHROPIC_MODEL=a.model, ANTHROPIC_DEFAULT_HAIKU_MODEL=a.model,
+                   ANTHROPIC_DEFAULT_SONNET_MODEL=a.model, ANTHROPIC_DEFAULT_OPUS_MODEL=a.model,
+                   CLAUDE_CODE_SUBAGENT_MODEL=a.model, CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC="1")
+        argv = ["claude", "--model", a.model]
+    else:
+        env["VALETKEY_MODEL_PLACEHOLDER"] = marker
+        # Process-scoped TOML overrides select the HTTP Responses transport.
+        # This provider never requests the user's saved ChatGPT session.
+        argv = ["codex", "-c", 'model_provider="valetkey"', "-c", "model=" + json.dumps(a.model),
+                "-c", 'model_providers.valetkey.name="Valetkey"',
+                "-c", "model_providers.valetkey.base_url=" + json.dumps(url + "/v1"),
+                "-c", 'model_providers.valetkey.wire_api="responses"',
+                "-c", 'model_providers.valetkey.env_key="VALETKEY_MODEL_PLACEHOLDER"',
+                "-c", "model_providers.valetkey.requires_openai_auth=false",
+                "-c", "model_providers.valetkey.supports_websockets=false"]
+    try:
+        os.execvpe(argv[0], argv + a.args, env)
+    except OSError as exc:
+        sys.exit(f"relay: could not start {a.client}: {exc.strerror}")
+
+
 def add_client_commands(sub):
+    model = sub.add_parser("model", help="launch a native CLI using an approved API-billed model route")
+    model.add_argument("--org", choices=("local", "infra"), default="local")
+    model.add_argument("client", choices=("claude", "codex"))
+    model.add_argument("route", help="broker model route name")
+    model.add_argument("model", help="model ID on the route's provider")
+    model.add_argument("args", nargs=argparse.REMAINDER, help="arguments passed to the native CLI")
+    model.set_defaults(fn=cmd_model)
     g = sub.add_parser("guide", help="print offline credential safety rules for agent memory")
     g.add_argument("topic", nargs="?", choices=GUIDE_TOPICS, help="show one section of the offline guide")
     g.set_defaults(fn=cmd_guide)

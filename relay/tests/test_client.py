@@ -157,6 +157,39 @@ class ClientCase(unittest.TestCase):
         return p.stdout.decode(), p.stderr.decode()
 
 
+class ModelLauncherTests(unittest.TestCase):
+    def launch(self, *arguments):
+        environment = {"RELAY_URL": "https://broker.example.ts.net", "OPENAI_API_KEY": "fixture",
+                       "CLAUDE_CODE_OAUTH_TOKEN": "fixture", "OPENROUTER_API_KEY": "fixture"}
+        with mock.patch.dict(os.environ, environment, clear=True), mock.patch("os.execvpe") as execute, \
+                mock.patch.object(sys, "argv", ["relay", "model", *arguments]):
+            with self.assertRaises(SystemExit) as result:
+                runpy.run_path(os.path.join(CLIENT, "relay"), run_name="__main__")
+            self.assertIsNone(result.exception.code)
+            name, argv, env = execute.call_args.args
+            for key in ("OPENAI_API_KEY", "OPENROUTER_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"):
+                self.assertNotIn(key, env)
+            self.assertEqual(os.environ["CLAUDE_CODE_OAUTH_TOKEN"], "fixture")
+            return name, argv, env
+
+    def test_claude_uses_scoped_gateway_and_explicit_model(self):
+        name, argv, env = self.launch("--org", "infra", "claude", "or-claude", "anthropic/example", "-p", "fixture")
+        self.assertEqual(name, "claude")
+        self.assertEqual(argv, ["claude", "--model", "anthropic/example", "-p", "fixture"])
+        self.assertEqual(env["ANTHROPIC_BASE_URL"], "https://broker.example.ts.net/infra/or-claude")
+        self.assertEqual(env["ANTHROPIC_AUTH_TOKEN"], "valetkey-broker-placeholder")
+        self.assertEqual(env["ANTHROPIC_DEFAULT_HAIKU_MODEL"], "anthropic/example")
+
+    def test_codex_uses_http_responses_without_chatgpt_login(self):
+        name, argv, env = self.launch("codex", "or-codex", "openai/example", "exec", "fixture")
+        self.assertEqual(name, "codex")
+        self.assertIn('model_providers.valetkey.base_url="https://broker.example.ts.net/local/or-codex/v1"', argv)
+        self.assertIn("model_providers.valetkey.supports_websockets=false", argv)
+        self.assertIn("model_providers.valetkey.requires_openai_auth=false", argv)
+        self.assertEqual(env["VALETKEY_MODEL_PLACEHOLDER"], "valetkey-broker-placeholder")
+        self.assertEqual(argv[-2:], ["exec", "fixture"])
+
+
 class LatestVersionTests(unittest.TestCase):
     def lookup(self, pages):
         output = io.StringIO()

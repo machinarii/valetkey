@@ -6,7 +6,7 @@
 
 ## Your machines get a valet key, never the master.
 
-Give an AI agent access to a tool while keeping the tool’s credentials on a separate machine. **Valetkey is designed for Claude Code with a Claude subscription and Codex with a ChatGPT subscription.** Credit-based model API accounts are outside this guide’s scope. The tools your agent calls can still use API keys. Memory capture with **claude-mem is optional**.
+Give an AI agent access to a tool while keeping the tool’s credentials on a separate machine. Claude Code and Codex can use their subscriptions or API credits. For API billing, Valetkey keeps the Anthropic, OpenAI or OpenRouter key on the broker. Memory capture with **claude-mem is optional**.
 
 ## How it works
 
@@ -16,7 +16,7 @@ Give an AI agent access to a tool while keeping the tool’s credentials on a se
 
 ![An agent calling a broker API route and running a tool on the desk](docs/images/how-it-works.gif)
 
-**Claude’s own model login is a deliberate exception.** For unattended subscription use, the owner can grant one VM its own Claude setup-token. Any process on that VM can copy it, and removing the grant cannot recall a copy. Native Claude web login is also available. Codex uses its own ChatGPT sign-in and has no corresponding Valetkey grant. [Why the subscription terms shaped this choice](docs/security-boundaries.md#should-an-agent-machine-hold-its-own-model-credential)
+**Claude’s own model login is a deliberate exception.** For unattended subscription use, the owner can grant one VM its own Claude setup-token. Any process on that VM can copy it, and removing the grant cannot recall a copy. Native Claude web login is also available. For subscriptions, Codex uses its own ChatGPT sign-in and has no corresponding Valetkey grant. [Why the subscription terms shaped this choice](docs/security-boundaries.md#should-an-agent-machine-hold-its-own-model-credential)
 
 ## Installation
 
@@ -47,6 +47,7 @@ Run `relay version` for the installed CLI version and `relay latest-version` for
 |---|---|
 | Understand the broker, desk and network layout | [System design and containment](docs/system-design.md) |
 | Add a credential, update a route or diagnose a failure | [Operations and command reference](docs/operations.md) · [Troubleshooting](docs/operations.md#troubleshooting) |
+| Use API credits with Claude Code or Codex | [Model API accounts and OpenRouter](docs/model-api-accounts.md) |
 | Configure Claude Code, Codex or optional claude-mem capture | [Agent setup](docs/agent-setup.md) · Run `relay guide claude-mem` for offline guidance |
 | Add a tool, MCP server or Git remote | [New tool recipe](docs/recipe-new-tool-with-credential.md) · [Git through the broker](docs/git-through-the-broker.md) |
 | Review the threat model or report a security issue | [Security model](docs/security-boundaries.md#security-model) · [Security policy](SECURITY.md) |

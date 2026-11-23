@@ -39,6 +39,16 @@ class LoadRoutesTests(unittest.TestCase):
                 f.write(text)
             return routes.load_routes(p)
 
+    def test_model_route_rejects_unsupported_provider_and_overrides(self):
+        base = ('[model.inference]\nclient="claude"\nprovider="anthropic"\n'
+                'org="local"\nitem="model-key"\nnodes=["agent"]\n')
+        for invalid in (base.replace('"anthropic"', '"openai"'), base.replace('"anthropic"', '"other"'),
+                        base + 'upstream="https://other.example"\n', base + 'paths=["/"]\n',
+                        base.replace("model-key", "claude-code-oauth-agent"),
+                        base + '[project.inference]\norg="local"\nitems=["a"]\nnodes=["trusted"]\n'):
+            with self.subTest(invalid=invalid), self.assertRaises(routes.RoutesError):
+                self.load_text(invalid)
+
     def test_load_routes_example_file(self):
         r = routes.load_routes(CONFIG_DIR / "routes.example.toml")
         self.assertEqual(r.projects["shop"].org, "infra")

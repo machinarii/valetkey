@@ -612,6 +612,54 @@ class RelayReadTest(unittest.TestCase):
         self.assertEqual(marks[1][0], "/v1/unsuspect")
         self.assertEqual(ctypes, ["application/json", "application/json"])
 
+    def test_model_inference_forwards_only_approved_operations_and_headers(self):
+        seen = []
+        class Provider(BaseHTTPRequestHandler):
+            def log_message(self, *args):
+                pass
+
+            def do_POST(self):
+                body = self.rfile.read(int(self.headers["Content-Length"]))
+                seen.append((self.path, self.headers, body))
+                status = int(body)
+                self.send_response(status)
+                self.send_header("Content-Type", "text/event-stream")
+                self.send_header("X-Provider-Diagnostic", "fixture-private")
+                self.end_headers()
+                self.wfile.write(b"data: fixture\n\n" if status == 200 else b"fixture-private")
+
+        upstream = serve(Provider)
+        self.addCleanup(upstream.server_close)
+        self.addCleanup(upstream.shutdown)
+        model = ('\n[model.model-test]\nclient="claude"\nprovider="openrouter"\n'
+                 'org="local"\nitem="model-key"\nnodes=["worker"]\n')
+        self.start(org="local", machine="worker", routes=ROUTES + model)
+        route = self.srv.ctx["routes"].api["model-test"]
+        route.upstream = f"https://127.0.0.1:{upstream.server_port}/api"
+        endpoint = "/model-test/v1/messages"
+        headers = {"Authorization": "discard", "X-Api-Key": "discard", "Cookie": "discard",
+                   "X-Custom": "discard", "Anthropic-Version": "2023-06-01"}
+        status, response_headers, body = self.get(endpoint + "?beta=true", method="POST", headers=headers, data=b"200")
+        self.assertEqual((status, body), (200, b"data: fixture\n\n"))
+        self.assertNotIn("X-Provider-Diagnostic", response_headers)
+        path, received, payload = seen[0]
+        self.assertEqual((path, payload), ("/api/v1/messages?beta=true", b"200"))
+        self.assertEqual(received["Authorization"], "Bearer " + relay_read.placeholder("model-test"))
+        self.assertEqual(received["Anthropic-Version"], "2023-06-01")
+        for key in ("Cookie", "X-Custom", "X-Api-Key"):
+            self.assertIsNone(received[key])
+        for path in (endpoint + "/batches", endpoint + "?extra=x", "/model-test/v1/responses"):
+            self.assertEqual(self.get(path, method="POST", data=b"200")[0], 403)
+        self.assertEqual(self.get(endpoint)[0], 405)
+        self.assertEqual(self.get("/value/model-key")[0], 403)
+        self.assertEqual(len(seen), 1)
+        status, _, body = self.get(endpoint, method="POST", data=b"401")
+        self.assertEqual(status, 401)
+        self.assertNotIn(b"fixture-private", body)
+        self.assertEqual(self.get(endpoint, method="POST", data=b"302")[0], 502)
+        route.nodes = ["other"]
+        self.assertEqual(self.get(endpoint, method="POST", data=b"200")[0], 403)
+
     def test_api_route_policy(self):
         self.start(org="local", machine="devbox")
         self.assertEqual(self.get("/stripe-shop/v2/x")[0], 403)
