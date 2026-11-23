@@ -1,0 +1,38 @@
+#!/bin/bash
+# Install the Valetkey version commands without running a role's provisioning steps.
+set -euo pipefail
+bin=/usr/local/bin
+if [ "$#" -ne 0 ]; then
+  if [ "$#" -ne 2 ] || [ "$1" != --prefix ] || [ -z "$2" ]; then
+    echo "usage: install-version-tools [--prefix BIN_DIR]" >&2
+    exit 2
+  fi
+  bin=$2
+fi
+src=$(cd "$(dirname "$0")" && pwd)/relay
+python3 -I -c 'import sys; sys.exit(sys.version_info < (3, 9))' || {
+  echo "Valetkey needs Python 3.9 or later." >&2; exit 1;
+}
+mkdir -p -- "$bin"
+target=$bin/relay-version
+link=$bin/relay
+is_client() {
+  [ -f "$1" ] && [ ! -L "$1" ] &&
+    sed -n '2{p;q;}' "$1" | grep -Fq '"""relay: ask the credential relay about names'
+}
+if is_client "$link"; then
+  target=$link  # Preserve all commands on an existing full client.
+elif [ -e "$link" ] || [ -L "$link" ]; then
+  [ "$(readlink "$link")" = relay-version ] || { echo "Existing $link is unmanaged." >&2; exit 1; }
+fi
+if [ -e "$target" ] || [ -L "$target" ]; then
+  is_client "$target" || { echo "Existing $target is unmanaged." >&2; exit 1; }
+fi
+tmp=$(mktemp "$bin/.valetkey-version.XXXXXXXX")
+trap 'rm -f -- "$tmp"' EXIT
+install -m 755 "$src" "$tmp"
+mv -f -- "$tmp" "$target"
+if [ "$target" != "$link" ] && [ ! -L "$link" ]; then
+  ln -s relay-version "$link"
+fi
+echo "Installed Valetkey version commands in $bin."

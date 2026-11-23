@@ -5,7 +5,7 @@
 class ValetkeyAgent < Formula
   desc "valetkey client for an agent machine: relay only, never a key"
   homepage "https://github.com/machinarii/valetkey"
-  url "https://github.com/machinarii/valetkey.git", tag: "v0.1.0"
+  url "https://github.com/machinarii/valetkey.git", tag: "v0.1.1"
   license "MIT"
   head "https://github.com/machinarii/valetkey.git", branch: "main"
 
@@ -29,6 +29,7 @@ class ValetkeyAgent < Formula
   end
 
   test do
+    assert_equal version.to_s, shell_output("#{bin}/relay version").strip unless build.head?
     assert_match "Machine boundaries", shell_output("#{bin}/relay guide")
   end
 end

@@ -24,6 +24,13 @@ policy and machine isolation enforce access. A missing guide never permits readi
 
 ## Allowed workflow
 
+For an MCP server with native OAuth sign-in, use the provider’s MCP endpoint and the client’s
+built-in sign-in flow only where owner policy permits it and tokens stay off agent machines.
+Skip the Valetkey key request, broker route and Bellhop setup. If the endpoint is blocked or
+the client would store tokens on the agent VM, leave the server unconfigured.
+
+For a broker-managed credential, follow these steps.
+
 1. Ask which service consumes the credential; choose the existing Vaultwarden item reference.
 2. Run `relay check <local|infra> <item-name>` for storage/access status only. `ok` means a value
    is present and this route is allowed; it does **not** establish upstream authentication.

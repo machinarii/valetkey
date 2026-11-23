@@ -33,7 +33,7 @@ def _relay_url():
 
 # Keep the version in the executable so copied clients and Homebrew symlinks identify themselves.
 # The install test checks it against the repository VERSION.
-CLIENT_VERSION = "0.1.0"
+CLIENT_VERSION = "0.1.1"
 TAGS_URL = "https://api.github.com/repos/machinarii/valetkey/tags"
 STABLE_TAG = re.compile(r"v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)")
 BASE = ""
@@ -219,13 +219,7 @@ def cmd_status(a):
     return 0
 
 
-def main():
-    global BASE
-    p = argparse.ArgumentParser(prog="relay")
-    p.add_argument("--version", action="version", version=CLIENT_VERSION)
-    sub = p.add_subparsers(dest="cmd", required=True)
-    sub.add_parser("version", help="print the installed client version offline").set_defaults(fn=cmd_version)
-    sub.add_parser("latest-version", help="print the latest stable public Valetkey tag").set_defaults(fn=cmd_latest_version)
+def add_client_commands(sub):
     g = sub.add_parser("guide", help="print offline credential safety rules for agent memory")
     g.set_defaults(fn=cmd_guide)
     u = sub.add_parser("set-url", help="save the broker URL, e.g. https://broker.<tailnet>.ts.net")
@@ -250,6 +244,18 @@ def main():
     s = sub.add_parser("status")
     s.add_argument("id")
     s.set_defaults(fn=cmd_status)
+
+
+def main():
+    global BASE
+    p = argparse.ArgumentParser(prog="relay")
+    p.add_argument("--version", action="version", version=CLIENT_VERSION)
+    sub = p.add_subparsers(dest="cmd", required=True)
+    sub.add_parser("version", help="print the installed client version offline").set_defaults(fn=cmd_version)
+    sub.add_parser("latest-version", help="print the latest stable public Valetkey tag").set_defaults(fn=cmd_latest_version)
+    # Infrastructure installs point relay at the relay-version executable.
+    if Path(__file__).resolve().name != "relay-version":
+        add_client_commands(sub)
     a = p.parse_args()
     if a.cmd not in ("guide", "version", "latest-version", "set-url"):
         BASE = _relay_url()

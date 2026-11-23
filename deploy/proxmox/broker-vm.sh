@@ -28,6 +28,7 @@ fi
 
 # Cloud-init vendor data needs snippet storage on `local`; add it to the existing content list.
 content=$(pvesh get /storage/local --output-format json | python3 -c 'import json,sys; print(json.load(sys.stdin)["content"])')
+bash "$REPO/client/install-version-tools"
 case ",$content," in *,snippets,*) ;; *) pvesm set local --content "$content,snippets" ;; esac
 mkdir -p "$(dirname "$SNIPPET")" "$WORK"
 cat > "$SNIPPET" <<'EOF'

@@ -1,6 +1,6 @@
 #!/bin/bash
 # Runs inside the Vaultwarden container or VM as root (called by deploy/proxmox/vaultwarden-ct.sh,
-# or by hand on any Debian/Ubuntu host: copy deploy/vaultwarden/ to /opt/vaultwarden first).
+# or by hand on any Debian/Ubuntu host: copy deploy/vaultwarden/ to /opt/vaultwarden and client/{relay,install-version-tools} to /opt/vaultwarden/client first).
 # Installs Docker and Tailscale, starts Vaultwarden on 127.0.0.1:8080 and publishes it
 # on the tailnet only, over HTTPS, with `tailscale serve`.
 set -euo pipefail
@@ -11,7 +11,15 @@ VAULT_HOSTNAME=${VAULT_HOSTNAME:-vault}
 
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -q
-apt-get install -y -q curl ca-certificates jq argon2 openssl
+apt-get install -y -q curl ca-certificates jq argon2 openssl python3
+# The top-level installer and Proxmox stage this next to the vault scripts.
+if [ -f "$DIR/client/install-version-tools" ]; then
+  bash "$DIR/client/install-version-tools"
+elif [ -f "$(dirname "$0")/../../client/install-version-tools" ]; then
+  bash "$(dirname "$0")/../../client/install-version-tools"
+else
+  echo "Standalone script copy: install the version commands from a Valetkey checkout with sudo ./install.sh version-tools." >&2
+fi
 
 command -v docker >/dev/null || curl -fsSL https://get.docker.com | sh
 command -v tailscale >/dev/null || curl -fsSL https://tailscale.com/install.sh | sh

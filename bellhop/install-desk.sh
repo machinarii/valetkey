@@ -35,6 +35,8 @@ dns=$(tailscale status --json | jq -r '.Self.DNSName // empty' | sed 's/\.$//')
 [ -n "$dns" ] || fail "no tailnet name for this machine"
 ok "tailnet name $dns"
 
+bash "$repo/client/install-version-tools"
+
 # desk: owns the tool logins and runs the tools. relay-front: holds only the TLS key.
 id desk >/dev/null 2>&1 || useradd --system --create-home --shell /usr/sbin/nologin desk
 id relay-front >/dev/null 2>&1 || useradd --system --no-create-home --shell /usr/sbin/nologin relay-front

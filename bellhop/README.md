@@ -164,8 +164,8 @@ bellhop/testvm/setup.sh delete
 
 - **The agent can still use every listed tool.** This stops a login being copied. It does not
   limit what is done with it. Keep keys narrow and capped.
-- **Fixed keys only for MCP servers.** A server that signs in through a browser and renews its
-  login needs a gateway that can renew it. The desk does not do that.
+- **Native OAuth sign-in for MCP.** Connect an approved client directly to the provider’s MCP
+  endpoint and keep its tokens off agent machines. Skip the Bellhop and broker routes.
 - **MCP servers must speak HTTP.** One that only talks over standard input needs a bridge on the
   desk's loopback first.
 - **Output arrives when the tool exits.** No live progress for long jobs.

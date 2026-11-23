@@ -39,6 +39,37 @@ class InstallClientTests(unittest.TestCase):
             self.assertEqual(r.returncode, 0, r.stderr)
             self.assertEqual(r.stdout, (ROOT / "VERSION").read_text())
 
+    def test_version_tools_install_upgrade_and_preserve_full_client(self):
+        args = ("version-tools", "--prefix", str(self.prefix))
+        for _ in range(2):
+            result = self.run_install(*args)
+            self.assertEqual(result.returncode, 0, result.stderr)
+        relay = self.prefix / "relay"
+        self.assertTrue(relay.is_symlink())
+        for cmd in ("version", "--version"):
+            self.assertEqual(subprocess.check_output([relay, cmd], text=True), (ROOT / "VERSION").read_text())
+        help_text = subprocess.check_output([relay, "--help"], text=True)
+        self.assertIn("latest-version", help_text)
+        self.assertNotIn("request", help_text)
+        self.assertFalse((self.home / ".config").exists())
+        result = self.run_install("client", "--agent", "--prefix", str(self.prefix))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        result = self.run_install(*args)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("request", subprocess.check_output([relay, "--help"], text=True))
+
+    def test_version_tools_preserve_unmanaged_paths(self):
+        self.prefix.mkdir()
+        foreign = self.home / "foreign"
+        foreign.write_text("unmanaged")
+        relay = self.prefix / "relay"
+        relay.symlink_to(foreign)
+        result = self.run_install("version-tools", "--prefix", str(self.prefix))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(relay.resolve(), foreign)
+        self.assertEqual(foreign.read_text(), "unmanaged")
+        self.assertFalse((self.prefix / "relay-version").exists())
+
     def test_client_installs_tools_and_saves_url(self):
         r = self.run_install("client", "--prefix", str(self.prefix),
                              "--relay-url", "https://broker.example.ts.net/")

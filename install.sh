@@ -13,6 +13,7 @@
 #   ./install.sh doctor
 #   ./install.sh guidance   (offline rules for agent memory; never reads credentials)
 #   ./install.sh version
+#   sudo ./install.sh version-tools [--prefix BIN_DIR]  (updates the version commands only)
 #   sudo ./install.sh proxmox [--no-desk]
 #                                       (Proxmox host: creates the vault, broker and desk guests)
 #   ./install.sh                        (on a terminal: asks which machine this is, then runs the above)
@@ -187,6 +188,8 @@ cmd_vaultwarden() {
     || die "vaultwarden: Debian/Ubuntu only. Elsewhere run the vaultwarden/server image and publish it with: tailscale serve --bg --https=443 http://127.0.0.1:8080"
   install -d -m 755 /opt/vaultwarden
   install -m 755 "$repo"/deploy/vaultwarden/*.sh /opt/vaultwarden/
+  install -d -m 755 /opt/vaultwarden/client
+  install -m 755 "$repo/client/relay" "$repo/client/install-version-tools" /opt/vaultwarden/client/
   bash /opt/vaultwarden/vaultwarden-setup.sh
 }
 
@@ -235,6 +238,8 @@ cmd_agent() {
     HOME=$home XDG_CONFIG_HOME='' VALETKEY_AGENT_SETUP=1 cmd_client --agent --prefix /usr/local/bin --relay-url "$relay_url" >/dev/null
     chown -R "$user": "$home/.config/valetkey"
     ok "relay (agent mode) in /usr/local/bin, broker $relay_url"
+  else
+    bash "$repo/client/install-version-tools"
   fi
 
   if [ -n "$desk_url" ]; then  # the stand-in for tools that live on the desk
@@ -481,6 +486,7 @@ case ${1:-} in
   uninstall-client) shift; cmd_uninstall_client "$@" ;;
   doctor) cmd_doctor ;;
   guidance) cat "$repo/agents/credential-rules.md" ;;
+  version-tools) shift; exec bash "$repo/client/install-version-tools" "$@" ;;
   version|--version) echo "valetkey $version" ;;
   proxmox) shift; cmd_proxmox "$@" ;;
   "") if { : <"$tty"; } 2>/dev/null; then cmd_menu; else usage; fi ;;

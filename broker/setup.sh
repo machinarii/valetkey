@@ -67,6 +67,7 @@ install_code() {
   install -m 755 "$here/bin/with-bw-session" "$here/bin/relay-cert" "$libexec/"
   install -m 755 "$here/bin/relay-login" "$here/bin/relay-check" "$here/bin/relay-routes" \
     "$here/bin/relay-update" /usr/local/sbin/
+  bash "$repo/client/install-version-tools" || return 1
   install -m 644 "$repo/VERSION" "$libexec/VERSION"
   install -m 644 "$here/CONFIG_EPOCH" "$libexec/CONFIG_EPOCH"
   # Which commit this is is only known to relay-update, which writes COMMIT after this script.

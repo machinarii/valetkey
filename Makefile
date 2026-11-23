@@ -1,7 +1,7 @@
 # valetkey developer tasks. Nothing here touches a secret.
 VERSION := $(shell cat VERSION)
 PREFIX  ?= $(HOME)/.local/bin
-SHELL_SCRIPTS := install.sh relay/run-tests relay/run-security-tests $(wildcard broker/*.sh broker/bin/* deploy/*/*.sh \
+SHELL_SCRIPTS := install.sh client/install-version-tools relay/run-tests relay/run-security-tests $(wildcard broker/*.sh broker/bin/* deploy/*/*.sh \
   bellhop/*.sh bellhop/testvm/*.sh bellhop/fakes/tailscale-drill)
 
 .PHONY: help test test-security lint install-client dist clean

@@ -15,7 +15,7 @@
   <img alt="Self-hosted with Proxmox, Tailscale and Vaultwarden" src="https://img.shields.io/badge/self--hosted-Proxmox%20%C2%B7%20Tailscale%20%C2%B7%20Vaultwarden-1d4e6e?style=flat-square">
   <img alt="Clients: Linux and macOS" src="https://img.shields.io/badge/clients-Linux%20%C2%B7%20macOS-2d81ff?style=flat-square">
   <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-3a3a3a?style=flat-square">
-  <img alt="Status: 0.1.0, for home setups" src="https://img.shields.io/badge/status-0.1.0%20%C2%B7%20for%20home%20setups-d69e2e?style=flat-square">
+  <img alt="Status: 0.1.1, for home setups" src="https://img.shields.io/badge/status-0.1.1%20%C2%B7%20for%20home%20setups-d69e2e?style=flat-square">
 </p>
 
 <p align="center">
@@ -751,8 +751,9 @@ After changing org or collection names, run `relay-login` again for the affected
 |---|---|---|
 | `sudo ./install.sh vaultwarden` | vault host | Installs Docker and Tailscale, runs Vaultwarden and publishes it on the tailnet only. |
 | `./install.sh client [--relay-url URL] [--agent\|--owner] [--prefix DIR] [--with-deps]` | client | `--agent`: metadata CLI and guidance only. Otherwise installs consumer tools; `--owner` adds private entry; `--with-deps` adds Tailscale and fnox. |
-| `relay version` or `relay --version` | any client | Prints the installed client version offline, for example `0.1.0`. |
-| `relay latest-version` | any client | Prints the highest stable `vMAJOR.MINOR.PATCH` tag from the public Valetkey repository on GitHub. Requires network access and only checks for updates. |
+| `sudo ./install.sh version-tools` | existing Linux installation | Refreshes just the version commands from the checkout. Preserves the commands of an existing full client. Use `--prefix BIN_DIR` for a nondefault install. |
+| `relay version` or `relay --version` | all roles | Prints the installed Valetkey CLI version offline, for example `0.1.1`. |
+| `relay latest-version` | all roles | Prints the highest stable `vMAJOR.MINOR.PATCH` tag from the public Valetkey repository on GitHub. Requires network access and only checks for updates. |
 | `relay guide` / `./install.sh guidance` | any | Prints offline safety rules for persistent agent instructions; no credential access. |
 | `sudo ./install.sh broker [--with-deps]` | broker | Installs or updates the broker. Idempotent. |
 | `./install.sh doctor` / `version` / `uninstall-client` | any | Status, version, removal. |
@@ -866,7 +867,7 @@ Which goes where:
 |---|---|
 | An HTTP API or remote MCP server with a fixed key | A broker `[api.*]` route. The key stays in the vault |
 | Only a program or SDK, or a login that renews itself | A desk entry |
-| A browser sign-in MCP server with no fixed key | Neither can hold it yet |
+| An MCP server with native OAuth sign-in | Use the provider’s endpoint directly from a policy-approved client that keeps tokens off agent machines. Skip Valetkey routing. |
 
 Start with [bellhop/README.md](bellhop/README.md). To add a tool step by step, follow [the recipe](docs/recipe-new-tool-with-credential.md). [The keyless tool standard](docs/keyless-tool-standard.md) is a draft of how a tool should be built so that either the broker or the desk can hold its credential.
 
@@ -997,6 +998,17 @@ The response times in that output come from three runs each and swing widely; th
 
 ## Upgrading
 
+To update the version commands on an existing broker, vault, desk, desk-only agent or Proxmox
+host, run `sudo ./install.sh version-tools` from the reviewed Valetkey checkout on that
+machine. This updates the CLI without restarting services or provisioning guests. For a
+user-local client, use `./install.sh version-tools --prefix "$HOME/.local/bin"`. A full
+client keeps its existing subcommands. Run `relay version` for the installed Valetkey CLI
+and `relay latest-version` to check the latest public release. The vault server image and
+Bellhop services have their own upgrade procedures.
+
+For Homebrew installs, run `brew update` and then `brew upgrade valetkey-agent`,
+`brew upgrade valetkey-owner`, or `brew upgrade valetkey-consumer` for the installed role.
+
 Read [the migration procedure](docs/secure-setup.md#migrate-an-existing-deployment-without-breaking-its-consumers)
 first. Raw routes now need explicit `trusted_value_nodes`; no list means no raw reads. Prepare
 the policy and verify replacement consumers before the change window. No deployed state is
@@ -1005,7 +1017,7 @@ changed by the source test suite.
 ```sh
 git pull
 sudo ./install.sh broker      # on the broker: replaces code and units, keeps /etc/relay and logins
-./install.sh client           # on each client: replaces the tools, keeps the saved broker URL
+./install.sh client --agent   # on an agent, using its existing install prefix
 ```
 
 The broker reports its installed version in `/usr/local/libexec/relay/VERSION` and in `./install.sh doctor`.
@@ -1139,7 +1151,7 @@ The [MIT license](LICENSE) is the governing text; this section explains it and d
 
 ## Status and license
 
-Version 0.1.0. In daily use on a small fleet of Proxmox, macOS and Linux machines with AI agents; the Proxmox scripts are the most tested path. bellhop is newer than the broker: it has run on one Proxmox desk with three tools, and its keyless tool standard is a draft that nothing enforces yet.
+Version 0.1.1. In daily use on a small fleet of Proxmox, macOS and Linux machines with AI agents; the Proxmox scripts are the most tested path. bellhop is newer than the broker: it has run on one Proxmox desk with three tools, and its keyless tool standard is a draft that nothing enforces yet.
 
 It is not a bulletproof solution for protecting keys from agents. It is a practical way to reduce risk in a home agentic setup, built by one person, without an independent security audit. Treat it as a reasonable set of precautions, not a guarantee.
 

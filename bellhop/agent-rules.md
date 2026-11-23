@@ -15,7 +15,9 @@ machine, and you use them from here through `bellhop`.
   on the broker console (the server's address, the machines that may use it). The owner types
   the key on the broker's entry page; you never see it. Point the MCP client at the broker's
   address for that route, with no key.
-- An MCP server that signs in through a browser cannot go through either yet. Say so.
+- For an MCP server with native OAuth sign-in, skip the key request and both the broker and desk
+  routes. Use the provider’s endpoint from an approved client that keeps tokens off agent machines.
+  If policy blocks the endpoint or the client would store tokens on the agent VM, stop setup.
 - Tools that need no login (compilers, linters, project dependencies) are installed here as usual.
 - MCP servers are only allowed at the addresses the owner's policy names. Others are blocked;
   do not try another way to add one.

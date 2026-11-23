@@ -17,6 +17,8 @@ if pct status "$CTID" >/dev/null 2>&1 || qm status "$CTID" >/dev/null 2>&1; then
   echo "ID $CTID is already in use. Set CTID to a free ID." >&2; exit 1
 fi
 
+bash "$HERE/../client/install-version-tools"
+
 ARCH=$(dpkg --print-architecture)   # templates exist for amd64 and arm64; match the host
 pveam update >/dev/null
 TPL=$(pveam available --section system | awk -v a="_${ARCH}." '/debian-13-standard/ && index($2, a) {print $2}' | sort -V | tail -1)
@@ -44,5 +46,9 @@ done
 pct exec "$CTID" -- mkdir -p /opt/vaultwarden
 for f in vaultwarden-setup.sh set-admin-token.sh close-signups.sh; do
   pct push "$CTID" "$HERE/vaultwarden/$f" "/opt/vaultwarden/$f" --perms 0755
+done
+pct exec "$CTID" -- mkdir -p /opt/vaultwarden/client
+for f in relay install-version-tools; do
+  pct push "$CTID" "$HERE/../client/$f" "/opt/vaultwarden/client/$f" --perms 0755
 done
 pct exec "$CTID" -- env VAULT_HOSTNAME="$VAULT_HOSTNAME" bash /opt/vaultwarden/vaultwarden-setup.sh
