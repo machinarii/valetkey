@@ -162,8 +162,6 @@ The license requires that the copyright notice, with that name, stays in every c
 portion of the code. If you use valetkey or build on it, please also credit "Jinsoo An" with a link
 to https://github.com/machinarii/valetkey; see [NOTICE](NOTICE).
 
-The icon was generated with ChatGPT's image tool; the animation is drawn by `docs/images/make.py`.
-
 <p align="center">
   <img src="docs/images/valetkey-icon.png" width="28" height="28" alt="">
 </p>
