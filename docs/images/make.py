@@ -19,6 +19,7 @@ from PIL import Image, ImageDraw, ImageFont
 HERE = os.path.dirname(os.path.abspath(__file__))
 S = 2                     # draw at twice the size, then shrink: smooth edges
 W, H, FPS = 960, 540, 10
+PAUSE = 1.0  # seconds each step holds still once its motion ends, so it can be read
 NAVY, PANEL, EDGE = (15, 27, 42), (24, 42, 64), (58, 88, 120)
 TEXT, MUTED = (232, 238, 245), (150, 168, 188)
 GOLD, TEAL, RED = (242, 184, 75), (72, 204, 176), (238, 104, 104)
@@ -179,10 +180,10 @@ def animation(path):
         n = 0
         for seconds, number, text, moving in PHASES:
             frames = round(seconds * FPS)
-            for i in range(frames):
+            for i in range(frames + round(PAUSE * FPS)):
                 img = still.copy()
                 d = ImageDraw.Draw(img)
-                moving(d, i / max(frames - 1, 1))
+                moving(d, min(i / max(frames - 1, 1), 1.0))
                 caption(d, number, text)
                 img.resize((W, H), Image.LANCZOS).save(os.path.join(tmp, f"f{n:04d}.png"))
                 n += 1
