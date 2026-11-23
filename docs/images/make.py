@@ -26,6 +26,7 @@ DIM = 0.6    # how far boxes outside the current step sink into the background
 NAVY, PANEL, EDGE = (15, 27, 42), (24, 42, 64), (58, 88, 120)
 TEXT, MUTED = (232, 238, 245), (150, 168, 188)
 GOLD, TEAL, RED = (242, 184, 75), (72, 204, 176), (238, 104, 104)
+SILVER = (196, 206, 218)  # the valet key: gold is the master's
 
 
 def font(size, bold=False):
@@ -70,7 +71,7 @@ def mix(a, b, k):
 # master key: the real credential (vault, broker, service). valet key: permission to use one route,
 # no secret (the agent's requests). login: a tool's own sign-in (desk, tool's service).
 ICONS = {"master": lambda d, x, y, bg, a=1: key(d, x, y, 24, mix(bg, GOLD, a), bg),
-         "valet": lambda d, x, y, bg, a=1: key(d, x, y, 24, mix(bg, TEAL, a), bg, teeth=1),
+         "valet": lambda d, x, y, bg, a=1: key(d, x, y, 24, mix(bg, SILVER, a), bg, teeth=1),
          "login": lambda d, x, y, bg, a=1: login(d, x, y, 22, mix(bg, GOLD, a), bg)}
 
 
