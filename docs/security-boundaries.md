@@ -14,12 +14,12 @@
 
 **Does not protect against:**
 
-- **Code on an allowed machine.** Every process shares its Tailscale identity. If trusted consumer `app-shop` may pull `*-shop-qa`, anything on `app-shop` can. Keep routes narrow and agents on separate machines or VMs.
+- **Code on an allowed machine.** Every process shares its Tailscale identity. If trusted server `app-shop` may pull `*-shop-qa`, anything on `app-shop` can. Keep routes narrow and agents on separate machines or VMs.
 - **A process that already holds a value** (`[project]` and `[value]` routes). It can leak that value. `[api]` routes avoid this.
 - **Use of what is allowed.** A listed machine can call every operation its routes and desk entries permit, as often as it likes. Hiding a key stops copying, not misuse: narrow the lists, the key's own scope and its spending limits.
 - **A desk tool's own behaviour.** The desk refuses subcommands that are not listed, but a listed subcommand does whatever the tool does. Do not list one whose purpose is to print the login or read a file you name.
 - **Root on the broker**, which can unlock everything. Run nothing else on it, manage it only from its console or LAN SSH, keep it updated and back it up.
-- **An agent on an owner device.** It could submit values, capture input or browser state, or read process memory. Keep owner devices separate.
+- **An agent on an approver device.** It could submit values, capture input or browser state, or read process memory. Keep approver devices separate.
 - **Upstream key disclosure or misuse.** Echo/debug and secret-export APIs can return credentials. A route also permits the upstream actions it exposes. Narrow paths, methods and provider permissions; Valet is not a general response redactor.
 - **Availability.** If the broker is down, clients get no keys. Keep what you need to repair it outside valetkey.
 

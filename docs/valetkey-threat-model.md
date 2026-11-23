@@ -22,7 +22,7 @@ and say nothing about the state of any deployed broker.
 - Not a full third-party dependency, release supply-chain, denial-of-service or cryptographic audit.
   One review pass is not exhaustive.
 
-Questions every deployment has to answer: are agents already isolated from owner devices and trusted consumers;
+Questions every deployment has to answer: are agents already isolated from approver devices and trusted servers;
 can any untrusted user rename/enroll/share a node into the broker's reachable set; do approved
 upstreams expose reflection, secret-export or arbitrary forwarding operations? These determine
 whether the remaining high-priority assumptions hold.
@@ -35,7 +35,7 @@ Python stdlib services provide TLS routing (`relay_front.py`), per-org reads/API
 (`relay_read.py`) and owner entry (`relay_entry.py`). `relaylib/bwclient.py` wraps `bw` with values
 on stdin rather than argv; it caches decrypted items in broker memory. Bash tools provision
 systemd services and generate fnox policies. The `relay` client handles metadata, `vault` is a
-raw-value shim for trusted consumers, and `vault-entry` reads owner input. The entry page has
+raw-value shim for trusted servers, and `vault-entry` reads owner input. The entry page has
 bundled JS/CSS and escaped server-rendered request descriptions.
 
 ### Data flows and trust boundaries
@@ -49,7 +49,7 @@ bundled JS/CSS and escaped server-rendered request descriptions.
 - API relay → fnox proxy → upstream: fixed HTTPS origin and permitted method/path; proxy injects
   the key. Responses stream back and remain a trusted confidentiality boundary
   (`relay_read.py:287`, `relay/tools/gen-fnox-config.py:generate`).
-- Trusted consumer → raw endpoint: explicit trusted-node policy **and** route permission;
+- Trusted server → raw endpoint: explicit trusted-node policy **and** route permission;
   declared agents denied (`relaylib/routes.py:80`, `relay_read.py:183`).
 - Owner → entry → vault: private terminal/TLS form, untagged owner identity, HTML escaping/form
   token/CSP, per-write unlock and verification (`client/vault-entry`, `relay_entry.py:278`).
@@ -61,8 +61,8 @@ bundled JS/CSS and escaped server-rendered request descriptions.
 ```mermaid
 flowchart LR
   A["Untrusted agent VM"] -->|HTTPS metadata and API| F["Broker front"]
-  C["Trusted consumer VM"] -->|HTTPS raw route| F
-  O["Separate owner device"] -->|HTTPS private entry| F
+  C["Trusted server VM"] -->|HTTPS raw route| F
+  O["Separate approver device"] -->|HTTPS private entry| F
   F --> R["Read relay"]
   F --> E["Entry relay"]
   R --> V["Vaultwarden"]
@@ -93,7 +93,7 @@ responses. A malicious upstream can see the key it is given and can return it.
 ### Non-capabilities
 
 Under the intended deployment, an agent cannot administer the broker/vault/hypervisor, read
-trusted consumer memory, edit credential-bearing service code or policy, or capture owner input.
+trusted server memory, edit credential-bearing service code or policy, or capture owner input.
 These are required isolation assumptions, not protections supplied by an instruction file.
 Tailnet administration and upstream APIs are trusted; their compromise breaks the model.
 
@@ -142,7 +142,7 @@ that a deployed system is exploitable.
 | TM-001 | Agent code | Raw-authorized machine | Fetch raw/notes/backups directly | Scoped key theft | Provider keys | New `serve_value` policy | Trusted machine compromise remains | Separate consumers; no agent-controlled code there | Denied raw reads, role changes | High under old policy | High | high |
 | TM-002 | Allowed API caller | Upstream normalizes paths | Encode traversal or extend prefix | Bypass relay path restriction | API capability | New `canonical_api_path` | Full upstream semantics unverified | Narrow paths, key scopes; validate real proxy with dummy keys | Path denials | Medium | Medium demonstrated | medium |
 | TM-003 | Tagged service / renamed node | Owner/stale name grant | Acquire owner role | Unauthorized credential writes | Vault integrity | New `owner_machine`, role checks | Short names, not stable IDs | Restrict enrollment/rename/share; remove stale grants | Owner grants and node changes | Medium conditional | High | high |
-| TM-004 | Network/local recorder | HTTP URL or echo failure | Observe submitted value | Scoped key disclosure | Owner-entered keys | URL validation, TTY and warning refusal | Compromised owner device still trusted | Separate private entry device | Failed entry transport/input | Medium conditional | High | high |
+| TM-004 | Network/local recorder | HTTP URL or echo failure | Observe submitted value | Scoped key disclosure | Owner-entered keys | URL validation, TTY and warning refusal | Compromised approver device still trusted | Separate private entry device | Failed entry transport/input | Medium conditional | High | high |
 | TM-005 | Repeated owner replacement | Existing dated backup | Replace twice in a day | Original backup loss | Credential backup | `_write` collision refusal | Backup naming/rotation needs operator care | Retain backup; resolve collision privately | Refused replacement status | Medium | Medium | medium |
 | TM-006 | Agent / host admin | Shared host or broad access | Read process memory or input | All reachable credentials | Keys, sessions | Separate topology; tightened ACL example | Live topology unverified | Isolate broker/vault/owner/consumer and management plane | Admin access, policy drift | High if co-located | High | high |
 | TM-007 | Malicious/reflecting API | Allowed route discloses key | Return auth in response | Injected key theft | API key | Fixed destination and scope | Streaming response has no general redactor | Prohibit echo/export/forwarding routes; provider scopes | Reviewed endpoint inventory | Medium conditional | High | high |
@@ -195,7 +195,7 @@ probe live raw-value endpoints from an agent or deploy without the migration pro
 Changes since the first review, each with a regression test:
 
 - TM-003: a short name now counts only under the broker's own tailnet DNS suffix, so a device
-  shared in from another tailnet cannot borrow an owner's or trusted consumer's name
+  shared in from another tailnet cannot borrow an owner's or trusted server's name
   (`relaylib/identity.py`). Renamed or newly enrolled devices in the same tailnet remain an
   administration matter. After upgrading, confirm that known machines are still recognised
   (`relay check` from one of them).

@@ -42,7 +42,7 @@ clients                                broker (Linux VM, TPM)                   
 
 ## Identity
 
-Caller = the first DNS label of `tailscale whois --json <peer-ip>`, lowercased and cached for 5 minutes. The label counts only when the rest of the name is the broker's own tailnet suffix (`tailscale status --json`, `Self.DNSName`): a device from another tailnet (node sharing) chooses its own short name, so it is an unknown caller. An unknown peer gets 403. Tagged nodes are never owner devices. Backends trust `X-Relay-Peer` only from 127.0.0.1, so a client cannot forge it through the front door.
+Caller = the first DNS label of `tailscale whois --json <peer-ip>`, lowercased and cached for 5 minutes. The label counts only when the rest of the name is the broker's own tailnet suffix (`tailscale status --json`, `Self.DNSName`): a device from another tailnet (node sharing) chooses its own short name, so it is an unknown caller. An unknown peer gets 403. Tagged nodes are never approver devices. Backends trust `X-Relay-Peer` only from 127.0.0.1, so a client cannot forge it through the front door.
 
 Identity uses `Node.Name`, not the display `ComputedName`. Trust the tailnet administrators and
 prevent renamed or newly enrolled devices from inheriting stale short-name grants; stable node
@@ -72,8 +72,8 @@ Entry (under `/entry`):
 | Method and path | Who |
 |---|---|
 | `POST /v1/requests`, `GET /v1/requests/<id>` | any known machine (at most 20 pending requests per machine, then 429) |
-| `GET /v1/requests?status=pending`, `POST /v1/requests/<id>/value`, `POST /v1/replace` | owner devices (`entry.toml` `owner_nodes`) |
-| `GET /`, `POST /submit`, `POST /replace` | owner devices: the web page |
+| `GET /v1/requests?status=pending`, `POST /v1/requests/<id>/value`, `POST /v1/replace` | approver devices (`entry.toml` `owner_nodes`) |
+| `GET /`, `POST /submit`, `POST /replace` | approver devices: the web page |
 | `POST /v1/suspect`, `POST /v1/unsuspect` | loopback secret: read relays mark items that got upstream 401/403 |
 
 ## Writes

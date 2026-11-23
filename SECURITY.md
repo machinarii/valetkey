@@ -19,7 +19,7 @@ See [Claude Code subscription sign-in](docs/secure-setup.md#claude-code-subscrip
 
 **Assets:** credential values in Vaultwarden; the three relay unlock passwords on the broker.
 
-**Trusted:** the broker's root user and hypervisor; Tailscale identity, enrollment/renaming administrators and certificates; Vaultwarden; separate owner devices; separate credential-bearing consumers and their reviewed code; authorized upstream APIs that do not return credentials.
+**Trusted:** the broker's root user and hypervisor; Tailscale identity, enrollment/renaming administrators and certificates; Vaultwarden; separate approver devices; separate credential-bearing consumers and their reviewed code; authorized upstream APIs that do not return credentials.
 
 **Untrusted:** every other tailnet machine beyond what its routes allow; AI agents and other code on client machines; the LAN; the internet.
 
@@ -29,7 +29,7 @@ See [Claude Code subscription sign-in](docs/secure-setup.md#claude-code-subscrip
 | A stolen broker client token | Valet issues no client bearer token. Tailscale machine identity remains security-sensitive. |
 | A machine reads beyond its scope | Every route lists `nodes`; projects list `items`. Unlisted gets `not-allowed`, unknown gets 403, and there is no list endpoint. |
 | One org read through the other | Separate Linux users, `bw` data dirs, accounts and unlocks per org. A read account is a member of one org only. |
-| An agent directly fetches a key | Raw reads require explicit trusted-consumer policy plus route authorization. API-only nodes can check presence without receiving values. |
+| An agent directly fetches a key | Raw reads require explicit trusted server policy plus route authorization. API-only nodes can check presence without receiving values. |
 | An agent abuses an API route | Keys are injected by `fnox proxy` for a fixed HTTPS host, allowed methods and canonical path boundaries. Caller auth/cookies and common URL/method override headers are dropped. Upstream semantics and responses remain trusted. |
 | Spoofed caller identity | The front door overwrites `X-Relay-Peer` with the TCP peer, and backends trust it only from loopback. Loopback-only paths are 404 at the front door. |
 | Values leaking through logs or errors | Audit lines carry names and outcomes only. Errors never echo response bodies or `bw` output. Tests check this. |
@@ -41,9 +41,9 @@ See [Claude Code subscription sign-in](docs/secure-setup.md#claude-code-subscrip
 
 ## Known limits
 
-- **Same-machine code shares identity.** Never run agents on the broker, vault server, owner devices, raw-key consumers or their management host. Keep VMs isolated from host management, shared secret volumes and forwarding sockets. A different Unix user or ordinary container on an agent host is not this guarantee.
+- **Same-machine code shares identity.** Never run agents on the broker, vault server, approver devices, raw-key consumers or their management host. Keep VMs isolated from host management, shared secret volumes and forwarding sockets. A different Unix user or ordinary container on an agent host is not this guarantee.
 - **Pulled values are in process memory.** A `[project]` or `[value]` consumer can leak what it holds. Prefer `[api]` routes.
-- **Owner devices hold entry values.** An agent there could submit requests, capture input or read process/browser memory. Hidden prompts prevent echo, not a local compromise.
+- **Approver devices hold entry values.** An agent there could submit requests, capture input or read process/browser memory. Hidden prompts prevent echo, not a local compromise.
 - **Names are not stable identity pins.** Short DNS labels are used for policy, with a five-minute cache. Restrict node enrollment/renaming and shared-in access; remove stale grants before reusing names. Stable node-ID pinning is not implemented.
 - **API responses are streamed, not generically redacted.** Exclude reflection/debug/token-export endpoints and unrestricted URL forwarding. An upstream that returns the injected key defeats key confidentiality. API permissions can also be abused without stealing a key.
 - **Host storage policy matters.** Process memory/tmpfs may reach swap, dumps or VM snapshots. Protect these separately; source tests do not validate the deployed host.

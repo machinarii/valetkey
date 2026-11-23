@@ -1,6 +1,6 @@
 # fnox `vault` provider — wire format (spike, 2026-11-06)
 
-Historical integration notes. Raw-key injection is now restricted to separate trusted consumers
+Historical integration notes. Raw-key injection is now restricted to separate trusted servers
 in `[security].trusted_value_nodes`; it must never run on an agent machine. See [secure setup](secure-setup.md).
 
 Run on a Debian dev machine (`fnox 1.35.3`) in a scratch dir with `relay/tools/vault-stub.py` and a logging `vault` shim. No real secrets involved; stub values only.

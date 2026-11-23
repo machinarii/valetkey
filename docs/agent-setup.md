@@ -10,7 +10,7 @@ For Claude Code, run `relay guide claude` to choose between a Valetkey-managed s
 
 - check with `relay check` instead of reading values;
 - create named requests and **always offer you both entry methods** (terminal or web);
-- keep agents separate from trusted raw-key consumers and owner entry devices;
+- keep agents separate from trusted servers and approver devices;
 - never ask for, print or store a secret, including in Notion or other cloud documents.
 
 ### Setting up Claude Code

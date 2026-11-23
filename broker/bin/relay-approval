@@ -17,7 +17,7 @@ from relaylib.routes import load_entry_config, load_routes
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("action", choices=["pair"])
-    parser.add_argument("owner", help="Tailscale name of a configured owner device")
+    parser.add_argument("owner", help="Tailscale name of a configured approver device")
     args = parser.parse_args()
     if os.getuid() != 0:
         sys.exit("Run from the broker console with sudo.")

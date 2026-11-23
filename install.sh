@@ -366,12 +366,37 @@ cmd_doctor() {
 }
 
 # --- proxmox: the three guests, each with its own installer inside ---
+is_proxmox_host() {
+  [ "$(uname -s)" = Linux ] && command -v pveversion >/dev/null &&
+    command -v pvesh >/dev/null && command -v qm >/dev/null && command -v pct >/dev/null
+}
+
 cmd_proxmox() {
+  local vault=${CTID:-210} broker=${BROKER_VMID:-${VMID:-211}} desk=${DESK_VMID:-212}
+  local ids=("$vault" "$broker")
+  case "$#:${1:-}" in
+    0:) ids+=("$desk") ;;
+    1:--no-desk) ;;
+    *) die "usage: install.sh proxmox [--no-desk]" ;;
+  esac
+  is_proxmox_host || die "proxmox: run on a Proxmox VE host with qm, pct and pvesh"
   [ "$(id -u)" = 0 ] || die "proxmox: run as root on the Proxmox host"
-  command -v qm >/dev/null || die "proxmox: qm not found; this is not a Proxmox host"
-  bash "$repo/deploy/proxmox/vaultwarden-ct.sh"
-  bash "$repo/deploy/proxmox/broker-vm.sh"
-  [ "${1:-}" = --no-desk ] || bash "$repo/bellhop/proxmox-desk-vm.sh"
+  # Check the entire cluster before the first guest is created.
+  pvesh get /cluster/resources --type vm --output-format json | python3 -I -c '
+import json, re, sys
+ids = sys.argv[1:]
+if any(not re.fullmatch("[1-9][0-9]{2,8}", i) for i in ids) or len(ids) != len(set(ids)):
+    sys.exit("Choose distinct numeric guest IDs from 100 to 999999999.")
+used = {str(row["vmid"]) for row in json.load(sys.stdin)}
+overlap = used.intersection(ids)
+if overlap:
+    sys.exit("Guest IDs already in use: " + ", ".join(sorted(overlap)) + ". No guests created.")
+' "${ids[@]}"
+  CTID="$vault" bash "$repo/deploy/proxmox/vaultwarden-ct.sh"
+  ROLE=broker VMID="$broker" bash "$repo/deploy/proxmox/broker-vm.sh"
+  if [ "${#ids[@]}" -eq 3 ]; then
+    VMID="$desk" bash "$repo/bellhop/proxmox-desk-vm.sh"
+  fi
 }
 
 # --- menu: one command for every machine; asks which one this is ---
@@ -431,12 +456,12 @@ cmd_menu() {
     "broker|Broker (the relay services)"
     "desk|Desk (optional: runs tools that keep their own login)"
     "agent|Agent machine (where Claude Code, Codex or other agents run)"
-    "owner|Owner device (where you type keys; never runs agents)"
-    "consumer|Trusted consumer (a service that must hold a key itself; never runs agents)")
+    "owner|Approver device (where you enter keys and approve routes; never runs agents)"
+    "consumer|Trusted server (runs an application that reads the key itself; never runs agents)")
   echo 'Which machine is this? Each part needs its own machine; see "Containment" in the README.' >&2
   echo 'At each question, Enter keeps the value shown in [brackets].' >&2
   for i in "${!roles[@]}"; do
-    [ "${roles[$i]}" != proxmox ] || ! command -v qm >/dev/null || default=$((i + 1))
+    [ "${roles[$i]}" != proxmox ] || ! is_proxmox_host || default=$((i + 1))
     for l in "${labels[@]}"; do
       [ "${l%%|*}" != "${roles[$i]}" ] || printf '  %d) %s%s\n' $((i + 1)) "${l#*|}" \
         "$([ "$default" != $((i + 1)) ] || echo '  (recommended: this is a Proxmox host)')" >&2

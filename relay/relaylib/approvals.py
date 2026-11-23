@@ -56,7 +56,7 @@ class Approvals:
     def open_pairing(self, who):
         _, conf = self.policy()
         if who not in conf.owner_nodes or not ROUTE_NAME_RE.fullmatch(who):
-            raise Refused(403, "select a configured owner device")
+            raise Refused(403, "select a configured approver device")
         ticket = secrets.token_hex(20)
         self.db.execute("""INSERT INTO owner(name,ticket,expires) VALUES(?,?,?)
             ON CONFLICT(name) DO UPDATE SET ticket=excluded.ticket, expires=excluded.expires""",
@@ -125,7 +125,7 @@ class Approvals:
     def review(self, who, rid):
         _, conf = self.policy()
         if who not in conf.owner_nodes:
-            raise Refused(403, "owner device required")
+            raise Refused(403, "approver device required")
         row = self.db.execute("SELECT * FROM proposal WHERE id=?", (rid,)).fetchone()
         if not row or row["expires"] <= self.clock():
             raise Refused(404, "approval link expired or unavailable")
@@ -171,7 +171,7 @@ class Approvals:
             raise Refused(409, "agent or route policy changed; proposal cannot be applied")
         owner = self.db.execute("SELECT active FROM owner WHERE name=?", (who,)).fetchone()
         if not owner or not owner["active"]:
-            raise Refused(403, "pair this owner device from the broker console first")
+            raise Refused(403, "pair this approver device from the broker console first")
         if self.db.execute("SELECT 1 FROM proposal WHERE state IN ('installing','recovery')").fetchone():
             raise Refused(503, "previous activation requires recovery")
         self.authenticate(who, self.seed(who, owner["active"]), code)

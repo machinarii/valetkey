@@ -3,7 +3,7 @@
 #                                  brew install valetkey-consumer
 # Release: bump the tag in all three formulas to the new VERSION and push the tag.
 class ValetkeyConsumer < Formula
-  desc "valetkey client for a trusted service that must hold a key itself"
+  desc "valetkey client for a trusted server whose application needs the key itself"
   homepage "https://github.com/machinarii/valetkey"
   url "https://github.com/machinarii/valetkey.git", tag: "v0.1.3"
   license "MIT"

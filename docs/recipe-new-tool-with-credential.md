@@ -92,7 +92,7 @@ deny_options = ["--debug", "--token"]
      --upstream https://api.acme.example --method GET --path /v1/reports
    ```
 
-   Give the owner the printed link. On a paired owner device, review the destination, scope
+   Give the owner the printed link. On a paired approver device, review the destination, scope
    and requesting machine, then approve with a fresh authenticator code. Wait for **Route active**.
    See [Pair an authenticator and approve an API route](route-approval.md) for first-time setup.
 4. **Agent points the client at the broker.** The address is

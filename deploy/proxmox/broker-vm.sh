@@ -46,7 +46,9 @@ curl -fL -o "$img" "$IMG_URL"
 
 [ -f /root/.ssh/id_rsa.pub ] || [ -f /root/.ssh/id_ed25519.pub ] || ssh-keygen -t ed25519 -N '' -f /root/.ssh/id_ed25519 -q
 keys="$WORK/authorized_keys"
-cat /root/.ssh/authorized_keys /root/.ssh/id_*.pub 2>/dev/null | grep -E '^(ssh-|ecdsa-)' | sort -u > "$keys"
+pubkeys=(/root/.ssh/id_*.pub)
+if [ -f /root/.ssh/authorized_keys ]; then pubkeys+=(/root/.ssh/authorized_keys); fi
+cat "${pubkeys[@]}" | grep -E '^(ssh-|ecdsa-)' | sort -u > "$keys"
 
 qm create "$VMID" --name "$BROKER_HOSTNAME" --ostype l26 \
   --cores "$CORES" --memory "$MEMORY" --cpu host \

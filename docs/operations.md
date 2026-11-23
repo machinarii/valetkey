@@ -18,7 +18,7 @@ relay request pgpassword-shop-qa --org infra --project shop --purpose "shop qa d
 # Enter it with: vault-entry r_8f2c…   or   https://broker.<tailnet>.ts.net/entry — your choice
 ```
 
-Then enter the value on a separate owner device, whichever way you like:
+Then enter the value on a separate approver device, whichever way you like:
 
 - **Terminal:** `vault-entry` lists pending requests, and `vault-entry r_8f2c…` asks for the value twice at a hidden prompt. For multi-line values (`--notes`), end with a line containing only `.`.
 - **Web:** open `https://broker.<tailnet>.ts.net/entry` on a device listed in `owner_nodes`. Each request is a card: type the value and press **Store value**.
@@ -28,7 +28,7 @@ Then enter the value on a separate owner device, whichever way you like:
 **Replace a key.** `relay request <name> --org … --replace …` or `vault-entry replace <name> --org …`. The old value becomes `<name>-backup-YYYYMMDD`. If that backup already exists, replacement is refused until the owner resolves the collision; no existing backup is deleted automatically.
 
 **A key stopped working.** Agents report the item name and failing status. Only an owner or
-separate trusted consumer may check backups, newest first; never run this in an agent session:
+separate trusted server may check backups, newest first; never run this in an agent session:
 
 ```sh
 relay backups infra stripe-api-key-shop-prod     # 20261106, 20261020 …
@@ -119,7 +119,7 @@ After changing org or collection names, run `relay-login` again for the affected
 | `relay request <name> --org … [--project P] --purpose … [--notes] [--replace]` | client | Opens an entry request. |
 | `relay status <id>` · `relay backups <org> <name>` | client | Request state · backup dates. |
 | `vault kv get -field=<field> <path>/<name>` | client | The fnox shim. Prints one value; used by fnox, not by people. |
-| `vault-entry [<id> \| add … \| replace …]` | owner device | Lists requests and enters values at a hidden prompt. |
+| `vault-entry [<id> \| add … \| replace …]` | approver device | Lists requests and enters values at a hidden prompt. |
 | `fnox-to-relay --project P --env E --org O` | client | Turns `fnox list` output into a relay `fnox.toml`. |
 | `sudo relay-login <local\|infra\|entry> <email>` | broker | Hidden-prompt login; stores the encrypted unlock; writes `org.json`. |
 | `sudo relay-check [local\|infra\|entry]` | broker | Lock state, `ok`/`FAIL` per item and route, unit state, recent audit lines. |

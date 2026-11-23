@@ -44,7 +44,7 @@ def dispatch(store, identity, msg, admin):
     if op == "propose":
         return store.propose(who, msg["spec"])
     if tagged or who not in store.policy()[1].owner_nodes:
-        raise Refused(403, "untagged owner device required")
+        raise Refused(403, "untagged approver device required")
     rid = msg["id"]
     if not isinstance(rid, str) or not re.fullmatch("[0-9a-f]{40}", rid):
         raise Refused(404, "unknown link")

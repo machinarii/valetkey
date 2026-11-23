@@ -19,12 +19,12 @@ the permissions behind it even when it cannot read the token. A writable deploy 
 machine would also grant repository write access. Personal SSH keys authenticate as the owner
 and have no separate workflow scope. [GitHub token permissions](https://docs.github.com/en/rest/repos/contents#create-or-update-file-contents) · [Deploy keys](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/managing-deploy-keys)
 
-For an occasional edit, use GitHub's web editor on a separate owner device. Review the proposed
+For an occasional edit, use GitHub's web editor on a separate approver device. Review the proposed
 workflow, commit to a topic branch, and open a pull request. Keep that browser session and any
 Git credential or SSH agent used for the push beyond the reach of agent tooling, including
 remote browser debugging and forwarded authentication sockets.
 
-For a change prepared locally, use the owner device to fetch the proposed branch and review
+For a change prepared locally, use the approver device to fetch the proposed branch and review
 its diff against the target branch. After adding or editing the workflow, stage the intended
 files and run `git diff --cached -- .github/workflows/` to check the exact YAML going into the
 commit. Review the complete change as well, including local actions, Makefile targets, and

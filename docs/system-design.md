@@ -6,7 +6,7 @@ valetkey is a self-hosted credential broker. It pairs [Vaultwarden](https://gith
 
 A valet key starts the car but won't open the trunk. valetkey gives each machine the same kind of key: it can use the few credentials its routes allow, for as long as it is on your tailnet, and nothing else. The master key stays in one place: a small broker VM that is the only thing allowed to unlock the vault.
 
-Software alone does not keep a key from an agent. **Where each part runs matters as much as what it does.** Read [Containment](#containment-where-everything-runs) before installing anything, then follow [secure setup](secure-setup.md). Never run agents on the broker, the desk, the vault server, an owner entry device, a trusted raw-value consumer or their management host. Raw reads are denied by default; existing deployments need the migration steps in that guide before upgrading.
+Software alone does not keep a key from an agent. **Where each part runs matters as much as what it does.** Read [Containment](#containment-where-everything-runs) before installing anything, then follow [secure setup](secure-setup.md). Never run agents on the broker, the desk, the vault server, an approver device, a trusted server or their management host. Raw reads are denied by default; existing deployments need the migration steps in that guide before upgrading.
 
 ## Why
 
@@ -25,18 +25,18 @@ valetkey takes a different route:
 
 | Problem | valetkey's answer |
 |---|---|
-| Keys copied onto every machine | Agent machines receive no raw provider key through approved API routes. Separate trusted consumers fetch only what their processes need. Existing secret files are not removed by Valet. |
+| Keys copied onto every machine | Agent machines receive no raw provider key through approved API routes. Separate trusted servers fetch only what their processes need. Existing secret files are not removed by Valet. |
 | Broker client tokens to protect and rotate | **Identity is the machine.** The broker asks Tailscale who is calling (`tailscale whois`). There is no additional Valet bearer token; Tailscale identity still needs protecting. |
 | Agents that can read and print secrets | Declared agent machines use API routes by default. A Claude setup-token exception exposes that token to the named machine. `relay check` reports storage/access status, not upstream authentication. |
 | Pasting a new key into chat | The owner types the value into a **hidden terminal prompt or a web page on the tailnet**. The agent picks the name, so naming can't drift. |
-| A key that silently expired | **Replace with backup**: the old value is kept as `<name>-backup-YYYYMMDD`. Only trusted consumers/operators may use backups. |
+| A key that silently expired | **Replace with backup**: the old value is kept as `<name>-backup-YYYYMMDD`. Only trusted servers/operators may use backups. |
 
 ## Features
 
 - **No agent-side provider key required.** Approved broker API routes inject keys remotely. Existing credentials and Tailscale machine state still need protection. Revoke route access in `routes.toml` or the tailnet policy.
 - **Key injection.** `[api.*]` routes add credentials to outgoing HTTPS calls (exact host, methods and path prefixes) through `fnox proxy`. The calling process never has the key.
 - **Works with fnox as is.** Uses fnox's own `vault` provider with a 100-line shim. Keep `fnox exec`, profiles and `if_missing = "error"`.
-- **Broker-only agent policy.** Agent nodes can check and request; ordinary raw reads require a separate trusted-consumer grant. Includes offline guidance for agent memory.
+- **Broker-only agent policy.** Agent nodes can check and request; ordinary raw reads require a separate grant for a trusted server. Includes offline guidance for agent memory.
 - **Owner entry, two ways.** Hidden terminal prompt (`vault-entry`) or a plain, phone-friendly web page that only your devices can submit to.
 - **Replace with backup.** Each replace keeps `<name>-backup-YYYYMMDD`; same-day collisions are refused. Backups require the same trusted raw-consumer policy as the original.
   fnox may find multiple items when a backup contains the original name. The owner must resolve that ambiguity privately before restarting the route; agents must not delete backups. `relay-check` and `relay-routes install` report it.
@@ -59,13 +59,13 @@ valetkey is several small tools, each with one job, and each belongs on a partic
 | **Vaultwarden** | The vault. Stores every key, encrypted. You manage it with the Bitwarden apps. Only the broker and your own devices can reach it. | Vault host |
 | **relay** | The broker's services. They stand between your machines and the vault: unlock it, hand out only what each machine's routes allow, add keys to outgoing API calls, and take new keys from you. | Broker |
 | &nbsp;&nbsp;`relay-front` | The only listener: HTTPS on the broker's tailnet address. Passes each request to a service below and tells it which machine is calling. | Broker |
-| &nbsp;&nbsp;`relay-local`, `relay-infra` | The read side, one per vault organization: checks, values for trusted consumers, API routes. | Broker |
+| &nbsp;&nbsp;`relay-local`, `relay-infra` | The read side, one per vault organization: checks, values for trusted servers, API routes. | Broker |
 | &nbsp;&nbsp;`relay-entry` | The write side: named requests from agents, and the page and prompt where you type a value. | Broker |
-| **fnox** | On the broker, adds the key to an outgoing API call (`fnox proxy`). On a trusted consumer, starts a program with its secrets (`fnox exec`). | Broker; trusted consumers |
+| **fnox** | On the broker, adds the key to an outgoing API call (`fnox proxy`). On a trusted server, starts a program with its secrets (`fnox exec`). | Broker; trusted servers |
 | **Broker tools** `relay-login`, `relay-check`, `relay-routes`, `relay-update` | Sign the relays in to the vault, check them, apply route changes, update the broker. | Broker, at its console |
 | **`relay`** | The client. Asks the broker whether a key exists and requests a new one by name. Never shows a value. | Agent machines and every other client |
-| **`vault`** | A small shim that lets fnox fetch a value from the broker for a trusted program. | Trusted consumers only |
-| **`vault-entry`** | A hidden prompt for typing a key's value. | Owner devices only |
+| **`vault`** | A small shim that lets fnox fetch a value from the broker for a trusted program. | Trusted servers only |
+| **`vault-entry`** | A hidden prompt for typing a key's value. | Approver devices only |
 | **bellhop desk** | Runs command-line tools that keep their own login, on behalf of agent machines, within a list you write. | Desk |
 | **`bellhop`** | The stand-in. Sends a command and its files to the desk and returns the output. Linked under each tool's own name. | Agent machines |
 | **sweep** | An hourly check that no login and no unexpected tool has appeared. Reports names only. | Agent machines, as root |
@@ -120,7 +120,7 @@ its own Claude subscription token. See [why this exception exists](security-boun
 
 1. **Pull.** A project's `fnox.toml` points fnox's `vault` provider at the broker. fnox runs the `vault` shim for each secret, the shim does one HTTPS GET, and the value goes into the process's environment and nowhere else. `fnox exec -- npm run dev` works as before.
 2. **Inject.** A client calls `https://broker.<tailnet>.ts.net/local/stripe-shop/v1/…` with no key. The broker adds the key on the way out. The client never holds it.
-3. **Entry.** An agent runs `relay request stripe-api-key-shop-prod --org infra --project shop --purpose "…"`. You enter the value with `vault-entry <id>` in your private terminal or on `https://broker.<tailnet>.ts.net/entry`, on a separate owner device. The broker writes it, verifies it and tells the agent `stored`; the response contains no value.
+3. **Entry.** An agent runs `relay request stripe-api-key-shop-prod --org infra --project shop --purpose "…"`. You enter the value with `vault-entry <id>` in your private terminal or on `https://broker.<tailnet>.ts.net/entry`, on a separate approver device. The broker writes it, verifies it and tells the agent `stored`; the response contains no value.
 
 **The desk (optional).** Some tools cannot go through an API route: a command-line tool that signs in and keeps its own login file, for example. bellhop puts those on a second small VM, the desk. The agent machine has a stand-in command under the tool's name; it sends the command and any files to the desk, which runs the real tool with its own login and returns the output. See [The desk](agent-setup.md#the-desk-tools-with-their-own-login).
 
@@ -135,11 +135,11 @@ The rule is short: **a key lives only on a machine where no agent runs, and an a
 | Machine | Holds | Runs agents | Reachable by |
 |---|---|---|---|
 | **Agent machine** (dev box, bot, CI runner) | No key, no login, no vault session | Yes | Nothing needs to reach it |
-| **Broker** | Vault unlock material; keys in memory | Never | Agent machines and owner devices, port 443 only |
+| **Broker** | Vault unlock material; keys in memory | Never | Agent machines and approver devices, port 443 only |
 | **Desk** (optional) | Logins of the command-line tools it runs | Never | Agent machines, port 443 only |
-| **Vault** (Vaultwarden) | The encrypted vault | Never | The broker and owner devices, port 443 only |
-| **Owner device** (your laptop, phone) | What you type during entry | Never | Nothing |
-| **Trusted consumer** (a deployed service) | Only the keys its own process needs | Never | Its own application port |
+| **Vault** (Vaultwarden) | The encrypted vault | Never | The broker and approver devices, port 443 only |
+| **Approver device** (your laptop, phone) | What you type during entry | Never | Nothing |
+| **Trusted server** (a deployed service) | Only the keys its own process needs | Never | Its own application port |
 | **Hypervisor** | Control of every VM on it | Never | You, at its console |
 
 ### Recommended layout
@@ -152,7 +152,7 @@ The rule is short: **a key lives only on a machine where no agent runs, and an a
 │  sandboxed commands  │                  │ LXC  vault     Vaultwarden in Docker      │◀─┘
 └──────────────────────┘                  └───────────────────────────────────────────┘
 ┌──────────────────────┐   tailnet 443            ▲ console or LAN SSH only
-│ owner devices        │ ───▶ vault, broker       │
+│ approver devices     │ ───▶ vault, broker       │
 └──────────────────────┘                    you, never an agent
 ```
 
@@ -201,10 +201,10 @@ Merge [`deploy/tailscale/acl.example.hujson`](../deploy/tailscale/acl.example.hu
 | From | To | Port |
 |---|---|---|
 | Agent machines | broker, desk | 443 |
-| Owner devices | vault, broker | 443 |
+| Approver devices | vault, broker | 443 |
 | Broker | vault | 443 |
 | Anything | broker or desk over SSH | Denied |
-| Agent machines | vault, owner devices | Denied |
+| Agent machines | vault, approver devices | Denied |
 
 **Keep all of it inside the tailnet.** valetkey is not intended for a public-facing system. Do not publish the broker, the desk or the vault with Tailscale Funnel, a port forward, or a reverse proxy, tunnel or public IP address that is reachable from outside the tailnet (`tailscale serve`, which the vault setup uses, stays inside it), and do not share those machines into someone else's tailnet. The broker decides who is calling from the machine's Tailscale identity and has no other sign-in, so anything that lets outside traffic reach it removes the protection.
 
@@ -259,7 +259,7 @@ Things that catch people out:
 - **A test opens nothing.** `tests` only check; access comes from `grants`. Each goes in its own section of the policy.
 - **Tag names must match exactly.** A grant for `tag:monitor` does nothing for a machine tagged `tag:monitoring`.
 - **A machine that may not reach a peer may not be able to resolve its name either.** A name that does not resolve usually means a missing grant, not a DNS fault.
-- **Tagged machines are not yours in the policy's eyes.** That is the point for servers and agent machines. It also means a tagged machine can never be an owner device.
+- **Tagged machines are not yours in the policy's eyes.** That is the point for servers and agent machines. It also means a tagged machine can never be an approver device.
 - **VMs behind one host share that host's identity** unless each runs Tailscale itself. The broker would then treat them as one machine.
 - **The broker and desk know a machine by its Tailscale name.** Renaming a machine changes who it is; update the routes when you do.
 - **The policy covers the tailnet only.** It cannot close a LAN or public address. The broker and desk listen only on their tailnet address.

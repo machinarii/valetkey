@@ -6,9 +6,9 @@ X-Relay-Peer. Endpoints:
 
   POST /v1/requests, GET /v1/requests/<id>        any machine known to whois (no other
                                                   item's name: near_duplicate is only true)
-  GET  /v1/requests?status=pending                owner devices (entry.toml owner_nodes)
-  POST /v1/requests/<id>/value, POST /v1/replace  owner devices
-  GET  /, POST /submit, POST /replace             owner devices, the web page
+  GET  /v1/requests?status=pending                approver devices (entry.toml owner_nodes)
+  POST /v1/requests/<id>/value, POST /v1/replace  approver devices
+  GET  /, POST /submit, POST /replace             approver devices, the web page
   POST /v1/suspect, POST /v1/unsuspect            loopback secret (read relays)
 
 The vault is unlocked only for one write and locked again on every path. Values never reach
@@ -333,7 +333,7 @@ class Handler(RelayHandler):
         match = re.fullmatch(r"/(pair|approve)/([a-f0-9]{40})", path)
         if match:
             if not owner:
-                return self.deny(who, "approval", 403, "owner device required")
+                return self.deny(who, "approval", 403, "approver device required")
             return self.approval_page(who, *match.groups())
         m = REQ_PATH.match(path)
         if path == "/v1/requests" and self.command == "POST":
@@ -362,7 +362,7 @@ class Handler(RelayHandler):
         try:
             status, data = self.server.ctx["approval_rpc"](dict(peer=peer_ip(self), **msg))
         except (ValueError, OSError):
-            return self.deny(who, "approval", 503, "approval worker unavailable; pair an owner device on the broker")
+            return self.deny(who, "approval", 503, "approval worker unavailable; pair an approver device on the broker")
         if status != 200:
             return self.deny(who, "approval", status, data)
         return data

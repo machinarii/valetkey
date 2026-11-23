@@ -11,10 +11,14 @@ Unix user or an ordinary Docker container on the agent's host does not provide t
 | Agent VM | Owner-approved Claude subscription credential (setup token or native web session) | Yes | Broker HTTPS API routes, checks, named requests and the optional setup-token route |
 | Broker VM | Unlock material, vault sessions and injected keys | No | Agent-facing HTTPS 443; backend ports on loopback only |
 | Desk VM (optional) | The logins of command-line tools it runs for agents | No | Agent-facing HTTPS 443; the desk service on loopback only |
-| Vault server | Encrypted vault database and server secrets | No | HTTPS from broker and separate owner devices |
-| Owner device | Owner-entered values during private entry | No | Vault UI, broker entry UI or `vault-entry` |
-| Trusted consumer | Only the keys its service requires | No | Narrow application interface; raw-value routes if unavoidable |
+| Vault server | Encrypted vault database and server secrets | No | HTTPS from broker and separate approver devices |
+| Approver device | Owner-entered values during private entry | No | Vault UI, broker entry UI or `vault-entry` |
+| Trusted server | Only the keys its service requires | No | Narrow application interface; raw-value routes if unavoidable |
 | Hypervisor / management host | Administrative access to the above | No | Owner-only management; no agent access to VM disks or consoles |
+
+In broker configuration, list approver devices under `owner_nodes` in `entry.toml`.
+List trusted servers under `security.trusted_value_nodes` in `routes.toml` and grant
+each server a route for the specific credential it needs.
 
 Separate physical hosts provide a stronger boundary. Dedicated VMs on a trusted hypervisor can
 be used when the agent has no host/root access, management socket, shared secret volume, clipboard,
@@ -22,7 +26,7 @@ SSH forwarding, or access to the other VMs' disks. Do not host the broker VM und
 account controlled by an agent. A container is especially insufficient if an agent can use the
 Docker socket, mount host paths, or share the host's Tailscale identity.
 
-Keep agents off the **owner entry device** too. Hidden input prevents terminal echo; it cannot
+Keep agents off the **approver device** too. Hidden input prevents terminal echo; it cannot
 protect against code on that device capturing keystrokes, browser fields or process memory.
 Never use a recorded agent terminal or shared agent browser for entry.
 
@@ -42,7 +46,7 @@ owner removes it separately. [Claude Code authentication](https://code.claude.co
 
 ### OAuth token from `claude setup-token`
 
-For a new token, the owner runs `claude setup-token` on a separate owner device in an
+For a new token, the owner runs `claude setup-token` on a separate approver device in an
 unrecorded terminal, approves in the browser, then enters the token privately through the
 requested broker entry page or `vault-entry`. For an existing token, keep its Vaultwarden
 item. In T3, select the owner-approved launcher that supplies `CLAUDE_CODE_OAUTH_TOKEN`
@@ -76,8 +80,8 @@ and permission. Verify subscription authentication separately with a short T3 mo
 
 Use [the ACL example](../deploy/tailscale/acl.example.hujson) as a starting point, substituting
 the actual machine addresses privately in the owner-managed policy. Allow agents to reach only
-the broker's TCP 443. Deny access to the vault, broker SSH/backend ports, owner devices, trusted
-consumer administration, and the hypervisor. A trusted consumer may expose a narrow application
+the broker's TCP 443. Deny access to the vault, broker SSH/backend ports, approver devices, trusted
+consumer administration, and the hypervisor. A trusted server may expose a narrow application
 endpoint to agents; do not expose arbitrary command execution or unreviewed deployment.
 
 Remove broad member-to-member and allow-all rules when merging the example: Tailscale grants are
@@ -121,7 +125,7 @@ nodes = ["app-prod"]
 
 Ordinary raw reads require membership in `trusted_value_nodes` and a matching value or
 project route. The Claude subscription exception above grants one item to one agent through
-an explicit value route. Keep owner nodes and trusted consumers on separate machines.
+an explicit value route. Keep owner nodes and trusted servers on separate machines.
 
 Use exact item names over suffix wildcards. Split development and production routes. An API
 prefix without a trailing slash permits that endpoint and its children, not similarly named
@@ -164,7 +168,7 @@ owner-entry tool. It does not remove an older installation, erase pre-existing s
 access by itself. Broker policy must be installed by the trusted operator. Never copy the vault's
 login state, broker unlock material, `BW_SESSION` or raw-value runtime mounts onto an agent VM.
 
-On a separate owner device, install the client with `--owner`. Enter new credentials either in
+On a separate approver device, install the client with `--owner`. Enter new credentials either in
 that device's private terminal using `vault-entry <request-id>` or in the encrypted Tailscale
 entry page. Both options remain available; never ask the owner to paste a value into chat.
 Piped owner input is refused, and failure to disable echo aborts password entry.
@@ -181,7 +185,7 @@ deploy the new broker code blindly onto a running raw-value setup.
 
 1. Inventory **references and consuming services only**, from approved metadata. Identify which
    machines run agents and which services currently depend on raw-value routes. Do not dump keys.
-2. Provision separate trusted consumers and reviewed API routes alongside the old working paths.
+2. Provision separate trusted servers and reviewed API routes alongside the old working paths.
    Copy neither secrets nor unlock material to agent machines. Existing exposed credentials
    require owner-led rotation; this change cannot erase old logs, disks or process memory.
 3. Prepare `agent_nodes`, `trusted_value_nodes`, narrow routes and separate owner nodes together.
@@ -205,7 +209,7 @@ this repository do not establish that a live broker has been updated or correctl
 | `relay check infra payments-api-key-shop-prod` on an authorized agent | `ok` or `missing` | API item is authorized and present/absent; not upstream authentication |
 | `relay check infra database-url-shop-prod` on that agent | `not-allowed` | Raw-only reference is not usable by the agent |
 | Harmless approved API operation | Expected provider status, no credentials in output | Authentication and narrowly allowed behavior work |
-| Broker policy validation | No role conflicts; only intended trusted consumers | Names and roles are coherent |
+| Broker policy validation | No role conflicts; only intended trusted servers | Names and roles are coherent |
 | Synthetic direct raw/notes/backup requests | 403, no fixture value | HTTP callers cannot bypass the broker policy |
 | Synthetic unauthorized write, spoofed peer and traversal tests | Denied | The tested authorization boundaries hold |
 

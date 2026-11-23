@@ -9,7 +9,7 @@ policy and machine isolation enforce access. A missing guide never permits readi
 ## Machine boundaries
 
 - Run agents on dedicated machines or VMs. Never run an agent on the broker, vault server,
-  owner entry device, trusted raw-value consumer, or the host that administers their VMs.
+  approver device, trusted server, or the host that administers their VMs.
   A separate Unix user or ordinary container on an agent host is not this boundary.
 - Agent machines belong in `[security].agent_nodes` on the broker. They must never appear in
   `trusted_value_nodes` or `owner_nodes`. Project and ordinary raw-value routes exclude agent nodes.
@@ -27,7 +27,7 @@ policy and machine isolation enforce access. A missing guide never permits readi
 Offer the owner two choices for Claude Code’s own subscription on each machine. Keep its
 existing method until the owner chooses to switch.
 
-- **Setup token.** The owner runs `claude setup-token` on a separate owner device in an
+- **Setup token.** The owner runs `claude setup-token` on a separate approver device in an
   unrecorded terminal and authorizes it in the browser. For a new item, file
   `relay request claude-code-oauth-<node> --org local --purpose "Claude subscription login"`.
   The owner enters the value privately through the broker entry page or `vault-entry <id>`.
@@ -81,7 +81,7 @@ For a broker-managed credential, follow these steps.
 4. For a missing item, use `relay request <name> --org local|infra --purpose "service and use"`
    (add `--project P` or `--notes` when needed). Purpose is non-secret technical context only.
 5. Always offer the owner both private entry methods and let them choose: `vault-entry <id>`
-   in their own unrecorded terminal on a separate owner device, or the encrypted Tailscale web
+   in their own unrecorded terminal on a separate approver device, or the encrypted Tailscale web
    entry field at `https://broker.<tailnet>.ts.net/entry`. File the request (step 4) before
    sending the link: the entry page lists only pending requests. Send the broker's entry link,
    never the Vaultwarden web-vault address, and never ask the owner to create the item in the
@@ -94,7 +94,7 @@ For a broker-managed credential, follow these steps.
    the approval link. Only the owner scans pairing QR codes and enters authenticator codes.
 7. If upstream authentication fails, report the item name and failure status. An owner can
    authorize replacement with `--replace`. Agents must never fetch backups or change a route
-   to a backup themselves. Backup use belongs to a trusted consumer/operator, with verification.
+   to a backup themselves. Backup use belongs to a trusted server/operator, with verification.
 
 ## Never read a value
 
@@ -150,7 +150,7 @@ Use canonical lowercase kebab-case Vaultwarden item names: `<key>-<project>-<dev
 project items, `<key>` for tool-level items. Multiline credentials use `<name>/notes`.
 `local` and `infra` describe the consuming service, never permission to access personal content.
 
-The broker, vault, trusted consumers, owner devices, their administrators and hypervisor remain
+The broker, vault, trusted servers, approver devices, their administrators and hypervisor remain
 trusted. API access still permits the actions that route and upstream key authorize. Never use
 echo/debug endpoints, unrestricted request forwarding, or secret-management endpoints: a trusted
 upstream could return a key in its response. Valet is not a general response redactor.

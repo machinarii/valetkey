@@ -2,7 +2,7 @@
 // policy in the admin console (Access controls → JSON editor); back up the current one first.
 // Replace the 100.x.y.z placeholders with each machine's address (`tailscale ip -4`).
 //
-// The shape: owner devices reach Vaultwarden and the broker; workload machines reach only the
+// The shape: approver devices reach Vaultwarden and the broker; workload machines reach only the
 // broker; the broker reaches Vaultwarden; nothing reaches the broker over SSH.
 {
     "tagOwners": {
@@ -14,25 +14,25 @@
     // Named machines. Names here are for the policy only; the broker identifies callers by their
     // Tailscale machine name (`tailscale whois`), which is what routes.toml `nodes` lists.
     "hosts": {
-        "laptop": "100.x.y.z",   // owner device
-        "phone":  "100.x.y.z",   // owner device (entry page only)
+        "laptop": "100.x.y.z",   // approver device
+        "phone":  "100.x.y.z",   // approver device (entry page only)
         "devbox": "100.x.y.z",   // workload machine: runs projects, agents
         "bot1":   "100.x.y.z",   // workload machine
     },
 
     "grants": [
-        // No member-to-member or allow-all grant: agents must not reach owner devices or
-        // trusted consumers' administration ports. Grants are additive; remove broader grants
+        // No member-to-member or allow-all grant: agents must not reach approver devices or
+        // trusted servers' administration ports. Grants are additive; remove broader grants
         // elsewhere in your policy. The tests below do not override an allowing grant.
 
-        // Owner devices: Vaultwarden (web vault, Bitwarden apps) and the broker (entry page).
+        // Approver devices: Vaultwarden (web vault, Bitwarden apps) and the broker (entry page).
         {"src": ["laptop", "phone"], "dst": ["tag:vault", "tag:broker"], "ip": ["tcp:443"]},
 
         // Workload machines get credentials only through the broker, never from Vaultwarden.
         {"src": ["devbox", "bot1"], "dst": ["tag:broker"], "ip": ["tcp:443"]},
 
         // Workload machines use login-holding tools through the desk. Nothing else reaches it:
-        // not owner devices, not the broker, and nobody over SSH.
+        // not approver devices, not the broker, and nobody over SSH.
         {"src": ["devbox", "bot1"], "dst": ["tag:desk"], "ip": ["tcp:443"]},
 
         // The broker reads from Vaultwarden.

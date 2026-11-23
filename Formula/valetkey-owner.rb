@@ -3,7 +3,7 @@
 #                                  brew install valetkey-owner
 # Release: bump the tag in all three formulas to the new VERSION and push the tag.
 class ValetkeyOwner < Formula
-  desc "valetkey client for an owner device: relay and vault-entry"
+  desc "valetkey client for an approver device: relay and vault-entry"
   homepage "https://github.com/machinarii/valetkey"
   url "https://github.com/machinarii/valetkey.git", tag: "v0.1.3"
   license "MIT"
@@ -23,7 +23,7 @@ class ValetkeyOwner < Formula
       Needs python3 3.9 or newer on PATH (macOS and most Linux systems have it).
       Point it at your broker once (names only, never a key):
         relay set-url https://broker.<tailnet>.ts.net
-      Owner devices type keys with vault-entry; never run agents on this machine.
+      Use vault-entry on an approver device to enter keys; never run agents on this machine.
       List it in the broker's /etc/relay/entry.toml owner_nodes.
     EOS
   end

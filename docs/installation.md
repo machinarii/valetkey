@@ -26,11 +26,30 @@ It asks one question, which machine this is, and does the rest:
 | **Desk** (Linux VM, optional) | Desk | The desk service and its front door. No tools or logins yet. |
 | **Agent machine** (Linux) | Agent machine | `relay` and `bellhop` in agent mode, the hourly sweep, the Claude Code policy (asked first), then the agent rules for Claude Code and Codex. Asks for the desk address and which desk tools to link. |
 | **Agent machine** (Mac) | Agent machine | `relay` in agent mode in `~/.local/bin`, no root, then the agent rules for Claude Code and Codex. |
-| **Computer where you enter keys** | Owner device | Installs the hidden terminal prompt, `vault-entry`. To enter keys in a browser on an approved phone or computer, skip this install. |
-| **Server where an application needs the key itself** (optional) | Trusted consumer | For example, a web app reads its database password at startup. The broker must explicitly grant that server access. Skip this role if all your tools use brokered API routes. |
+| **Computer where you enter keys** | Approver device | Use this device to enter keys and approve requested routes. The installer adds the hidden terminal prompt, `vault-entry`. To enter keys in a browser on an approved phone or computer, skip this install. |
+| **Server where an application needs the key itself** (optional) | Trusted server | For example, a web app reads its database password at startup. The broker must explicitly grant that server access. Skip this role if all your tools use brokered API routes. |
 
 Read [Containment](system-design.md#containment-where-everything-runs) first: which machine each part runs on is
 what keeps the keys away from agents. Never pick two roles on one machine.
+
+### Fresh installation on Proxmox VE
+
+From a reviewed checkout on the Proxmox host, run:
+
+```sh
+sudo ./install.sh proxmox
+```
+
+The installer detects Proxmox VE and checks guest IDs across the cluster before
+creating the vault container (210), broker VM (211) and desk VM (212). It runs
+each guest’s installer. Add `--no-desk` to skip the desk. To choose other IDs,
+run, for example, `sudo env CTID=310 BROKER_VMID=311 DESK_VMID=312 ./install.sh proxmox`.
+
+During setup, authorize each guest to join your tailnet. Finish vault account
+setup, broker sign-in and access grants on your approved devices. If a guest
+installation fails, existing guests stay in place. Resolve the failure on that
+guest before continuing with the individual provisioning scripts. For an
+existing deployment, follow the upgrade procedure.
 
 ### Client tools with Homebrew (macOS and Linux)
 
@@ -40,8 +59,8 @@ The client tools are also Homebrew packages, one per role, on macOS and on Linux
 brew tap machinarii/valetkey https://github.com/machinarii/valetkey
 brew trust machinarii/valetkey      # Homebrew asks you to trust a third-party tap once
 brew install valetkey-agent       # agent machine: relay only
-brew install valetkey-owner       # owner device: relay and vault-entry
-brew install valetkey-consumer    # trusted consumer: relay and the vault shim (add fnox)
+brew install valetkey-owner       # approver device: relay and vault-entry
+brew install valetkey-consumer    # trusted server: relay and the vault shim (add fnox)
 relay set-url https://broker.<tailnet>.ts.net
 ```
 
@@ -98,8 +117,8 @@ Each machine gets exactly one installer. Run it on that machine, from a copy of 
 | **Broker** | `sudo ./install.sh broker --with-deps` | Tailscale, Bitwarden CLI, fnox, the relay services and broker tools |
 | **Desk** (optional) | `sudo ./install.sh desk` | Tailscale, the desk service, the TLS front door. No tools, no logins |
 | **Agent machine** | `sudo ./install.sh agent --relay-url … --desk-url … --tools …`<br>`./install.sh claude` | `relay` in agent mode, the `bellhop` stand-in, the sweep and its timer, a policy that limits MCP servers to the broker and desk (it says why and asks first). Then, as the agent's user, the rules in `CLAUDE.md` (and Codex's `AGENTS.md`, if Codex is installed) and the blocks you choose in Claude Code's settings. No keys |
-| **Owner device** | `./install.sh client --owner --relay-url …` | `relay` and `vault-entry` |
-| **Trusted consumer** | `./install.sh client --relay-url … --with-deps` | `relay`, the `vault` shim, fnox |
+| **Approver device** | `./install.sh client --owner --relay-url …` | `relay` and `vault-entry` |
+| **Trusted server** | `./install.sh client --relay-url … --with-deps` | `relay`, the `vault` shim, fnox |
 
 Never combine two rows on one machine, with one exception: the hypervisor hosts the vault, broker and desk as separate guests. If you use Proxmox, the first row replaces the next three.
 
@@ -122,7 +141,7 @@ The table under [One command per machine](#one-command-per-machine) is the map: 
 In the Tailscale admin console ([Tailscale: what valetkey relies on](system-design.md#tailscale-what-valetkey-relies-on) has the documentation links):
 
 1. **DNS:** turn on **MagicDNS** and **HTTPS Certificates**.
-2. **Access controls:** merge [`deploy/tailscale/acl.example.hujson`](../deploy/tailscale/acl.example.hujson) into your policy. Owner devices reach `tag:vault` and `tag:broker` on 443; workload machines reach only `tag:broker:443` (and `tag:desk:443` if you use the desk); the broker reaches `tag:vault:443`; nothing reaches the broker or desk over SSH. The `tests` block checks this every time you save.
+2. **Access controls:** merge [`deploy/tailscale/acl.example.hujson`](../deploy/tailscale/acl.example.hujson) into your policy. Approver devices reach `tag:vault` and `tag:broker` on 443; workload machines reach only `tag:broker:443` (and `tag:desk:443` if you use the desk); the broker reaches `tag:vault:443`; nothing reaches the broker or desk over SSH. The `tests` block checks this every time you save.
 
 ### 2. Run Vaultwarden
 
@@ -237,7 +256,7 @@ Client tools install in `~/.local/bin` by default. On an application server, put
 
 ### 7. Wire up a project
 
-On a separate trusted consumer with no agents or agent-controlled code, add the project to
+On a separate trusted server with no agents or agent-controlled code, add the project to
 `/etc/relay/routes.toml` on the broker and reload. Merge the security lists with existing policy:
 
 ```toml
@@ -307,7 +326,7 @@ Add `tag:desk` to the tailnet policy first; the installer joins the tailnet with
 From a client:
 
 ```sh
-curl -fsS https://vault.<tailnet>.ts.net/alive                          # owner devices only
+curl -fsS https://vault.<tailnet>.ts.net/alive                          # approver devices only
 curl -fsS "https://broker.<tailnet>.ts.net/local/check?names=x"         # {"x": "not-allowed"} or "missing"
 ```
 
