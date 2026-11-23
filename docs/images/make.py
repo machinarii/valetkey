@@ -30,6 +30,7 @@ NAVY, PANEL, EDGE = (15, 27, 42), (24, 42, 64), (58, 88, 120)
 TEXT, MUTED = (232, 238, 245), (150, 168, 188)
 GOLD, TEAL, RED = (242, 184, 75), (72, 204, 176), (238, 104, 104)
 SILVER = (196, 206, 218)  # the valet key: gold is the master's
+BLACK = (6, 8, 12)        # the keyhole plate
 
 
 @lru_cache(maxsize=None)
@@ -74,10 +75,10 @@ def mix(a, b, k):
     return tuple(round(x + (y - x) * k) for x, y in zip(a, b))
 
 
-def keyhole(d, cx, cy, size, color, hole):
+def keyhole(d, cx, cy, size, color, hole, outline=None):
     """A lock plate with an empty keyhole: a request that carries no key."""
     d.rounded_rectangle(sc(cx - size * 0.38, cy - size * 0.5, cx + size * 0.38, cy + size * 0.5),
-                        radius=size * 0.14 * S, fill=color)
+                        radius=size * 0.14 * S, fill=color, outline=outline, width=S if outline else 0)
     r = size * 0.15
     d.ellipse(sc(cx - r, cy - size * 0.28, cx + r, cy - size * 0.28 + 2 * r), fill=hole)
     d.polygon(sc(cx - r * 0.55, cy - size * 0.1, cx + r * 0.55, cy - size * 0.1,
@@ -90,7 +91,8 @@ def keyhole(d, cx, cy, size, color, hole):
 ICONS = {"master": lambda d, x, y, bg, a=1: key(d, x, y, 24, mix(bg, GOLD, a), bg),
          "valet": lambda d, x, y, bg, a=1: key(d, x, y, 24, mix(bg, SILVER, a), bg, teeth=1),
          "login": lambda d, x, y, bg, a=1: login(d, x, y, 22, mix(bg, TEXT, a), bg),
-         "keyhole": lambda d, x, y, bg, a=1: keyhole(d, x, y, 20, mix(bg, TEAL, a), bg)}
+         "keyhole": lambda d, x, y, bg, a=1: keyhole(d, x, y, 20, mix(bg, BLACK, a), mix(bg, TEXT, a),
+                                                       mix(bg, MUTED, a))}  # black plate, light outline
 
 
 BOXES = {  # name: (left, top, right, bottom, title, subtitle)
