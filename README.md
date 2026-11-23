@@ -106,7 +106,7 @@ brokered API routes. [Secure setup](docs/secure-setup.md)
    brew tap machinarii/valetkey https://github.com/machinarii/valetkey
    brew trust machinarii/valetkey
    brew install valetkey-agent      # where agents run; then: valetkey-agent-setup
-   brew install valetkey-owner      # where you type keys
+   brew install valetkey-approver   # where you type keys
    relay set-url https://broker.<tailnet>.ts.net
    ```
 

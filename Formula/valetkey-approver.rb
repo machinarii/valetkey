@@ -1,8 +1,8 @@
-# valetkey owner client. Install: brew tap machinarii/valetkey https://github.com/machinarii/valetkey
+# valetkey approver client. Install: brew tap machinarii/valetkey https://github.com/machinarii/valetkey
 #                                  brew trust machinarii/valetkey
-#                                  brew install valetkey-owner
+#                                  brew install valetkey-approver
 # Release: bump the tag in all three formulas to the new VERSION and push the tag.
-class ValetkeyOwner < Formula
+class ValetkeyApprover < Formula
   desc "valetkey client for an approver device: relay and vault-entry"
   homepage "https://github.com/machinarii/valetkey"
   url "https://github.com/machinarii/valetkey.git", tag: "v0.2.1"

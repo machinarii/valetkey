@@ -17,7 +17,7 @@ IDs. The command checks each role first and verifies the installed CLI version
 on each machine. The broker service has its own update command below.
 
 For Homebrew installs, run `brew update` and then `brew upgrade valetkey-agent`,
-`brew upgrade valetkey-owner`, or `brew upgrade valetkey-consumer` for the installed role.
+`brew upgrade valetkey-approver`, or `brew upgrade valetkey-consumer` for the installed role.
 
 Read [the migration procedure](secure-setup.md#migrate-an-existing-deployment-without-breaking-its-consumers)
 first. Ordinary raw routes require explicit `trusted_value_nodes`. Prepare

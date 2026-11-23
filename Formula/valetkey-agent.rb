@@ -9,7 +9,7 @@ class ValetkeyAgent < Formula
   license "MIT"
   head "https://github.com/machinarii/valetkey.git", branch: "main"
 
-  conflicts_with "valetkey-owner", because: "one machine has one valetkey role"
+  conflicts_with "valetkey-approver", because: "one machine has one valetkey role"
   conflicts_with "valetkey-consumer", because: "one machine has one valetkey role"
 
   def install
