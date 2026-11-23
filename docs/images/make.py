@@ -103,7 +103,7 @@ BOXES = {  # name: (left, top, right, bottom, title, subtitle)
     "api": (700, 262, 920, 342, "Service API", ""),
     "svc": (700, 442, 920, 522, "Service tool", ""),
 }
-# Connections, in the direction a request travels, with what the far end does.
+# Connections, with what the far end does. Requests and answers travel both ways.
 EDGES = (("agent", "broker", ""), ("agent", "desk", ""), ("broker", "vault", "reads"),
          ("broker", "api", "calls"), ("desk", "svc", "runs"))
 
@@ -140,13 +140,7 @@ def base(focus):
         on = focus is not None and a in focus and b in focus
         colour = (120, 158, 196) if on else (EDGE if lit(a) and lit(b) else mix(EDGE, NAVY, 0.4))
         (ax, ay), (bx, by) = edge(a, b)
-        length = math.hypot(bx - ax, by - ay)
-        ux, uy = (bx - ax) / length, (by - ay) / length                     # along the line
-        tx, ty = bx - ux * 3, by - uy * 3                                   # tip, just outside the far box
-        hx, hy = tx - ux * 12, ty - uy * 12                                 # where the arrowhead starts
-        d.line(sc(ax, ay, hx, hy), fill=colour, width=2 * S)
-        head = [(tx, ty), (hx - uy * 5.5, hy + ux * 5.5), (hx + uy * 5.5, hy - ux * 5.5)]
-        d.polygon([v * S for p in head for v in p], fill=colour)
+        d.line(sc(ax, ay, bx, by), fill=colour, width=2 * S)  # no arrowhead: traffic goes both ways
         if label:
             d.text(sc((ax + bx) / 2, (ay + by) / 2 - 20), label, font=font(13), anchor="ms",
                    fill=MUTED if lit(a) and lit(b) else mix(MUTED, NAVY, DIM))
