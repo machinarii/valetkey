@@ -161,7 +161,3 @@ valetkey is released under the [MIT license](LICENSE). Copyright (c) 2026 Jinsoo
 The license requires that the copyright notice, with that name, stays in every copy or substantial
 portion of the code. If you use valetkey or build on it, please also credit "Jinsoo An" with a link
 to https://github.com/machinarii/valetkey; see [NOTICE](NOTICE).
-
-<p align="center">
-  <img src="docs/images/valetkey-icon.png" width="28" height="28" alt="">
-</p>
