@@ -17,7 +17,7 @@
   <img alt="Self-hosted with Proxmox, Tailscale and Vaultwarden" src="https://img.shields.io/badge/self--hosted-Proxmox%20%C2%B7%20Tailscale%20%C2%B7%20Vaultwarden-1d4e6e?style=flat-square">
   <img alt="Clients: Linux and macOS" src="https://img.shields.io/badge/clients-Linux%20%C2%B7%20macOS-2d81ff?style=flat-square">
   <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-3a3a3a?style=flat-square">
-  <img alt="Status: 0.2.2, for home setups" src="https://img.shields.io/badge/status-0.2.2%20%C2%B7%20for%20home%20setups-d69e2e?style=flat-square">
+  <img alt="Status: 0.3.0, for home setups" src="https://img.shields.io/badge/status-0.3.0%20%C2%B7%20for%20home%20setups-d69e2e?style=flat-square">
 </p>
 
 <p align="center">
@@ -134,6 +134,9 @@ brokered API routes. [Secure setup](docs/secure-setup.md)
    ```sh
    curl -fsSL https://raw.githubusercontent.com/machinarii/valetkey/main/install.sh | bash
    ```
+
+   On Debian and Ubuntu the same installer is also a signed apt package:
+   [`apt-get install valetkey`](docs/installation.md#debian-and-ubuntu-apt).
 
 3. Follow the guide to sign the broker in, authorize your first route and verify it with a test
    credential. [Installation and first setup](docs/installation.md)

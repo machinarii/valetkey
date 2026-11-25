@@ -53,6 +53,25 @@ curl -fsSL https://raw.githubusercontent.com/machinarii/valetkey/main/install.sh
 The installer asks for `sudo` only when it needs it, fills in your tailnet's addresses, and never
 asks for a key or password. To read the code first, clone the repository and run `./install.sh`.
 
+### Debian and Ubuntu: apt
+
+On Debian or Ubuntu you can get the same installer as a signed package instead of `curl | bash`.
+apt checks the signature on every install and upgrade:
+
+```sh
+curl -fsSL https://machinarii.github.io/valetkey/apt/valetkey.gpg | sudo tee /usr/share/keyrings/valetkey.gpg >/dev/null
+echo "deb [signed-by=/usr/share/keyrings/valetkey.gpg] https://machinarii.github.io/valetkey/apt ./" \
+  | sudo tee /etc/apt/sources.list.d/valetkey.list
+sudo apt-get update && sudo apt-get install valetkey
+valetkey-setup                     # choose this machine's role
+```
+
+The package installs one command, `valetkey-setup`, and the installer's files in
+`/usr/share/valetkey`. It works for every role on Linux: agent machine, approver device, trusted
+server, broker, desk and vault host. Installing or upgrading the package changes nothing on its
+own. After `sudo apt-get upgrade`, run `valetkey-setup` again to apply the new version to the
+machine's role (on the broker, `sudo valetkey-relay update` remains the way to update).
+
 ### Fresh installation on Proxmox VE
 
 `sudo ./install.sh proxmox` checks guest IDs across the cluster before creating the vault container

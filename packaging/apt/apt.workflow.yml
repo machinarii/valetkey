@@ -1,0 +1,51 @@
+# Publishes the signed apt repository to GitHub Pages when a release tag is pushed.
+#
+# This file is a template. Add it as .github/workflows/apt.yml in GitHub's web editor: only the
+# owner edits workflows (agents' git tokens have no Workflows permission).
+#
+# One-time setup, by the owner:
+#   1. Settings -> Pages -> Build and deployment -> Source: GitHub Actions.
+#   2. On your own device, make a signing key with no passphrase and keep a private backup:
+#        gpg --quick-generate-key "valetkey apt <you@example.com>" ed25519 sign 3y
+#        gpg --armor --export-secret-keys <fingerprint>
+#      Add the armored private key as the repository secret APT_GPG_PRIVATE_KEY
+#      (Settings -> Secrets and variables -> Actions). Never put it on an agent machine.
+#
+# Actions are pinned to commits (tag in the comment) so a changed release cannot change what runs.
+name: apt
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - name: Build and sign the repository
+        env:
+          APT_GPG_PRIVATE_KEY: ${{ secrets.APT_GPG_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          sudo apt-get install -y -q dpkg-dev >/dev/null
+          export GNUPGHOME=$(mktemp -d)
+          chmod 700 "$GNUPGHOME"
+          printf '%s' "$APT_GPG_PRIVATE_KEY" | gpg --batch --import
+          export APT_GPG_KEY=$(gpg --list-secret-keys --with-colons | awk -F: '/^fpr/{print $10; exit}')
+          packaging/apt/build.sh site/apt
+          test -s site/apt/InRelease
+      - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa  # v3
+        with:
+          path: site
+  deploy:
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+    steps:
+      - uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e  # v4

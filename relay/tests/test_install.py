@@ -235,6 +235,36 @@ class T3OriginTests(unittest.TestCase):
             self.assertEqual(origin(), "http://127.0.0.1:3773")
 
 
+class AptPackageTests(unittest.TestCase):
+    """The .deb carries the installer and one command; its files are root-owned and not group-writable."""
+
+    def test_package_contents_and_repository(self):
+        if not (shutil.which("dpkg-deb") and shutil.which("dpkg-scanpackages") and (ROOT / ".git").exists()):
+            self.skipTest("needs dpkg-dev and a git checkout")
+        with tempfile.TemporaryDirectory() as out:
+            env = {"PATH": os.environ["PATH"], "HOME": out}
+            r = subprocess.run(["bash", str(ROOT / "packaging/apt/build.sh"), out + "/apt"], env=env,
+                               capture_output=True, text=True, timeout=120)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            version = (ROOT / "VERSION").read_text().strip()
+            deb = f"{out}/apt/valetkey_{version}_all.deb"
+            listing = subprocess.check_output(["dpkg-deb", "-c", deb], text=True)
+            for wanted in ("./usr/bin/valetkey-setup", "./usr/share/valetkey/install.sh",
+                           "./usr/share/valetkey/client/relay", "./usr/share/valetkey/broker/setup.sh"):
+                self.assertIn(wanted, listing)
+            for unwanted in ("relay/tests", "testvm", "docs/", ".git"):
+                self.assertNotIn(unwanted, listing)
+            for line in listing.splitlines():
+                mode, owner = line.split()[:2]
+                self.assertEqual(owner, "root/root", line)
+                self.assertNotIn("w", mode[4:], line)  # nothing group- or world-writable
+            self.assertIn(f"Version: {version}", subprocess.check_output(["dpkg-deb", "-I", deb], text=True))
+            packages = Path(out, "apt/Packages").read_text()
+            self.assertIn(f"Filename: ./valetkey_{version}_all.deb", packages)
+            self.assertIn("Packages.gz", Path(out, "apt/Release").read_text())
+            self.assertFalse(Path(out, "apt/InRelease").exists())  # unsigned without APT_GPG_KEY
+
+
 class ShellSyntaxTests(unittest.TestCase):
     def test_every_shell_script_parses(self):
         scripts = [p for p in ROOT.rglob("*") if p.is_file() and ".git" not in p.parts

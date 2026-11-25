@@ -33,7 +33,7 @@ def _relay_url():
 
 # Keep the version in the executable so copied clients and Homebrew symlinks identify themselves.
 # The install test checks it against the repository VERSION.
-CLIENT_VERSION = "0.2.2"
+CLIENT_VERSION = "0.3.0"
 TAGS_URL = "https://api.github.com/repos/machinarii/valetkey/tags"
 STABLE_TAG = re.compile(r"v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)")
 BASE = ""
