@@ -249,7 +249,7 @@ The vault, the broker and the bellhop each need a system of their own. Either:
 
 - **one machine with a hypervisor** that runs them as separate guests. Proxmox VE is the tested
   path, and one command creates all three; or
-- **one small machine for each**, for example two Raspberry Pis for the vault and the broker.
+- **one small machine for each**, for example three Raspberry Pis for the vault, the broker and the bellhop.
 
 The broker wants 2 CPU cores, 2 GB of memory, 8 GB of disk and a TPM or virtual TPM, which
 protects the vault login it keeps on disk. Most mini PCs have a TPM and a Proxmox VM gets a virtual
