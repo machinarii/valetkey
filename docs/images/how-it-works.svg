@@ -232,11 +232,12 @@
   <rect x="32" y="316" width="128" height="64" rx="7" fill="#B6C0CF" class="glow" style="animation-name:m8-glow"/>
   <!-- @/motion:elements -->
 
-  <!-- legend: top right, in line with the service boxes below it -->
-  <circle cx="504" cy="106" r="4" fill="#4CF490"/>
-  <text class="t-name" x="514" y="110">request</text>
-  <circle cx="504" cy="126" r="4" fill="#FBDC8E"/>
-  <text class="t-name" x="514" y="130">master key</text>
-  <circle cx="504" cy="146" r="4" fill="#02BEFA"/>
-  <text class="t-name" x="514" y="150">credential</text>
+  <!-- legend: top right corner. Its right edge is 28 px from the frame, as the title is from the
+       left, and its first row starts level with the top of the title. -->
+  <circle cx="559" cy="32" r="4" fill="#4CF490"/>
+  <text class="t-name" x="569" y="36">request</text>
+  <circle cx="559" cy="52" r="4" fill="#FBDC8E"/>
+  <text class="t-name" x="569" y="56">master key</text>
+  <circle cx="559" cy="72" r="4" fill="#02BEFA"/>
+  <text class="t-name" x="569" y="76">credential</text>
 </svg>
