@@ -153,19 +153,19 @@
 
   <!-- nodes -->
   <rect x="32" y="356" width="128" height="64" rx="7" fill="#141416" stroke="#363840"/>
-  <circle cx="46" cy="373.5" r="2.5" fill="#4CF490" class="tick" style="animation-delay:0s"/>
+  <circle cx="46" cy="373.5" r="2.5" fill="#F4F6FC" class="tick" style="animation-delay:0s"/>
   <text class="t-name" x="56" y="376.5">agent</text>
   <text class="t-desc" x="44" y="392.5">agent machine</text>
   <text class="t-desc" x="44" y="404.5">holds no keys/credentials</text>
   <rect x="228" y="280" width="160" height="106" rx="7" fill="#141416" stroke="#363840"/>
-  <circle cx="242" cy="297" r="2.5" fill="#4CF490" class="tick" style="animation-delay:-0.7s"/>
+  <circle cx="242" cy="297" r="2.5" fill="#F4F6FC" class="tick" style="animation-delay:-0.7s"/>
   <text class="t-name" x="252" y="300">broker</text>
   <text class="t-desc" x="240" y="316">Proxmox VM</text>
   <text class="t-desc" x="240" y="328">checks the calling machine</text>
   <rect x="240" y="340" width="136" height="32" rx="6" fill="#0D0D0E" stroke="#363840"/>
   <text class="t-small" x="252" y="358">fnox adds the key</text>
   <rect x="228" y="412" width="160" height="64" rx="7" fill="#141416" stroke="#363840"/>
-  <circle cx="242" cy="429.5" r="2.5" fill="#4CF490" class="tick" style="animation-delay:-1.05s"/>
+  <circle cx="242" cy="429.5" r="2.5" fill="#F4F6FC" class="tick" style="animation-delay:-1.05s"/>
   <text class="t-name" x="252" y="432.5">bellhop</text>
   <text class="t-desc" x="240" y="448.5">Proxmox VM</text>
   <text class="t-desc" x="240" y="460.5">runs MCPs/tools, keeps credentials</text>
@@ -231,7 +231,7 @@
 
   <!-- the vault, on top of the moving parts: the master key emerges from under it -->
   <rect x="228" y="144" width="160" height="64" rx="7" fill="#141416" stroke="#363840"/>
-  <circle cx="242" cy="161.5" r="2.5" fill="#4CF490" class="tick" style="animation-delay:-0.35s"/>
+  <circle cx="242" cy="161.5" r="2.5" fill="#F4F6FC" class="tick" style="animation-delay:-0.35s"/>
   <text class="t-name" x="252" y="164.5">vault</text>
   <text class="t-desc" x="240" y="180.5">Proxmox container</text>
   <text class="t-desc" x="240" y="192.5">every key, encrypted</text>
