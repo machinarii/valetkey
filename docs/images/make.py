@@ -97,13 +97,14 @@ ICONS = {"master": lambda d, x, y, bg, a=1: key(d, x, y, 24, mix(bg, GOLD, a), b
 
 BOXES = {  # name: (left, top, right, bottom, title, subtitle, the machine it runs on)
     "agent": (40, 282, 270, 482, "agent", "where your AI agents run", "agent machine"),
-    "broker": (365, 172, 595, 332, "broker", "checks the caller\nfnox adds the key", "Proxmox VM"),
+    "broker": (365, 172, 595, 346, "broker", "checks the caller", "Proxmox VM"),
     "bellhop": (365, 402, 595, 562, "bellhop", "runs MCPs & other tools\nthat require sign in", "Proxmox VM"),
     "vault": (700, 142, 920, 222, "vault", "every key, encrypted", "Proxmox container"),
     "api": (684, 262, 920, 342, "service API/CLI", "", ""),
     "svc": (700, 442, 920, 522, "service MCP/tool", "", ""),
 }
 MACHINE = 18  # the machine's line, under the title, pushes what follows down by this much
+FNOX = (12, 46, 12, 10)  # fnox's own box inside the broker's: insets from its left, bottom (top edge), right, bottom
 # Connections, with what the far end does. Requests and answers travel both ways.
 EDGES = (("agent", "broker", ""), ("agent", "bellhop", ""), ("broker", "vault", "reads"),
          ("broker", "api", "calls"), ("bellhop", "svc", "runs"))
@@ -155,6 +156,13 @@ def base(focus):
         if sub:
             d.text(sc(left + 16, top + 37 + (MACHINE if machine else 0)), sub, font=font(13),
                    fill=c(MUTED, name), spacing=4 * S)
+    left, top, right, bottom = BOXES["broker"][:4]                      # fnox runs inside the broker
+    inner = mix(PANEL, NAVY, 0.55)
+    d.rounded_rectangle(sc(left + FNOX[0], bottom - FNOX[1], right - FNOX[2], bottom - FNOX[3]), radius=9 * S,
+                        fill=c(inner, "broker"), outline=c(EDGE, "broker"), width=S)
+    middle = bottom - (FNOX[1] + FNOX[3]) / 2
+    d.text(sc(left + 24, middle), "fnox", font=font(14, True), fill=c(TEXT, "broker"), anchor="lm")
+    d.text(sc(left + 64, middle), "adds the key", font=font(12), fill=c(MUTED, "broker"), anchor="lm")
     left, top, right, bottom = BOXES["agent"][:4]                       # the agent holds nothing
     label, f = "holds no keys", font(14, True)
     d.text(sc(left + 16, bottom - 39), label, font=f, fill=c(TEXT, "agent"))
@@ -213,7 +221,8 @@ def note(d, box, lines):
 
 def broker_key(d, alpha=1.0):
     left, top, right, bottom = BOXES["broker"][:4]
-    key(d, right - 34, bottom - 24, 34, mix(PANEL, GOLD, alpha), PANEL)
+    inner = mix(PANEL, NAVY, 0.55)  # the key in hand sits in fnox's box
+    key(d, right - 38, bottom - (FNOX[1] + FNOX[3]) / 2, 30, mix(inner, GOLD, alpha), inner)
 
 
 def caption(d, number, text, k=1.0):
