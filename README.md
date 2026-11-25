@@ -38,7 +38,7 @@
 > **For a private tailnet only, and at your own risk.** Never expose the broker, bellhop or vault to
 > the internet. valetkey reduces the risk of agents reading your keys; it does not stop an agent
 > misusing an operation you approved, and it has had no independent security audit.
-> [Security limits](docs/security-boundaries.md) · [Use at your own risk](docs/security-boundaries.md#use-at-your-own-risk)
+> [Security limits](docs/security-boundaries.md)
 
 <p align="center">
   <a href="#what-valetkey-is">What it is</a> ·
