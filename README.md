@@ -206,7 +206,7 @@ brokered API routes. [Secure setup](docs/secure-setup.md)
    **The Linux machines**: the **agent machine** and the three servers. Install them as in setup C
    below.
 
-   **Setup C: Linux for every machine**
+   **Setup C: Linux for every machine/server**
 
    **The Linux servers**: the **vault**, the **broker** and the **bellhop**. Recommended:
    **Proxmox VE**, with the one command shown in setup A. Otherwise install them with apt, like the
