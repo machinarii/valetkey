@@ -2,9 +2,9 @@
   <img src="docs/images/valetkey-icon.png" width="128" height="128" alt="valetkey icon: a smiling robot valet in a green cap holds up a gold key, on a blue tile">
 </p>
 
-<h1 align="center">valetkey</h1>
+<p align="center"><b>valetkey</b></p>
 
-<h2 align="center">Your agents use the key, but they never see it.</h2>
+<p align="center"><b>Your agents use the key, but they never see it.</b></p>
 
 <p align="center">
   <b>A self-hosted credential broker for AI agents.</b><br>
