@@ -203,6 +203,22 @@ class BwClientTest(unittest.TestCase):
         self.state([item("a", "a", ["c1", "c2"], pw="p"), item("b", "b", ["c2"], pw="q")])
         self.assertEqual(sorted(self.cache(cols=("c1", "c2")).names()), ["a", "b"])
 
+    def test_peek_answers_a_stale_list_at_once_and_refreshes_behind(self):
+        import time
+        self.state([item("a", "a", ["c1"], pw="old")])
+        c = self.cache(ttl=300)
+        self.assertEqual(c.peek("a"), "old")  # nothing loaded yet: waits for the first list
+        self.state([item("a", "a", ["c1"], pw="new")])
+        self.now = 301
+        self.assertEqual(c.peek("a"), "old")
+        end = time.monotonic() + 5
+        while c.peek("a") != "new" and time.monotonic() < end:
+            time.sleep(0.02)
+        self.assertEqual(c.peek("a"), "new")
+        c.invalidate()
+        self.state([item("a", "a", ["c1"], pw="newer")])
+        self.assertEqual(c.peek("a"), "newer")
+
     def test_concurrent_reads_refresh_once(self):
         import threading
         import time

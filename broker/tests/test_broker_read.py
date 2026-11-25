@@ -618,6 +618,68 @@ class BrokerReadTest(unittest.TestCase):
         self.assertEqual(marks[1][0], "/v1/unsuspect")
         self.assertEqual(ctypes, ["application/json", "application/json"])
 
+    def test_hider_masks_every_form_across_chunks_without_delay(self):
+        import base64
+        key = "synthetic-key-0123456789"
+        basic = base64.b64encode((key + ":").encode())
+        h = broker_read.Hider(key)
+        self.assertEqual(h.feed(b"data: hello\n\n"), b"data: hello\n\n")  # nothing held: streams stay live
+        out = h.feed(b"a synthetic-key-01") + h.feed(b"23456789 b " + basic[:9]) + h.feed(basic[9:] + b" end")
+        self.assertEqual(out + h.held, b"a " + b"*" * len(key) + b" b " + b"*" * len(basic) + b" end")
+        self.assertEqual(h.feed(b"tail synthetic-"), b"tail ")  # could be the key: held
+        self.assertEqual(h.feed(b"other"), b"synthetic-other")
+        # a key stored as a Basic credential is also hidden decoded
+        self.assertEqual(broker_read.Hider(basic.decode()).feed(b"k=" + key.encode() + b";"), b"k=" + b"*" * len(key) + b";")
+        short = broker_read.Hider("abc")
+        self.assertEqual((short.forms, short.feed(b"abc")), ([], b"abc"))
+
+    def test_api_reply_that_echoes_the_key_is_masked(self):
+        import gzip
+        key = "synthetic-stripe-value-0123456789"
+        seen = []
+
+        class Upstream(BaseHTTPRequestHandler):
+            protocol_version = "HTTP/1.1"
+
+            def log_message(self, *a):
+                pass
+
+            def do_GET(self):
+                seen.append(self.headers.get("Accept-Encoding"))
+                body = b'{"you sent": "Bearer %s"}' % key.encode()
+                self.send_response(200)
+                self.send_header("X-Echo", key)
+                if self.path == "/v1/stream":
+                    self.send_header("Transfer-Encoding", "chunked")
+                    self.end_headers()
+                    for part in (body[:20], body[20:]):  # the key is split over two chunks
+                        self.wfile.write(b"%x\r\n%s\r\n" % (len(part), part))
+                        self.wfile.flush()
+                        time.sleep(0.05)
+                    self.wfile.write(b"0\r\n\r\n")
+                    return
+                if self.path == "/v1/packed":
+                    body = gzip.compress(body)
+                    self.send_header("Content-Encoding", "gzip")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+        up = serve(Upstream)
+        self.addCleanup(up.server_close)
+        self.addCleanup(up.shutdown)
+        self.state(items=base_items() + [item("6", "stripe-api-key-shop-live", "org-local", ["c-local"], pw=key)])
+        self.start(org="local", machine="devbox", upstream_port=up.server_address[1])
+        masked = b'{"you sent": "Bearer %s"}' % (b"*" * len(key))
+        for path in ("/stripe-shop/v1/echo", "/stripe-shop/v1/stream"):
+            status, headers, body = self.get(path, headers={"Accept-Encoding": "gzip"})
+            self.assertEqual((status, body, headers["X-Echo"]), (200, masked, "*" * len(key)), path)
+        self.assertEqual(seen, ["identity", "identity"])  # the broker asks for a reply it can read
+        self.assertTrue(self.audit_has("GET /stripe-shop/v1/stream 200 key hidden in reply"))
+        status, _, body = self.get("/stripe-shop/v1/packed")
+        self.assertEqual((status, gzip.decompress(body)), (200, masked.replace(b"*" * len(key), key.encode())))
+        self.assertTrue(self.audit_has("GET /stripe-shop/v1/packed 200 reply not checked: encoded"))
+
     def test_model_inference_forwards_only_approved_operations_and_headers(self):
         seen = []
         class Provider(BaseHTTPRequestHandler):

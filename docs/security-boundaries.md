@@ -20,7 +20,7 @@
 - **A bellhop tool's own behaviour.** The bellhop refuses subcommands that are not listed, but a listed subcommand does whatever the tool does. Do not list one whose purpose is to print the login or read a file you name.
 - **Root on the broker**, which can unlock everything. Run nothing else on it, manage it only from its console or LAN SSH, keep it updated and back it up.
 - **An agent on an approver device.** It could submit values, capture input or browser state, or read process memory. Keep approver devices separate.
-- **Upstream key disclosure or misuse.** Echo/debug and secret-export APIs can return credentials. A route also permits the upstream actions it exposes. Narrow paths, methods and provider permissions; Valet is not a general response redactor.
+- **Upstream key disclosure or misuse.** Echo/debug and secret-export APIs can return credentials. A route also permits the upstream actions it exposes. Narrow paths, methods and provider permissions. The broker masks the route's own key when a reply repeats it exactly or in base64; it is not a general response redactor.
 - **Availability.** If the broker is down, clients get no keys. Keep what you need to repair it outside valetkey.
 
 More in [SECURITY.md](../SECURITY.md).

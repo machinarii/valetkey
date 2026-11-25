@@ -141,8 +141,9 @@ Tailnet administration and upstream APIs are trusted; their compromise breaks th
    input → key theft. **Setup example corrected; live deployment unverified.** Broad member-to-
    member grants were removed; machine-separation guidance now makes this prerequisite explicit.
 7. Agent calls approved reflection/secret-export API → upstream returns injected key → client
-   reads it. **Residual design risk**, not demonstrated with an actual upstream. Exclude those APIs;
-   generic response redaction cannot establish confidentiality.
+   reads it. **Reduced**: the read service masks the route's own key in reply headers and body
+   when it comes back exactly, in base64 or as a Basic credential (`Hider` in `broker_read.py`).
+   A re-encoded key or another secret still passes, so exclude those APIs all the same.
 
 ## Threat model table
 
@@ -157,7 +158,7 @@ that a deployed system is exploitable.
 | TM-004 | Network/local recorder | HTTP URL or echo failure | Observe submitted value | Scoped key disclosure | Owner-entered keys | URL validation, TTY and warning refusal | Compromised approver device still trusted | Separate private entry device | Failed entry transport/input | Medium conditional | High | high |
 | TM-005 | Repeated owner replacement | Existing dated backup | Replace twice in a day | Original backup loss | Credential backup | `_write` collision refusal | Backup naming/rotation needs operator care | Retain backup; resolve collision privately | Refused replacement status | Medium | Medium | medium |
 | TM-006 | Agent / host admin | Shared host or broad access | Read process memory or input | All reachable credentials | Keys, sessions | Separate topology; tightened ACL example | Live topology unverified | Isolate broker/vault/owner/consumer and management plane | Admin access, policy drift | High if co-located | High | high |
-| TM-007 | Malicious/reflecting API | Allowed route discloses key | Return auth in response | Injected key theft | API key | Fixed destination and scope | Streaming response has no general redactor | Prohibit echo/export/forwarding routes; provider scopes | Reviewed endpoint inventory | Medium conditional | High | high |
+| TM-007 | Malicious/reflecting API | Allowed route discloses key | Return auth in response | Injected key theft | API key | Fixed destination and scope; the route's own key is masked in replies | Re-encoded keys and other secrets are not masked | Prohibit echo/export/forwarding routes; provider scopes | Reviewed endpoint inventory | Medium conditional | High | high |
 | TM-008 | Runaway client | broker reachability | Exhaust HTTP threads or request state | Availability loss | Service availability | Body caps, raw-read limiter | No comprehensive API/entry resource quota | Deployment limits; staged load tests | Connections, memory, request counts | Medium | Medium | medium |
 
 ## Criticality calibration

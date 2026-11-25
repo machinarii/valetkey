@@ -181,3 +181,21 @@ class ItemCache:
         name, field = split_ref(ref)
         it = self._fresh().get(name)
         return value_of(it, field) if it else None
+
+    def peek(self, ref):
+        """Like get, for callers that must not wait on bw: a stale list is answered as it is and
+        refreshed in the background. Only a list never loaded (or just invalidated) is waited for."""
+        if self._loaded is None:
+            return self.get(ref)
+        if self._clock() - self._loaded >= self._ttl and self._lock.acquire(blocking=False):
+            self._lock.release()  # nobody is refreshing yet
+            threading.Thread(target=self._quiet_refresh, daemon=True).start()
+        name, field = split_ref(ref)
+        it = self._items.get(name)
+        return value_of(it, field) if it else None
+
+    def _quiet_refresh(self):
+        try:
+            self._fresh()
+        except Exception:  # the next get() reports it; a traceback here could carry bw output
+            pass

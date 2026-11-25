@@ -46,12 +46,59 @@ MAX_CHECK_NAMES = 500
 RATE_PER_MINUTE = 300
 HOP = {"connection", "keep-alive", "proxy-authenticate", "proxy-authorization", "te", "trailer",
        "transfer-encoding", "upgrade", "host", "content-length"}
-DROP_IN = HOP | {"authorization", "cookie", "x-api-key", "forwarded", "x-forwarded-for",
+# accept-encoding: the broker asks for plain replies so it can look for the key in them.
+DROP_IN = HOP | {"authorization", "cookie", "x-api-key", "forwarded", "x-forwarded-for", "accept-encoding",
                  "x-broker-peer", "x-broker-loopback", "x-http-method-override", "x-http-method",
                  "x-method-override", "x-original-url", "x-rewrite-url"}
 BW_ENV_KEYS = ("BW_SESSION", "BITWARDENCLI_APPDATA_DIR")
 NO_PROXY = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 BACKUP_NAME_RE = re.compile(r"\A(?P<base>.+)-backup-(?P<date>[0-9]{8})\Z")
+
+
+MIN_HIDE = 8  # shorter values would also mask ordinary text
+
+
+def secret_forms(value):
+    """The ways a service can echo the key it was sent: as stored, in base64 (alone or as a Basic
+    credential) and, for a key stored as a Basic credential, decoded. Longest first."""
+    raw = value.encode()
+    if len(raw) < MIN_HIDE:
+        return []
+    forms = {raw, base64.b64encode(raw), base64.b64encode(raw + b":"), base64.b64encode(b":" + raw)}
+    try:
+        plain = base64.b64decode(raw, validate=True)
+        if plain.isascii() and plain.decode().isprintable():
+            forms |= {plain, *plain.split(b":")}
+    except ValueError:
+        pass
+    return sorted((f for f in forms if len(f) >= MIN_HIDE), key=len, reverse=True)
+
+
+class Hider:
+    """Masks a route's own key in the service's reply, in a stream, without delaying it.
+
+    The mask has the key's length, so Content-Length stays true. Only bytes that could be the
+    start of the key are held back until the next chunk shows whether they are.
+    shortcut: exact forms only (see secret_forms); a key the service re-encodes (JSON or URL
+    escapes, compression it was not asked for) passes. Upgrade if a route's service does that."""
+
+    def __init__(self, value):
+        self.forms = secret_forms(value) if value else []
+        self.held, self.hits = b"", 0
+
+    def mask(self, data):
+        for f in self.forms:
+            if f in data:
+                self.hits += 1
+                data = data.replace(f, b"*" * len(f))
+        return data
+
+    def feed(self, data):
+        data = self.mask(self.held + data)
+        keep = max((k for f in self.forms for k in range(1, min(len(f), len(data) + 1))
+                    if data.endswith(f[:k])), default=0)
+        self.held = data[len(data) - keep:]
+        return data[:len(data) - keep]
 
 
 def placeholder(route):
@@ -339,12 +386,19 @@ class Handler(BrokerHandler):
             # Providers can quote a rejected credential in error text.
             conn.close()
             return self.deny(who, route, resp.status, "model provider rejected the request")
+        note = ""
+        try:
+            hide = Hider(ctx["cache"].peek(r.item))
+        except BwError:
+            hide, note = Hider(None), "reply not checked: vault unavailable"
+        if resp.getheader("Content-Encoding", "identity").lower() != "identity":
+            hide, note = Hider(None), "reply not checked: encoded"
         self.send_response(resp.status, None if r.model else resp.reason)
         for k, v in resp.getheaders():
             if r.model and k.lower() not in {"content-type", "content-encoding"}:
                 continue
             if k.lower() not in HOP | {"cache-control"}:
-                self.send_header(k, v)
+                self.send_header(k, hide.mask(v.encode("latin-1")).decode("latin-1"))
         self.send_header("Cache-Control", "no-store")
         length = resp.getheader("Content-Length")
         chunked = length is None and self.command != "HEAD" and resp.status not in (204, 304)
@@ -354,19 +408,21 @@ class Handler(BrokerHandler):
             self.send_header("Transfer-Encoding", "chunked")
         self.end_headers()
         try:
-            while True:  # stream (server-sent events stay live)
+            more = True
+            while more:  # stream (server-sent events stay live)
                 chunk = resp.read1(65536)
-                if not chunk:
-                    break
-                self.wfile.write(b"%x\r\n%s\r\n" % (len(chunk), chunk) if chunked else chunk)
-                self.wfile.flush()
+                more = bool(chunk)
+                chunk = hide.feed(chunk) if more else hide.held
+                if chunk:  # an empty chunk would end a chunked reply
+                    self.wfile.write(b"%x\r\n%s\r\n" % (len(chunk), chunk) if chunked else chunk)
+                    self.wfile.flush()
             if chunked:
                 self.wfile.write(b"0\r\n\r\n")
         except (BrokenPipeError, ConnectionResetError):
             self.close_connection = True
         finally:
             conn.close()
-        self.audit(who, route, resp.status)
+        self.audit(who, route, resp.status, "key hidden in reply" if hide.hits else note)
 
 
 def read_env_file(path):
