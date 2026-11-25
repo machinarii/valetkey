@@ -53,6 +53,7 @@ replace it.
 | fnox | Secret injector | Runs inside the broker and puts the key into each outgoing request. |
 | vault | Secrets manager (Vaultwarden) | Keeps every key, encrypted, on its own machine. Agents never reach it; the broker reads from it. |
 | bellhop | Remote tool runner | Runs command-line tools and MCP servers that keep their own login, on a separate machine. |
+| trusted server (optional) | Application host | Runs an application that must hold a key itself, such as a web app that reads its database password. It fetches only that key from the broker, and no agent runs on it. |
 | MCP routes | MCP gateway | broker routes to MCP servers that need a fixed key: agents connect with no key, and you see which tools the key opens. |
 | Rules, policy & sweep | Agent guardrails | Teach agents the workflow, limit MCP servers and report logins that appear on agent machines. |
 
@@ -61,19 +62,19 @@ replace it.
 <table>
   <tr>
     <td width="25%" valign="top">
-      <h3>🔑 No keys on agent machines</h3>
+      <p><b>🔑 No keys on agent machines</b></p>
       An agent calls a broker route with no key. The broker checks the calling machine, method and path, adds the key from Vaultwarden and forwards the request.
     </td>
     <td width="25%" valign="top">
-      <h3>🛎️ A bellhop for tools that sign in</h3>
+      <p><b>🛎️ A bellhop for tools that sign in</b></p>
       Command-line tools that keep their own login run on a separate bellhop machine. Agents use them by name and get the output, never the login.
     </td>
     <td width="25%" valign="top">
-      <h3>🧱 Containment first</h3>
+      <p><b>🧱 Containment first</b></p>
       Every part has its own machine and one installer. Agents run apart from the broker, vault, bellhop and the devices where you enter keys.
     </td>
     <td width="25%" valign="top">
-      <h3>🙋 You stay in charge</h3>
+      <p><b>🙋 You stay in charge</b></p>
       Agents ask for keys and routes by name. You type the value, or approve a route with an authenticator code, on your own approver device.
     </td>
   </tr>
@@ -214,6 +215,7 @@ Pi (arm64) is also not a tested path yet.
 | **vault** | Linux with Docker. The installer runs [Vaultwarden](https://github.com/dani-garcia/vaultwarden) 1.37.2 or later and publishes it on the tailnet only. |
 | **broker** | Debian 12+ or Ubuntu 24.04+ with systemd 250+ and Python 3.11+. The installer adds the Bitwarden CLI, [fnox](https://fnox.jdx.dev), `jq`, `git`, `gpg` and `qrencode`. |
 | **bellhop** (optional) | Debian 12+ or Ubuntu 24.04+ with systemd and Python 3.11+, plus the MCPs/tools you want it to run. |
+| **Trusted server** (optional) | Linux with Python 3.9+ and [fnox](https://fnox.jdx.dev), for an application that must hold a key itself. No agent runs on it. |
 | **Agent machines** | macOS or Linux with Python 3.9+ and your agent, such as Claude Code or Codex. On macOS, [Homebrew](https://brew.sh) to install valetkey. |
 | **Approver device** | A phone or workstation no agent runs on, with a browser and an authenticator app (TOTP) for approving routes. For the terminal prompt instead of the browser: macOS or Linux with Python 3.9+. |
 
