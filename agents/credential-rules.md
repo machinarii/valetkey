@@ -40,7 +40,7 @@ existing method until the owner chooses to switch.
   and completes the browser flow. Claude stores the session in its own credential store.
   For T3, select that native Claude binary with the same user and Claude configuration
   directory. A launcher that sets `CLAUDE_CODE_OAUTH_TOKEN` will override the saved login.
-  Web login needs no Valetkey item or route.
+  Web login needs no valetkey item or route.
 
 Verify the chosen method with a short model turn. This choice covers Claude’s model login
 only. Keep existing rules for MCP, tools and project credentials.
@@ -58,16 +58,16 @@ Check storage with `valetkey-broker check` and verify billing and model access s
 
 ## Optional claude-mem integration
 
-Valetkey works with or without claude-mem. If you do not use memory capture, skip
+valetkey works with or without claude-mem. If you do not use memory capture, skip
 plugin setup. Claude subscription sign-in and broker routes work independently.
 
-If you use claude-mem on one machine, local capture needs no Valetkey ingest route.
+If you use claude-mem on one machine, local capture needs no valetkey ingest route.
 For a remote worker, authenticate each producer. If your worker supports Tailscale
 Serve ingest, grant only the intended machines permission to submit events. For a
 worker that requires a shared ingest token, keep the credential-bearing service on a
 trusted machine. The Claude setup-token grant covers model login only.
 
-Broker updates validate existing routes even if the plugin is absent. If validation
+broker updates validate existing routes even if the plugin is absent. If validation
 flags an agent's raw ingest route, identify its consumers. For an active route,
 verify that a synthetic event reaches the worker through its new ingest path and
 produces an observation before retiring the route. Keep credentials out of captured events
@@ -77,7 +77,7 @@ and observations.
 
 For an MCP server with native OAuth sign-in, use the provider’s MCP endpoint and the client’s
 built-in sign-in flow only where owner policy permits it and tokens stay off agent machines.
-Skip the Valetkey key request, broker route and Bellhop setup. If the endpoint is blocked or
+Skip the valetkey key request, broker route and bellhop setup. If the endpoint is blocked or
 the client would store tokens on the agent VM, leave the server unconfigured.
 
 For a broker-managed credential, follow these steps.

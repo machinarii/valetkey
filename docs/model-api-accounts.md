@@ -13,8 +13,8 @@ Claude Code uses the Anthropic Messages protocol. OpenRouter recommends Anthropi
 
 ## Requirements
 
-- **Agent machine.** Install the full Valetkey client (0.2.0+) with Python 3.9+. Configure its broker URL and allow HTTPS to the broker over Tailscale. The native `claude` or `codex` executable must be on the launcher’s `PATH`, including when T3 starts it. OpenRouter uses the same native CLI.
-- **Broker.** Use Valetkey 0.2.0+ with its Vaultwarden and fnox integration. Allow outbound HTTPS on TCP 443 to the provider you select (`api.anthropic.com`, `api.openai.com` or `openrouter.ai`).
+- **Agent machine.** Install the full valetkey client (0.2.0+) with Python 3.9+. Configure its broker URL and allow HTTPS to the broker over Tailscale. The native `claude` or `codex` executable must be on the launcher’s `PATH`, including when T3 starts it. OpenRouter uses the same native CLI.
+- **broker.** Use valetkey 0.2.0+ with its Vaultwarden and fnox integration. Allow outbound HTTPS on TCP 443 to the provider you select (`api.anthropic.com`, `api.openai.com` or `openrouter.ai`).
 - **Provider account.** Enable API billing with the selected provider and choose a model that account can use. Store the API key through the approver workflow below.
 
 ## 1. Store the provider key

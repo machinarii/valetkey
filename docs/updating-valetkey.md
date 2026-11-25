@@ -3,12 +3,12 @@
 Both version commands use Python 3.9+ and its standard library. `valetkey-broker version` works offline. `valetkey-broker update` (available since 0.2.1) checks public GitHub tags anonymously and prints the newest stable version. It needs DNS, direct outbound HTTPS to `api.github.com` on TCP 443 and a working TLS trust store. It bypasses environment proxy settings. The check runs independently of Git, the broker and the vault. On the broker with `sudo`, `valetkey-broker update` goes further and installs the broker's own update; it shows what changes and asks first.
 
 To update the version commands on an existing broker, vault, bellhop, bellhop-only agent or Proxmox
-host, run `sudo ./install.sh update` from the reviewed Valetkey checkout on that
+host, run `sudo ./install.sh update` from the reviewed valetkey checkout on that
 machine. This updates the CLI without restarting services or provisioning guests. For a
 user-local client, use `./install.sh update --prefix "$HOME/.local/bin"`. A full
-client keeps its existing subcommands. Run `valetkey-broker version` for the installed Valetkey CLI
+client keeps its existing subcommands. Run `valetkey-broker version` for the installed valetkey CLI
 and `valetkey-broker update` to check the latest public release. The vault server image and
-Bellhop services have their own update procedures.
+bellhop services have their own update procedures.
 
 From a reviewed release checkout on an existing Proxmox host, run
 `bash deploy/proxmox/update-version-tools.sh VAULT_CT_ID BROKER_VM_ID BELLHOP_VM_ID`
@@ -45,19 +45,19 @@ installation over the first time it runs. The commands are the usual ones. What 
 
 | | Before 0.5 | From 0.5 |
 |---|---|---|
-| Broker configuration | `/etc/relay/` | `/etc/valetkey-broker/` |
-| Broker services | `relay-front`, `relay-local`, `relay-infra`, `relay-entry`, `relay-approval`, `relay-cert.timer` | `valetkey-broker-front`, `valetkey-broker-local`, `valetkey-broker-infra`, `valetkey-broker-entry`, `valetkey-broker-approval`, `valetkey-broker-cert.timer` |
-| Broker users and their folders | `relay-<name>`, `/var/lib/relay-<name>` | `valetkey-broker-<name>`, `/var/lib/valetkey-broker-<name>` |
-| Broker code | `/usr/local/libexec/relay/` | `/usr/local/libexec/valetkey-broker/` |
-| Bellhop configuration | `/etc/bellhop/desk.toml`, section `[desk]` | `/etc/bellhop/bellhop.toml`, section `[bellhop]` |
-| Bellhop user and service | `desk`, `bellhop-desk` | `bellhop`, `bellhop` |
-| Bellhop address | `https://<name>/desk` | `https://<name>/bellhop` |
+| broker configuration | `/etc/relay/` | `/etc/valetkey-broker/` |
+| broker services | `relay-front`, `relay-local`, `relay-infra`, `relay-entry`, `relay-approval`, `relay-cert.timer` | `valetkey-broker-front`, `valetkey-broker-local`, `valetkey-broker-infra`, `valetkey-broker-entry`, `valetkey-broker-approval`, `valetkey-broker-cert.timer` |
+| broker users and their folders | `relay-<name>`, `/var/lib/relay-<name>` | `valetkey-broker-<name>`, `/var/lib/valetkey-broker-<name>` |
+| broker code | `/usr/local/libexec/relay/` | `/usr/local/libexec/valetkey-broker/` |
+| bellhop configuration | `/etc/bellhop/desk.toml`, section `[desk]` | `/etc/bellhop/bellhop.toml`, section `[bellhop]` |
+| bellhop user and service | `desk`, `bellhop-desk` | `bellhop`, `bellhop` |
+| bellhop address | `https://<name>/desk` | `https://<name>/bellhop` |
 
 The move keeps the user ids, so every file keeps its owner. It keeps the vault logins, the routes
 and their approvals, the authenticator pairing, the repository deploy key and the bellhop's tool
 logins. The secret the broker's services share among themselves is made again.
 
-**Broker.** Run `sudo valetkey-broker update` as usual. It warns that this update needs a manual
+**broker.** Run `sudo valetkey-broker update` as usual. It warns that this update needs a manual
 step first: that step is the snapshot. It then checks that everything can be moved, stops the
 services, moves the names, installs 0.5 and starts the services under their new names. Expect a
 minute or two without the broker. Then run `sudo valetkey-broker check`.
@@ -71,7 +71,7 @@ minute or two without the broker. Then run `sudo valetkey-broker check`.
 - Settings you added beside a unit (a `relay-<name>.service.d` folder) move to the new unit's
   name. Check any path in them that says `relay`.
 
-**Bellhop.** Run its installer again: `bellhop/proxmox-bellhop-run.sh bellhop/install-bellhop.sh`
+**bellhop.** Run its installer again: `bellhop/proxmox-bellhop-run.sh bellhop/install-bellhop.sh`
 from the Proxmox host, or `sudo ./install.sh bellhop` on the machine. The old address, `.../desk`,
 keeps answering beside the new one, so agent machines keep working. Then:
 

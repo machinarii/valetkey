@@ -8,11 +8,11 @@ Unix user or an ordinary Docker container on the agent's host does not provide t
 
 | Role | May hold credentials | May run agents | Allowed interfaces |
 |---|---|---|---|
-| Agent VM | Owner-approved Claude subscription credential (setup token or native web session) | Yes | Broker HTTPS API routes, checks, named requests and the optional setup-token route |
-| Broker VM | Unlock material, vault sessions and injected keys | No | Agent-facing HTTPS 443; backend ports on loopback only |
-| Bellhop VM (optional) | The logins of command-line tools it runs for agents | No | Agent-facing HTTPS 443; the bellhop service on loopback only |
-| Vault server | Encrypted vault database and server secrets | No | HTTPS from broker and separate approver devices |
-| Approver device | Owner-entered values during private entry | No | Vault UI, broker entry UI or `valetkey-entry` |
+| Agent VM | Owner-approved Claude subscription credential (setup token or native web session) | Yes | broker HTTPS API routes, checks, named requests and the optional setup-token route |
+| broker VM | Unlock material, vault sessions and injected keys | No | Agent-facing HTTPS 443; backend ports on loopback only |
+| bellhop VM (optional) | The logins of command-line tools it runs for agents | No | Agent-facing HTTPS 443; the bellhop service on loopback only |
+| vault server | Encrypted vault database and server secrets | No | HTTPS from broker and separate approver devices |
+| Approver device | Owner-entered values during private entry | No | vault UI, broker entry UI or `valetkey-entry` |
 | Trusted server | Only the keys its service requires | No | Narrow application interface; raw-value routes if unavoidable |
 | Hypervisor / management host | Administrative access to the above | No | Owner-only management; no agent access to VM disks or consoles |
 
@@ -57,7 +57,7 @@ requested broker entry page or `valetkey-entry`. For an existing token, keep its
 item. In T3, select the owner-approved launcher that supplies `CLAUDE_CODE_OAUTH_TOKEN`
 to the Claude process on each launch.
 
-For an owner-approved launcher that reads its setup token from Valetkey, keep the machine
+For an owner-approved launcher that reads its setup token from valetkey, keep the machine
 in `agent_nodes`. Any process on that machine can copy the token and use the subscription.
 In the broker's `/etc/valetkey-broker/routes.toml`, configure the value route as shown. If the
 table already exists, edit it in place.
@@ -104,7 +104,7 @@ TLS certificate verification stays enabled. Do not use `curl -k`, custom interce
 or HTTP for real entry. Clients ignore proxy environment variables and refuse redirects. The
 HTTP loopback exception in client code exists for local fixtures only.
 
-## Broker policy: fail closed
+## broker policy: fail closed
 
 Place names, never values, in `/etc/valetkey-broker/routes.toml` on the separate broker:
 
@@ -170,7 +170,7 @@ valetkey-broker guide
 
 `--agent` installs the metadata CLI and its guidance; it does not install the raw-value shim or
 owner-entry tool. It does not remove an older installation, erase pre-existing secrets, or enforce
-access by itself. Broker policy must be installed by the trusted operator. Never copy the vault's
+access by itself. broker policy must be installed by the trusted operator. Never copy the vault's
 login state, broker unlock material, `BW_SESSION` or raw-value runtime mounts onto an agent VM.
 
 On a separate approver device, install the client with `--owner`. Enter new credentials either in
@@ -214,7 +214,7 @@ this repository do not establish that a live broker has been updated or correctl
 | `valetkey-broker check infra payments-api-key-shop-prod` on an authorized agent | `ok` or `missing` | API item is authorized and present/absent; not upstream authentication |
 | `valetkey-broker check infra database-url-shop-prod` on that agent | `not-allowed` | Raw-only reference is not usable by the agent |
 | Harmless approved API operation | Expected provider status, no credentials in output | Authentication and narrowly allowed behavior work |
-| Broker policy validation | No role conflicts; only intended trusted servers | Names and roles are coherent |
+| broker policy validation | No role conflicts; only intended trusted servers | Names and roles are coherent |
 | Synthetic direct raw/notes/backup requests | 403, no fixture value | HTTP callers cannot bypass the broker policy |
 | Synthetic unauthorized write, spoofed peer and traversal tests | Denied | The tested authorization boundaries hold |
 

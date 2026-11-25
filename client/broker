@@ -19,7 +19,7 @@ def _config_file(name="broker-url"):
 
 
 def _broker_url():
-    """Broker URL: $BROKER_URL, else the first line of ~/.config/valetkey/broker-url (written by
+    """broker URL: $BROKER_URL, else the first line of ~/.config/valetkey/broker-url (written by
     `install.sh client --broker-url ...`). Empty if neither is set."""
     url = os.environ.get("BROKER_URL", "").strip()
     for name in ("broker-url", "relay-url"):  # relay-url: the file's name before 0.4
@@ -164,7 +164,7 @@ def cmd_latest_version(a):
             break
         page += 1
     if latest is None:
-        sys.exit("valetkey-broker: no stable Valetkey version tag found")
+        sys.exit("valetkey-broker: no stable valetkey version tag found")
     print(".".join(map(str, latest)))
 
 
@@ -335,7 +335,7 @@ def cmd_model(a):
         # Process-scoped TOML overrides select the HTTP Responses transport.
         # This provider never requests the user's saved ChatGPT session.
         argv = ["codex", "-c", 'model_provider="valetkey"', "-c", "model=" + json.dumps(a.model),
-                "-c", 'model_providers.valetkey.name="Valetkey"',
+                "-c", 'model_providers.valetkey.name="valetkey"',
                 "-c", "model_providers.valetkey.base_url=" + json.dumps(url + "/v1"),
                 "-c", 'model_providers.valetkey.wire_api="responses"',
                 "-c", 'model_providers.valetkey.env_key="VALETKEY_MODEL_PLACEHOLDER"',

@@ -40,7 +40,7 @@ class ApprovalTests(unittest.TestCase):
         uri = urlsplit(self.store.pair("laptop", rid))
         self.assertEqual((uri.scheme, uri.netloc), ("otpauth", "totp"))
         params = parse_qs(uri.query)
-        self.assertEqual(params["issuer"], ["Valetkey"])
+        self.assertEqual(params["issuer"], ["valetkey"])
         seed = base64.b32decode(params["secret"][0])
         self.store.pair("laptop", rid, totp(seed, self.now // 30))
         with self.assertRaises(Refused):

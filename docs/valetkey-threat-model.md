@@ -68,7 +68,7 @@ bundled JS/CSS and escaped server-rendered request descriptions.
 
 ```mermaid
 flowchart LR
-  A["Untrusted agent VM"] -->|HTTPS metadata, API and MCP routes| F["Broker front door"]
+  A["Untrusted agent VM"] -->|HTTPS metadata, API and MCP routes| F["broker front door"]
   C["Trusted server VM"] -->|HTTPS raw route| F
   O["Separate approver device"] -->|HTTPS private entry and approvals| F
   F --> R["Read service"]
@@ -76,10 +76,10 @@ flowchart LR
   E --> W["Approval worker"]
   R --> V["Vaultwarden"]
   E --> V
-  R --> P["Broker fnox proxy"]
+  R --> P["broker fnox proxy"]
   P --> U["Trusted upstream API or MCP server"]
   E -->|access check after a store| U
-  A -->|HTTPS listed commands| D["Bellhop"]
+  A -->|HTTPS listed commands| D["bellhop"]
   D --> S["Tool's own service"]
 ```
 
@@ -88,10 +88,10 @@ flowchart LR
 | Asset | Why it matters | Security objective |
 |---|---|---|
 | Provider credentials and backups | Access to upstream services | Confidentiality, integrity |
-| Broker unlock/session material | Access to whole allowed collections | Confidentiality |
+| broker unlock/session material | Access to whole allowed collections | Confidentiality |
 | Role, route and tailnet policy | Determines who can read, submit or use a key | Integrity |
 | Owner input and pending requests | Key entry correctness; requests can be attacker-supplied | Confidentiality, integrity |
-| Broker availability and audit trail | Consumer operation and incident investigation | Availability, integrity |
+| broker availability and audit trail | Consumer operation and incident investigation | Availability, integrity |
 
 ## Attacker model
 
@@ -114,8 +114,8 @@ Tailnet administration and upstream APIs are trusted; their compromise breaks th
 | Surface | How reached | Trust boundary | Notes | Evidence |
 |---|---|---|---|---|
 | Front HTTP paths/headers | Tailnet TCP 443 | Network to front/backend | Spoofing and framing controls | `broker_front.Handler`, `httpbase.BrokerHandler` |
-| Raw/notes/backup routes | Broker org paths | Agent to secret store | Default deny plus trusted-node and route checks | `broker_read.Handler.serve_value`, `.allowed` |
-| API routes | Broker route path | Agent to privileged API | Canonical path, methods, fixed origin; semantic limits remain | `broker_read.Handler.api`, `routes.api_path_allowed` |
+| Raw/notes/backup routes | broker org paths | Agent to secret store | Default deny plus trusted-node and route checks | `broker_read.Handler.serve_value`, `.allowed` |
+| API routes | broker route path | Agent to privileged API | Canonical path, methods, fixed origin; semantic limits remain | `broker_read.Handler.api`, `routes.api_path_allowed` |
 | Requests/status | Entry API | Agent to owner workflow | Names/purpose only; no value field in request state | `broker_entry.Handler.create`, `requests_store.py` |
 | Entry UI and submission | Owner CLI/browser | Owner to vault write | Tagged/agent owners denied, hidden input, TLS, form token/CSP | `broker_entry.Handler`, `client/vault-entry` |
 | Policy, installer, proxy generation | Operator CLI/files | Admin to enforcement | Operator-controlled names; no values belong here | `routes.load_routes`, `install.sh`, `gen-fnox-config.py` |
@@ -153,12 +153,12 @@ that a deployed system is exploitable.
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | TM-001 | Agent code | Raw-authorized machine | Fetch raw/notes/backups directly | Scoped key theft | Provider keys | New `serve_value` policy | Trusted machine compromise remains | Separate consumers; no agent-controlled code there | Denied raw reads, role changes | High under old policy | High | high |
 | TM-002 | Allowed API caller | Upstream normalizes paths | Encode traversal or extend prefix | Bypass broker path restriction | API capability | New `canonical_api_path` | Full upstream semantics unverified | Narrow paths, key scopes; validate real proxy with dummy keys | Path denials | Medium | Medium demonstrated | medium |
-| TM-003 | Tagged service / renamed node | Owner/stale name grant | Acquire owner role | Unauthorized credential writes | Vault integrity | New `owner_machine`, role checks | Short names, not stable IDs | Restrict enrollment/rename/share; remove stale grants | Owner grants and node changes | Medium conditional | High | high |
+| TM-003 | Tagged service / renamed node | Owner/stale name grant | Acquire owner role | Unauthorized credential writes | vault integrity | New `owner_machine`, role checks | Short names, not stable IDs | Restrict enrollment/rename/share; remove stale grants | Owner grants and node changes | Medium conditional | High | high |
 | TM-004 | Network/local recorder | HTTP URL or echo failure | Observe submitted value | Scoped key disclosure | Owner-entered keys | URL validation, TTY and warning refusal | Compromised approver device still trusted | Separate private entry device | Failed entry transport/input | Medium conditional | High | high |
 | TM-005 | Repeated owner replacement | Existing dated backup | Replace twice in a day | Original backup loss | Credential backup | `_write` collision refusal | Backup naming/rotation needs operator care | Retain backup; resolve collision privately | Refused replacement status | Medium | Medium | medium |
 | TM-006 | Agent / host admin | Shared host or broad access | Read process memory or input | All reachable credentials | Keys, sessions | Separate topology; tightened ACL example | Live topology unverified | Isolate broker/vault/owner/consumer and management plane | Admin access, policy drift | High if co-located | High | high |
 | TM-007 | Malicious/reflecting API | Allowed route discloses key | Return auth in response | Injected key theft | API key | Fixed destination and scope | Streaming response has no general redactor | Prohibit echo/export/forwarding routes; provider scopes | Reviewed endpoint inventory | Medium conditional | High | high |
-| TM-008 | Runaway client | Broker reachability | Exhaust HTTP threads or request state | Availability loss | Service availability | Body caps, raw-read limiter | No comprehensive API/entry resource quota | Deployment limits; staged load tests | Connections, memory, request counts | Medium | Medium | medium |
+| TM-008 | Runaway client | broker reachability | Exhaust HTTP threads or request state | Availability loss | Service availability | Body caps, raw-read limiter | No comprehensive API/entry resource quota | Deployment limits; staged load tests | Connections, memory, request counts | Medium | Medium | medium |
 
 ## Criticality calibration
 
@@ -226,7 +226,7 @@ Left as is: any process on the broker host can name a caller to a loopback backe
 "nothing else runs on the broker" assumption; closing it needs per-backend authentication of
 the front door.
 
-### Broker updates
+### broker updates
 
 `valetkey-broker update` fetches the repository on the broker and runs its installer as root. The
 boundary is the owner's `y` at the broker console after reviewing the shown commit: nothing

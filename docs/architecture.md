@@ -43,7 +43,7 @@ Two sides:
 | Entry service | `broker/broker_entry.py` | `valetkey-broker-entry` | Holds no session. Unlocks → writes → verifies → locks per owner submission. Requests are kept in `/var/lib/valetkey-broker-entry/requests.json` (names, never values) and expire after 24 h. After a value is stored, it checks the routes that use it (`brokerlib/access_check.py`): for an MCP server it signs in with the new key at that route's own upstream and lists the tools, never running one. |
 | Approval worker | `broker/approval_worker.py` | `valetkey-broker-approval` | Pairs the owner's authenticator (console only) and approves proposed `[api.*]` routes with its codes. Reached by the entry service over a local socket. |
 | Shared libs | `broker/brokerlib/` | | `bwclient` (the only module that runs `bw`; 5-minute item cache), `routes` (parse and validate), `identity` (`tailscale whois`, cached 5 min), `requests_store`, `httpbase`. |
-| Broker CLIs | `broker/bin/` | root | `valetkey-broker login`, `valetkey-broker check`, `valetkey-broker routes`, `valetkey-broker update`, `valetkey-broker-cert`, `with-bw-session`. |
+| broker CLIs | `broker/bin/` | root | `valetkey-broker login`, `valetkey-broker check`, `valetkey-broker routes`, `valetkey-broker update`, `valetkey-broker-cert`, `with-bw-session`. |
 | Clients | `client/` | user | `valetkey-broker` (check/request/status/backups), `vault` (fnox shim), `valetkey-entry` (owner). Stdlib Python ≥ 3.9; no proxies from the environment; redirects are errors. |
 
 ## Identity

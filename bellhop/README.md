@@ -51,7 +51,7 @@ subcommand whose purpose is to read a file you name.
 
 ## Use
 
-Bellhop machine: copy `server.py` and `broker/brokerlib` to one folder, write `/etc/bellhop/bellhop.toml`
+bellhop machine: copy `server.py` and `broker/brokerlib` to one folder, write `/etc/bellhop/bellhop.toml`
 from the example, and run it as a user that owns the logins and has no other job:
 
 ```sh
@@ -165,7 +165,7 @@ bellhop/testvm/setup.sh delete
 - **The agent can still use every listed tool.** This stops a login being copied. It does not
   limit what is done with it. Keep keys narrow and capped.
 - **Native OAuth sign-in for MCP.** Connect an approved client directly to the provider’s MCP
-  endpoint and keep its tokens off agent machines. Skip the Bellhop and broker routes.
+  endpoint and keep its tokens off agent machines. Skip the bellhop and broker routes.
 - **MCP servers must speak HTTP.** One that only talks over standard input needs a bridge on the
   bellhop's loopback first.
 - **Output arrives when the tool exits.** No live progress for long jobs.

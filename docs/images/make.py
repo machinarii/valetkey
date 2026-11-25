@@ -97,8 +97,8 @@ ICONS = {"master": lambda d, x, y, bg, a=1: key(d, x, y, 24, mix(bg, GOLD, a), b
 
 BOXES = {  # name: (left, top, right, bottom, title, subtitle)
     "agent": (40, 282, 270, 482, "Agent machine", "runs your AI agents"),
-    "broker": (365, 172, 595, 332, "Broker", "checks the caller\nfnox adds the key"),
-    "bellhop": (365, 402, 595, 562, "Bellhop", "runs MCPs & other tools\nthat require sign in"),
+    "broker": (365, 172, 595, 332, "broker", "checks the caller\nfnox adds the key"),
+    "bellhop": (365, 402, 595, 562, "bellhop", "runs MCPs & other tools\nthat require sign in"),
     "vault": (700, 142, 920, 222, "Vaultwarden", "every key, encrypted"),
     "api": (684, 262, 920, 342, "Service API or MCP", ""),
     "svc": (700, 442, 920, 522, "Service tool", ""),

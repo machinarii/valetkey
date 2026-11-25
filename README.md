@@ -83,11 +83,11 @@ replace it.
 
 | Part | Role | What it does |
 |---|---|---|
-| Broker | Credential-injecting proxy, "secretless" access | Agents call a service through it with no key; it checks the calling machine and adds the key on the way out. It also serves the key entry page and route approvals. On agent machines, the `valetkey-broker` command calls it, requests keys and reports their status. |
+| broker | Credential-injecting proxy, "secretless" access | Agents call a service through it with no key; it checks the calling machine and adds the key on the way out. It also serves the key entry page and route approvals. On agent machines, the `valetkey-broker` command calls it, requests keys and reports their status. |
 | fnox | Secret injector | Runs inside the broker and puts the key into each outgoing request. |
-| Vault | Secrets manager (Vaultwarden) | Keeps every key, encrypted, on its own machine. Agents never reach it; the broker reads from it. |
-| Bellhop | Remote tool runner | Runs command-line tools and MCP servers that keep their own login, on a separate machine. |
-| MCP routes | MCP gateway | Broker routes to MCP servers that need a fixed key: agents connect with no key, and you see which tools the key opens. |
+| vault | Secrets manager (Vaultwarden) | Keeps every key, encrypted, on its own machine. Agents never reach it; the broker reads from it. |
+| bellhop | Remote tool runner | Runs command-line tools and MCP servers that keep their own login, on a separate machine. |
+| MCP routes | MCP gateway | broker routes to MCP servers that need a fixed key: agents connect with no key, and you see which tools the key opens. |
 | Rules, policy & sweep | Agent guardrails | Teach agents the workflow, limit MCP servers and report logins that appear on agent machines. |
 
 ## How it works

@@ -49,9 +49,9 @@ machines: the broker or bellhop is the supervisor, and the wrappers are the bind
 
 Two kinds of trusted half exist today:
 
-- **Broker route.** For a service reached over HTTPS with a fixed key. The broker forwards the
+- **broker route.** For a service reached over HTTPS with a fixed key. The broker forwards the
   request and adds the key. The key lives in the vault.
-- **Bellhop entry.** For a tool that must run as a program with its own login. The bellhop runs listed
+- **bellhop entry.** For a tool that must run as a program with its own login. The bellhop runs listed
   subcommands in an empty folder and returns the output.
 
 ## The manifest: `tool.toml`
@@ -110,7 +110,7 @@ allowed = ["read", "write", "spend"]
 
 ### Mapping to today's settings
 
-| Manifest | Broker `routes.toml` | Bellhop `bellhop.toml` |
+| Manifest | broker `routes.toml` | bellhop `bellhop.toml` |
 |---|---|---|
 | `tool.name` | `[api.NAME]` | `[tool.NAME]` |
 | `credential.item` | `item` | none; the login is in the bellhop user's home |

@@ -1,5 +1,5 @@
 [Unit]
-Description=Valetkey owner pairing and TOTP route approvals
+Description=valetkey owner pairing and TOTP route approvals
 After=tailscaled.service
 ConditionPathExists=/etc/credstore.encrypted/valetkey-broker-approval-key
 

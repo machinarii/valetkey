@@ -168,8 +168,8 @@ sys.exit(0 if good else 1)
   echo "Safety rules: valetkey-broker guide     (offline; reference these in agent instructions)"
   if [ "$agent" = yes ]; then
     echo "Claude subscription: valetkey-broker guide claude shows setup-token and web login options."
-    echo "Valetkey works with or without claude-mem. For memory capture setup, run valetkey-broker guide claude-mem."
-    echo "Broker must list this machine in [security].agent_nodes; never trusted_value_nodes or owner_nodes."
+    echo "valetkey works with or without claude-mem. For memory capture setup, run valetkey-broker guide claude-mem."
+    echo "broker must list this machine in [security].agent_nodes; never trusted_value_nodes or owner_nodes."
     echo "--agent does not remove existing tools or credentials and is not an access-control boundary."
   fi
 }
@@ -518,9 +518,9 @@ cmd_menu() {
   fi
   labels=(
     "proxmox|Proxmox host: creates the vault, broker and bellhop as separate guests"
-    "vault|Vault host (Vaultwarden)"
-    "broker|Broker (answers agents' calls and adds the keys)"
-    "bellhop|Bellhop (optional: runs tools that keep their own login)"
+    "vault|vault host (Vaultwarden)"
+    "broker|broker (answers agents' calls and adds the keys)"
+    "bellhop|bellhop (optional: runs tools that keep their own login)"
     "agent|Agent machine (where Claude Code, Codex or other agents run)"
     "owner|Approver device (where you enter keys and approve routes; never runs agents)"
     "consumer|Trusted server (runs an application that reads the key itself; never runs agents)")
@@ -540,7 +540,7 @@ cmd_menu() {
   done
   role=${roles[$((n - 1))]}
   case $role in
-    agent|owner|consumer) ask_url broker "Broker URL" "${suffix:+https://broker.$suffix}" ;;
+    agent|owner|consumer) ask_url broker "broker URL" "${suffix:+https://broker.$suffix}" ;;
   esac
   case $role in
     proxmox) as_root proxmox ;;
@@ -551,8 +551,8 @@ cmd_menu() {
       if [ "$(uname -s)" = Darwin ]; then
         cmd_client --agent --broker-url "$broker"
       else
-        ask_url bellhop "Bellhop URL (if you have a bellhop)" "${suffix:+https://bellhop.$suffix/bellhop}" optional
-        [ -z "$bellhop" ] || ask tools "Bellhop tools to link here, comma-separated" "" optional
+        ask_url bellhop "bellhop URL (if you have a bellhop)" "${suffix:+https://bellhop.$suffix/bellhop}" optional
+        [ -z "$bellhop" ] || ask tools "bellhop tools to link here, comma-separated" "" optional
         args=(--user "${SUDO_USER:-$(id -un)}" --broker-url "$broker")
         [ -z "$bellhop" ] || args+=(--bellhop-url "$bellhop")
         [ -z "$tools" ] || args+=(--tools "$tools")

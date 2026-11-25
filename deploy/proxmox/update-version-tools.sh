@@ -1,5 +1,5 @@
 #!/bin/bash
-# Update the Valetkey CLI from this checkout on existing Proxmox roles.
+# Update the valetkey CLI from this checkout on existing Proxmox roles.
 set -euo pipefail
 if [[ $# != 3 || $1 != +([0-9]) || $2 != +([0-9]) || $3 != +([0-9]) ||
       $1 = "$2" || $2 = "$3" || $1 = "$3" ]]; then
@@ -37,7 +37,7 @@ INSTALL
 bash -c "$apply" _ "$payload" "$version"
 echo "Proxmox host CLI $version"
 pct exec "$vault" -- /bin/bash -c "$apply" _ "$payload" "$version" </dev/null
-echo "Vault CT $vault CLI $version"
+echo "vault CT $vault CLI $version"
 for vm in "$broker" "$bellhop"; do
   guest "$vm" -- /bin/bash -c "$apply" _ "$payload" "$version"
   echo "VM $vm CLI $version"

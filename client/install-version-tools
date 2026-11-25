@@ -1,5 +1,5 @@
 #!/bin/bash
-# Install the Valetkey version commands without running a role's provisioning steps.
+# Install the valetkey version commands without running a role's provisioning steps.
 set -euo pipefail
 bin=/usr/local/bin
 if [ "$#" -ne 0 ]; then
@@ -11,7 +11,7 @@ if [ "$#" -ne 0 ]; then
 fi
 src=$(cd "$(dirname "$0")" && pwd)/broker
 python3 -I -c 'import sys; sys.exit(sys.version_info < (3, 9))' || {
-  echo "Valetkey needs Python 3.9 or later." >&2; exit 1;
+  echo "valetkey needs Python 3.9 or later." >&2; exit 1;
 }
 mkdir -p -- "$bin"
 target=$bin/valetkey-broker-version
@@ -47,4 +47,4 @@ fi
 for old in "$bin/relay" "$bin/relay-version" "$bin/valetkey-relay" "$bin/valetkey-relay-version"; do
   if ours "$old"; then rm -f -- "${old:?}"; fi
 done
-echo "Installed Valetkey version commands in $bin."
+echo "Installed valetkey version commands in $bin."

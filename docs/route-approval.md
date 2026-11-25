@@ -1,6 +1,6 @@
 # Pair an authenticator and approve an API route
 
-Valetkey 0.1.2 adds two separate links. A broker administrator issues a **pairing link** for one approver device. An agent requests an **approval link** for one proposed route. The ordinary credential entry page still handles key storage.
+valetkey 0.1.2 adds two separate links. A broker administrator issues a **pairing link** for one approver device. An agent requests an **approval link** for one proposed route. The ordinary credential entry page still handles key storage.
 
 ## Pair once
 
@@ -63,7 +63,7 @@ point the route at another address or key, the joined machine loses it until it 
 and methods you change by hand apply to every machine on the route, joined ones included. A join
 cannot add a machine to a model route.
 
-## Broker operations
+## broker operations
 
 The worker installs new bearer API grants, and joins to existing API routes, for the requesting machine only. It stores grants in `/etc/valetkey-broker/approved-routes.d` and leaves the administrator's TOML in place. Bearer and Basic are supported; manual routing remains available for other authentication schemes. To revoke a web grant or a join, the administrator removes its JSON file and runs `sudo valetkey-broker routes install <org>` and verifies denial from the affected agent. Restrict root access to this directory and the broker. Keep the vault, hypervisor, broker and approver device outside agent control.
 

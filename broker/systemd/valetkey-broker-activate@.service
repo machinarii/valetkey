@@ -1,5 +1,5 @@
 [Unit]
-Description=Validate and activate Valetkey API routes for %i
+Description=Validate and activate valetkey API routes for %i
 After=tailscaled.service
 
 [Service]

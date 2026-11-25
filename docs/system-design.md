@@ -1,4 +1,4 @@
-# How Valetkey works
+# How valetkey works
 
 ## What it is
 
@@ -26,7 +26,7 @@ valetkey takes a different route:
 | Problem | valetkey's answer |
 |---|---|
 | Keys copied onto every machine | Agent machines receive no raw provider key through approved API routes. Separate trusted servers fetch only what their processes need. Existing secret files are not removed by Valet. |
-| Broker client tokens to protect and rotate | **Identity is the machine.** The broker asks Tailscale who is calling (`tailscale whois`). There is no additional Valet bearer token; Tailscale identity still needs protecting. |
+| broker client tokens to protect and rotate | **Identity is the machine.** The broker asks Tailscale who is calling (`tailscale whois`). There is no additional Valet bearer token; Tailscale identity still needs protecting. |
 | Agents that can read and print secrets | Declared agent machines use API routes by default. A Claude setup-token exception exposes that token to the named machine. `valetkey-broker check` reports storage/access status, not upstream authentication. |
 | Pasting a new key into chat | The owner types the value into a **hidden terminal prompt or a web page on the tailnet**. The agent picks the name, so naming can't drift. |
 | A key that silently expired | **Replace with backup**: the old value is kept as `<name>-backup-YYYYMMDD`. Only trusted servers/operators may use backups. |
@@ -36,7 +36,7 @@ valetkey takes a different route:
 - **No agent-side provider key required.** Approved broker API routes inject keys remotely. Existing credentials and Tailscale machine state still need protection. Revoke route access in `routes.toml` or the tailnet policy.
 - **Key injection.** `[api.*]` routes add credentials to outgoing HTTPS calls (exact host, methods and path prefixes) through `fnox proxy`. The calling process never has the key.
 - **Works with fnox as is.** Uses fnox's own `vault` provider with a 100-line shim. Keep `fnox exec`, profiles and `if_missing = "error"`.
-- **Broker-only agent policy.** Agent nodes can check and request; ordinary raw reads require a separate grant for a trusted server. Includes offline guidance for agent memory.
+- **broker-only agent policy.** Agent nodes can check and request; ordinary raw reads require a separate grant for a trusted server. Includes offline guidance for agent memory.
 - **Owner entry, two ways.** Hidden terminal prompt (`valetkey-entry`) or a plain, phone-friendly web page that only your devices can submit to.
 - **Replace with backup.** Each replace keeps `<name>-backup-YYYYMMDD`; same-day collisions are refused. Backups require the same trusted raw-consumer policy as the original.
   fnox may find multiple items when a backup contains the original name. The owner must resolve that ambiguity privately before restarting the route; agents must not delete backups. `valetkey-broker check` and `valetkey-broker routes install` report it.
@@ -57,17 +57,17 @@ valetkey is several small tools, each with one job, and each belongs on a partic
 | Part | What it is for | Runs on |
 |---|---|---|
 | **Tailscale** | The private network between your machines. It gives every machine a name the broker and bellhop can check, issues the HTTPS certificates, and holds the policy that says who may reach whom. | Every machine |
-| **Vaultwarden** | The vault. Stores every key, encrypted. You manage it with the Bitwarden apps. Only the broker and your own devices can reach it. | Vault host |
-| **Broker services** | They stand between your machines and the vault: unlock it, hand out only what each machine's routes allow, add keys to outgoing API calls, and take new keys from you. | Broker |
-| &nbsp;&nbsp;`valetkey-broker-front` | The only listener: HTTPS on the broker's tailnet address. Passes each request to a service below and tells it which machine is calling. | Broker |
-| &nbsp;&nbsp;`valetkey-broker-local`, `valetkey-broker-infra` | The read side, one per vault organization: checks, values for trusted servers, API routes. | Broker |
-| &nbsp;&nbsp;`valetkey-broker-entry` | The write side: named requests from agents, and the page and prompt where you type a value. | Broker |
-| **fnox** | On the broker, adds the key to an outgoing API call (`fnox proxy`). On a trusted server, starts a program with its secrets (`fnox exec`). | Broker; trusted servers |
-| **Broker tools** `valetkey-broker login`, `valetkey-broker check`, `valetkey-broker routes`, `valetkey-broker update` | Sign the broker services in to the vault, check them, apply route changes, update the broker. | Broker, at its console |
+| **Vaultwarden** | The vault. Stores every key, encrypted. You manage it with the Bitwarden apps. Only the broker and your own devices can reach it. | vault host |
+| **broker services** | They stand between your machines and the vault: unlock it, hand out only what each machine's routes allow, add keys to outgoing API calls, and take new keys from you. | broker |
+| &nbsp;&nbsp;`valetkey-broker-front` | The only listener: HTTPS on the broker's tailnet address. Passes each request to a service below and tells it which machine is calling. | broker |
+| &nbsp;&nbsp;`valetkey-broker-local`, `valetkey-broker-infra` | The read side, one per vault organization: checks, values for trusted servers, API routes. | broker |
+| &nbsp;&nbsp;`valetkey-broker-entry` | The write side: named requests from agents, and the page and prompt where you type a value. | broker |
+| **fnox** | On the broker, adds the key to an outgoing API call (`fnox proxy`). On a trusted server, starts a program with its secrets (`fnox exec`). | broker; trusted servers |
+| **broker tools** `valetkey-broker login`, `valetkey-broker check`, `valetkey-broker routes`, `valetkey-broker update` | Sign the broker services in to the vault, check them, apply route changes, update the broker. | broker, at its console |
 | **`valetkey-broker`** | The client. Asks the broker whether a key exists and requests a new one by name. Never shows a value. | Agent machines and every other client |
 | **`vault`** | A small shim that lets fnox fetch a value from the broker for a trusted program. | Trusted servers only |
 | **`valetkey-entry`** | A hidden prompt for typing a key's value. | Approver devices only |
-| **Bellhop service** | Runs command-line tools that keep their own login, on behalf of agent machines, within a list you write. | Bellhop |
+| **bellhop service** | Runs command-line tools that keep their own login, on behalf of agent machines, within a list you write. | bellhop |
 | **`valetkey-bellhop`** | The stand-in. Sends a command and its files to the bellhop and returns the output. Linked under each tool's own name. | Agent machines |
 | **sweep** | An hourly check that no login and no unexpected tool has appeared. Reports names only. | Agent machines, as root |
 | **Agent rules** | Standing instructions that tell an agent how to ask for keys and tools, and what never to do. | Agent machines |
@@ -99,7 +99,7 @@ valetkey is several small tools, each with one job, and each belongs on a partic
 
 **The broker.** One small Linux VM, and the only machine that unlocks a vault. It runs five systemd services, each as its own system user:
 
-| Service | Vault access | Does |
+| Service | vault access | Does |
 |---|---|---|
 | `valetkey-broker-front` | none | TLS on the broker's Tailscale address, port 443. Routes `/local`, `/infra` and `/entry` to the loopback services and stamps each request with the caller's tailnet IP. |
 | `valetkey-broker-local` | reads `local-org` (view-only account) | Serves `local` values, checks and API routes. |
@@ -142,9 +142,9 @@ The rule is short: **a key lives only on a machine where no agent runs, and an a
 | Machine | Holds | Runs agents | Reachable by |
 |---|---|---|---|
 | **Agent machine** (dev box, bot, CI runner) | No key, no login, no vault session | Yes | Nothing needs to reach it |
-| **Broker** | Vault unlock material; keys in memory | Never | Agent machines and approver devices, port 443 only |
-| **Bellhop** (optional) | Logins of the command-line tools it runs | Never | Agent machines, port 443 only |
-| **Vault** (Vaultwarden) | The encrypted vault | Never | The broker and approver devices, port 443 only |
+| **broker** | vault unlock material; keys in memory | Never | Agent machines and approver devices, port 443 only |
+| **bellhop** (optional) | Logins of the command-line tools it runs | Never | Agent machines, port 443 only |
+| **vault** (Vaultwarden) | The encrypted vault | Never | The broker and approver devices, port 443 only |
 | **Approver device** (your laptop, phone) | What you type during entry | Never | Nothing |
 | **Trusted server** (a deployed service) | Only the keys its own process needs | Never | Its own application port |
 | **Hypervisor** | Control of every VM on it | Never | You, at its console |
@@ -209,7 +209,7 @@ Merge [`deploy/tailscale/acl.example.hujson`](../deploy/tailscale/acl.example.hu
 |---|---|---|
 | Agent machines | broker, bellhop | 443 |
 | Approver devices | vault, broker | 443 |
-| Broker | vault | 443 |
+| broker | vault | 443 |
 | Anything | broker or bellhop over SSH | Denied |
 | Agent machines | vault, approver devices | Denied |
 
@@ -224,7 +224,7 @@ Grants in a tailnet policy add up, so remove any allow-all or member-to-member r
 | Hypervisor for broker, bellhop and vault | Proxmox VE on its own box | VMs with a virtual TPM, containers, a console that does not depend on the tailnet; scripts included |
 | Guest OS | Debian 13 (cloud image) | Current systemd for `systemd-creds`; what the scripts and tests use |
 | Network and machine identity | Tailscale with MagicDNS, HTTPS certificates and tags | The broker and bellhop name callers with `tailscale whois`; tags keep grants narrow |
-| Vault | Vaultwarden | Self-hosted, works with the Bitwarden apps and CLI |
+| vault | Vaultwarden | Self-hosted, works with the Bitwarden apps and CLI |
 | Key injection and project secrets | fnox | The broker's API routes use `fnox proxy`; projects keep `fnox exec` |
 | Unlock material at rest | `systemd-creds` with the VM's vTPM | Encrypted to that VM; useless if the disk is copied |
 | Monitoring | Any uptime monitor on its own tagged machine | Checks that the broker and bellhop answer; it needs port 443 and no route |

@@ -44,7 +44,7 @@ git clone https://github.com/machinarii/valetkey.git && cd valetkey
 sudo ./install.sh proxmox          # add --no-bellhop to skip the bellhop
 ```
 
-Without Proxmox, run this on each Linux server and choose **Vault host**, **Broker** or **Bellhop**:
+Without Proxmox, run this on each Linux server and choose **vault host**, **broker** or **bellhop**:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/machinarii/valetkey/main/install.sh | bash
@@ -103,8 +103,8 @@ Already installed? See [Updating valetkey](updating-valetkey.md).
 |---|---|
 | **Tailnet** | Tailscale with MagicDNS and HTTPS Certificates turned on. You need admin access to edit the ACL. |
 | **Vaultwarden** | Any host with Docker (the Proxmox LXC script is optional). Vaultwarden 1.37.2+ for current Bitwarden clients. |
-| **Broker** | Debian 12+ or Ubuntu 24.04+ with systemd ≥ 250, Python ≥ 3.11 and a TPM or vTPM (for `systemd-creds`). 2 vCPU, 2 GB RAM and 8 GB disk. Each broker service runs the Bitwarden CLI, which is heavy: 1 GB runs out once an org has more than a few `[api.*]` routes. |
-| **Bellhop** (optional) | Debian 12+ or Ubuntu 24.04+ with systemd and Python ≥ 3.11, on its own VM. 2 vCPU, 2 GB RAM and 16 GB disk is enough for a few tools. No TPM needed. |
+| **broker** | Debian 12+ or Ubuntu 24.04+ with systemd ≥ 250, Python ≥ 3.11 and a TPM or vTPM (for `systemd-creds`). 2 vCPU, 2 GB RAM and 8 GB disk. Each broker service runs the Bitwarden CLI, which is heavy: 1 GB runs out once an org has more than a few `[api.*]` routes. |
+| **bellhop** (optional) | Debian 12+ or Ubuntu 24.04+ with systemd and Python ≥ 3.11, on its own VM. 2 vCPU, 2 GB RAM and 16 GB disk is enough for a few tools. No TPM needed. |
 | **Clients** | Python 3.9+ on `PATH` and Tailscale access to the broker for broker commands. Trusted servers that pull project secrets also need fnox. |
 
 On Linux, `./install.sh client --with-deps` can install Tailscale and, for a trusted server, fnox. On macOS, install Tailscale separately and join the tailnet.
@@ -118,9 +118,9 @@ What the installer runs for each role, if you'd rather name the role yourself. R
 | Machine | Command | What it installs |
 |---|---|---|
 | **Hypervisor** (Proxmox) | `sudo ./install.sh proxmox [--no-bellhop]`<br>(runs `deploy/proxmox/vaultwarden-ct.sh`, `deploy/proxmox/broker-vm.sh` and `bellhop/proxmox-bellhop-vm.sh`) | Creates the vault container and the broker and bellhop VMs, and runs the three installers below inside them |
-| **Vault host** | `sudo ./install.sh vaultwarden` | Docker, Tailscale, Vaultwarden published on the tailnet only |
-| **Broker** | `sudo ./install.sh broker --with-deps` | Tailscale, Bitwarden CLI, fnox, the broker services and broker tools |
-| **Bellhop** (optional) | `sudo ./install.sh bellhop` | Tailscale, the bellhop service, the TLS front door. No tools, no logins |
+| **vault host** | `sudo ./install.sh vaultwarden` | Docker, Tailscale, Vaultwarden published on the tailnet only |
+| **broker** | `sudo ./install.sh broker --with-deps` | Tailscale, Bitwarden CLI, fnox, the broker services and broker tools |
+| **bellhop** (optional) | `sudo ./install.sh bellhop` | Tailscale, the bellhop service, the TLS front door. No tools, no logins |
 | **Agent machine** | `sudo ./install.sh agent --broker-url … --bellhop-url … --tools …`<br>`./install.sh claude` | `valetkey-broker` in agent mode, the `bellhop` stand-in, the sweep and its timer, a policy that limits MCP servers to the broker and bellhop (it says why and asks first). Then, as the agent's user, the rules in `CLAUDE.md` (and Codex's `AGENTS.md`, if Codex is installed) and the blocks you choose in Claude Code's settings. No keys |
 | **Approver device** | `./install.sh client --owner --broker-url …` | `valetkey-broker` and `valetkey-entry` |
 | **Trusted server** | `./install.sh client --broker-url … --with-deps` | `valetkey-broker`, the `vault` shim, fnox |

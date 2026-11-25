@@ -25,7 +25,7 @@ See [Claude Code subscription sign-in](docs/secure-setup.md#claude-code-subscrip
 
 | Threat | Control |
 |---|---|
-| An agent client's disk, backups or dotfiles leak | Broker API use does not deliver provider keys. This cannot clean up credentials from an older installation. |
+| An agent client's disk, backups or dotfiles leak | broker API use does not deliver provider keys. This cannot clean up credentials from an older installation. |
 | A stolen broker client token | Valet issues no client bearer token. Tailscale machine identity remains security-sensitive. |
 | A machine reads beyond its scope | Every route lists `nodes`; projects list `items`. Unlisted gets `not-allowed`, unknown gets 403, and there is no list endpoint. |
 | One org read through the other | Separate Linux users, `bw` data dirs, accounts and unlocks per org. A read account is a member of one org only. |
@@ -37,7 +37,7 @@ See [Claude Code subscription sign-in](docs/secure-setup.md#claude-code-subscrip
 | Owner input echoes or travels over plaintext | Owner CLI refuses piped input and password-echo fallback; rejects remote HTTP, userinfo URLs, proxies and redirects; never prints submission response bodies. |
 | Entry-page script injection | Values/descriptions are HTML-escaped, forms use a token, and a CSP admits only the bundled script/style hashes, same-origin forms and no framing. |
 | A brute-force or runaway client | 300 value reads per minute per machine. |
-| Broker compromise through services | Hardened units: `NoNewPrivileges`, `ProtectSystem=strict`, `ProtectHome`, `PrivateTmp`, `PrivateDevices`, restricted address families, and write access only to the unit's own state dir. |
+| broker compromise through services | Hardened units: `NoNewPrivileges`, `ProtectSystem=strict`, `ProtectHome`, `PrivateTmp`, `PrivateDevices`, restricted address families, and write access only to the unit's own state dir. |
 
 ## Known limits
 

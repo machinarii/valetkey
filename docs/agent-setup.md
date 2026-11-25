@@ -2,9 +2,9 @@
 
 ## Working with AI agents
 
-**Optional memory capture.** Valetkey is designed to work with or without claude-mem. You can install Valetkey and sign in to Claude Code without a memory worker. If you already use claude-mem, `valetkey-broker guide claude-mem` explains local capture and how to migrate remote ingest without granting agents a raw token.
+**Optional memory capture.** valetkey is designed to work with or without claude-mem. You can install valetkey and sign in to Claude Code without a memory worker. If you already use claude-mem, `valetkey-broker guide claude-mem` explains local capture and how to migrate remote ingest without granting agents a raw token.
 
-For Claude Code, run `valetkey-broker guide claude` to choose between a Valetkey-managed setup token and native web login. See [subscription authentication](secure-setup.md#claude-code-subscription-sign-in).
+For Claude Code, run `valetkey-broker guide claude` to choose between a valetkey-managed setup token and native web login. See [subscription authentication](secure-setup.md#claude-code-subscription-sign-in).
 
 If you run your agents from T3 Code, see [T3 Code](t3-code.md): which machine its server belongs on, how the policy keeps T3's own tools working, and how T3 signs in to Claude.
 
@@ -66,6 +66,6 @@ Which goes where:
 |---|---|
 | An HTTP API or remote MCP server with a fixed key | A broker `[api.*]` route. The key stays in the vault |
 | Only a program or SDK, or a login that renews itself | A bellhop entry |
-| An MCP server with native OAuth sign-in | Use the provider’s endpoint directly from a policy-approved client that keeps tokens off agent machines. Skip Valetkey routing. |
+| An MCP server with native OAuth sign-in | Use the provider’s endpoint directly from a policy-approved client that keeps tokens off agent machines. Skip valetkey routing. |
 
 Start with [bellhop/README.md](../bellhop/README.md). To add a tool step by step, follow [the recipe](recipe-new-tool-with-credential.md). [The keyless tool standard](keyless-tool-standard.md) is a draft of how a tool should be built so that either the broker or the bellhop can hold its credential.

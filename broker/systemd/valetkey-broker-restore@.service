@@ -1,5 +1,5 @@
 [Unit]
-Description=Restore previous Valetkey API routes for %i
+Description=Restore previous valetkey API routes for %i
 After=tailscaled.service
 
 [Service]

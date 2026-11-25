@@ -1,4 +1,4 @@
-# Develop Valetkey
+# Develop valetkey
 
 ## Project layout
 

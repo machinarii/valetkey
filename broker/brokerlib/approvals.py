@@ -1,4 +1,4 @@
-"""Broker-side TOTP pairing and immutable, expiring route proposals: a new bearer route, or a machine
+"""broker-side TOTP pairing and immutable, expiring route proposals: a new bearer route, or a machine
 joining an existing route (nothing else about that route changes)."""
 import base64
 import hmac
@@ -96,9 +96,9 @@ class Approvals:
             raise Refused(404, "pairing link expired or unavailable")
         seed = self.seed(who, rid)
         if code is None:
-            label = urllib.parse.quote(f"Valetkey:{who}@{conf.tailnet_name}", safe="")
+            label = urllib.parse.quote(f"valetkey:{who}@{conf.tailnet_name}", safe="")
             secret = base64.b32encode(seed).decode().rstrip("=")
-            return f"otpauth://totp/{label}?secret={secret}&issuer=Valetkey&algorithm=SHA1&digits=6&period=30"
+            return f"otpauth://totp/{label}?secret={secret}&issuer=valetkey&algorithm=SHA1&digits=6&period=30"
         self.authenticate(who, seed, code)
         self.db.execute("UPDATE owner SET active=ticket, ticket=NULL WHERE name=?", (who,))
         return "Authenticator paired"

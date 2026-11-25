@@ -14,7 +14,7 @@ from datetime import date, datetime, timezone
 
 warnings.filterwarnings("error", category=getpass.GetPassWarning)
 def _broker_url():
-    """Broker URL: $BROKER_URL, else the first line of ~/.config/valetkey/broker-url (written by
+    """broker URL: $BROKER_URL, else the first line of ~/.config/valetkey/broker-url (written by
     `install.sh client --broker-url ...`). Empty if neither is set."""
     url = os.environ.get("BROKER_URL", "").strip()
     for name in ("broker-url", "relay-url"):  # relay-url: the file's name before 0.4
@@ -67,7 +67,7 @@ def one_line(text):
 
 
 def die(status, text):
-    # Broker/proxy error bodies can contain a reflected submitted value.
+    # broker/proxy error bodies can contain a reflected submitted value.
     sys.exit(f"valetkey-entry: request failed ({status})")
 
 

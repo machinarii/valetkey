@@ -25,8 +25,8 @@ If the tool needs no key or login, stop here and install it on the agent's machi
 | Only a program or SDK, or a login that renews itself | **B: bellhop entry** | In the bellhop user's home folder |
 | An MCP server with native OAuth sign-in | Provider’s MCP endpoint and native sign-in | OAuth tokens stay with an approved client outside the agent VM |
 
-For native OAuth, stop the Valetkey setup here. Skip the manifest, key request, broker route
-and Bellhop entry. If the owner’s MCP policy blocks the provider endpoint or the client would
+For native OAuth, stop the valetkey setup here. Skip the manifest, key request, broker route
+and bellhop entry. If the owner’s MCP policy blocks the provider endpoint or the client would
 store tokens on an agent machine, leave the server unconfigured.
 
 ## Step 2: write the manifest

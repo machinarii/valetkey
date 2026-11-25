@@ -1,4 +1,4 @@
-# Operate Valetkey
+# Operate valetkey
 
 ## Everyday use
 
@@ -73,7 +73,7 @@ All configuration files on the broker hold names only.
 
 | Table | Keys | URL |
 |---|---|---|
-| `[security]` | `agent_nodes`, `trusted_value_nodes` (both default to empty) | Broker-enforced roles; raw reads default to denied |
+| `[security]` | `agent_nodes`, `trusted_value_nodes` (both default to empty) | broker-enforced roles; raw reads default to denied |
 | `[api.<route>]` | `item`, `upstream`, `auth` (`"Bearer {}"`), `methods`, `paths` | `/<org>/<route>/<path>` |
 | `[value.<name>]` | `item` | `/<org>/value/<name>` |
 | `[project.<name>]` | `items` (exact names or `*-suffix` globs) | `/<org>/<project>/value/<item>[/notes]` |
@@ -96,10 +96,10 @@ After changing org or collection names, run `valetkey-broker login` again for th
 
 | Setting | Where |
 |---|---|
-| Broker URL for `valetkey-broker` and `valetkey-entry` | `$BROKER_URL`, else `~/.config/valetkey/broker-url` (written by `install.sh client --broker-url`) |
-| Broker URL for the `vault` shim | `VAULT_ADDR`, which fnox sets from the provider's `address` |
+| broker URL for `valetkey-broker` and `valetkey-entry` | `$BROKER_URL`, else `~/.config/valetkey/broker-url` (written by `install.sh client --broker-url`) |
+| broker URL for the `vault` shim | `VAULT_ADDR`, which fnox sets from the provider's `address` |
 
-**Broker install environment** (`install.sh broker --with-deps`): `FNOX_VERSION` (default `1.35.3`), `BROKER_HOSTNAME` (default `broker`), `BROKER_TAGS` (default `tag:broker`), `FNOX_BIN`.
+**broker install environment** (`install.sh broker --with-deps`): `FNOX_VERSION` (default `1.35.3`), `BROKER_HOSTNAME` (default `broker`), `BROKER_TAGS` (default `tag:broker`), `FNOX_BIN`.
 
 ## Commands
 
@@ -146,10 +146,10 @@ see [Updating to 0.5](updating-valetkey.md#updating-to-05-names-on-disk).
 | `sudo ./install.sh vaultwarden` | vault host | Installs Docker and Tailscale, runs Vaultwarden and publishes it on the tailnet only. |
 | `./install.sh client [--broker-url URL] [--agent\|--owner] [--prefix DIR] [--with-deps]` | client | `--agent`: metadata CLI and guidance only. Otherwise installs consumer tools; `--owner` adds private entry; `--with-deps` adds Tailscale and fnox. |
 | `sudo ./install.sh update` | existing Linux installation | Refreshes just the version commands from the checkout. Preserves the commands of an existing full client. Use `--prefix BIN_DIR` for a nondefault install. |
-| `valetkey-broker version` or `valetkey-broker --version` | all roles | Prints the installed Valetkey CLI version offline, for example `0.1.2`. |
+| `valetkey-broker version` or `valetkey-broker --version` | all roles | Prints the installed valetkey CLI version offline, for example `0.1.2`. |
 | `sudo valetkey-broker approval pair OWNER_NODE` | trusted broker console | Issue a ten-minute authenticator pairing link with a locally rendered QR code. [Pair and approve a route](route-approval.md). |
 | `valetkey-broker request-route --help` | agent | Propose a fixed bearer API route and print its owner approval link. |
-| `valetkey-broker update` | all roles | Prints the highest stable `vMAJOR.MINOR.PATCH` tag from the public Valetkey repository on GitHub. Requires network access and only checks for updates. |
+| `valetkey-broker update` | all roles | Prints the highest stable `vMAJOR.MINOR.PATCH` tag from the public valetkey repository on GitHub. Requires network access and only checks for updates. |
 | `valetkey-broker guide` / `./install.sh guidance` | any | Prints offline safety rules for persistent agent instructions; no credential access. |
 | `sudo ./install.sh broker [--with-deps]` | broker | Installs or updates the broker. Idempotent. |
 | `./install.sh doctor` / `version` / `uninstall-client` | any | Status, version, removal. |

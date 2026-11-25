@@ -1,4 +1,4 @@
-"""Bellhop and client against synthetic fixtures only: a fake tool with a fake login, a fake MCP server.
+"""bellhop and client against synthetic fixtures only: a fake tool with a fake login, a fake MCP server.
 
 Run from the repository root:  python3 -m unittest bellhop/test_bellhop.py
 """

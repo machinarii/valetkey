@@ -18,7 +18,7 @@ if [ -f "$DIR/client/install-version-tools" ]; then
 elif [ -f "$(dirname "$0")/../../client/install-version-tools" ]; then
   bash "$(dirname "$0")/../../client/install-version-tools"
 else
-  echo "Standalone script copy: install the version commands from a Valetkey checkout with sudo ./install.sh update." >&2
+  echo "Standalone script copy: install the version commands from a valetkey checkout with sudo ./install.sh update." >&2
 fi
 
 command -v docker >/dev/null || curl -fsSL https://get.docker.com | sh

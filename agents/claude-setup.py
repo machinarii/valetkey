@@ -256,7 +256,7 @@ def main(argv=None):
     args = ap.parse_args(argv)
     print("Claude subscription login options: claude setup-token or native web login with claude auth login.\n"
           "Run valetkey-broker guide claude for steps. This installer preserves your current login method.\n"
-          "Valetkey works with or without claude-mem. Run valetkey-broker guide claude-mem for memory capture setup.")
+          "valetkey works with or without claude-mem. Run valetkey-broker guide claude-mem for memory capture setup.")
     settings_path, rules_path = os.path.expanduser(args.settings), os.path.expanduser(args.claude_md)
     codex_path = os.path.expanduser(args.codex_md)
     state_path = os.path.join(os.path.dirname(settings_path), "valetkey-setup.json")

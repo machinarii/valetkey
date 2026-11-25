@@ -1,5 +1,5 @@
 #!/usr/bin/python3 -I
-"""Vault lookups for valetkey-broker login and valetkey-broker check. Names and counts only, never ids or values.
+"""vault lookups for valetkey-broker login and valetkey-broker check. Names and counts only, never ids or values.
 
 Runs as valetkey-broker-<name> with BW_SESSION and BITWARDENCLI_APPDATA_DIR in its environment:
 

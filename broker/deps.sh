@@ -79,4 +79,4 @@ echo "ok    $(/usr/local/bin/fnox --version)"
 
 install -dm 700 /etc/credstore.encrypted
 echo
-echo "Broker on the tailnet as: $(tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//')"
+echo "broker on the tailnet as: $(tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//')"
