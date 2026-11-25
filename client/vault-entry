@@ -10,7 +10,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import warnings
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 warnings.filterwarnings("error", category=getpass.GetPassWarning)
 def _relay_url():
@@ -191,7 +191,14 @@ def read_value(field):
     return first
 
 
-def enter(rid, req=None):
+def one_year():
+    """The default expiry: one year from today; 29 February becomes 28 February."""
+    d = date.today()
+    return (d.replace(year=d.year + 1) if (d.month, d.day) != (2, 29)
+            else d.replace(year=d.year + 1, day=28)).isoformat()
+
+
+def enter(rid, req=None, expires=None):
     if req is None:
         status, text = call("GET", f"/requests/{urllib.parse.quote(rid, safe='')}")
         if status != 200:
@@ -199,12 +206,16 @@ def enter(rid, req=None):
         req = json.loads(text)
     req = owner_view(req)
     print(describe(req))
+    expires = one_year() if expires is None else ("" if expires == "never" else expires)
+    print(f"Expires: {expires or 'never'} (change with --expires YYYY-MM-DD or --expires never)")
     value = read_value(req.get("field", "password"))
     if not value.strip():
         sys.exit("empty value")
-    status, text = call("POST", f"/requests/{urllib.parse.quote(req['id'], safe='')}/value", {"value": value})
+    status, text = call("POST", f"/requests/{urllib.parse.quote(req['id'], safe='')}/value", {"value": value, "expires": expires})
     value = None
     print("stored" if status == 200 else f"vault-entry: submission failed ({status})")
+    if status == 200:
+        print(f"What it opens: {BASE.rstrip('/')}/entry/access/{req['id']}")
     return 0 if status == 200 else 1
 
 
@@ -214,14 +225,14 @@ def cmd_add(a):
         "field": "notes" if a.notes else "password", "purpose": a.purpose, "replace": False})
     if status != 201:
         die(status, text)
-    return enter(None, json.loads(text))
+    return enter(None, json.loads(text), a.expires)
 
 
 def cmd_replace(a):
     status, text = call("POST", "/replace", {"name": a.name, "org": a.org})
     if status not in (200, 201):
         die(status, text)
-    return enter(None, json.loads(text))
+    return enter(None, json.loads(text), a.expires)
 
 
 def main():
@@ -231,12 +242,16 @@ def main():
     if not argv:
         return listing()
     if argv[0] not in ("add", "replace"):
-        if len(argv) != 1 or argv[0].startswith("-"):
-            sys.exit("usage: vault-entry [<id> | add <name> --org … --purpose … | replace <name> --org …]")
-        return enter(argv[0])
+        rest = argv[1:]
+        expires = rest[1] if len(rest) == 2 and rest[0] == "--expires" else None
+        if argv[0].startswith("-") or (rest and expires is None):
+            sys.exit("usage: vault-entry [<id> | add <name> --org … --purpose … | replace <name> --org …]"
+                     " [--expires YYYY-MM-DD|never]")
+        return enter(argv[0], expires=expires)
     p = argparse.ArgumentParser(prog="vault-entry " + argv[0])
     p.add_argument("name")
     p.add_argument("--org", required=True, choices=["local", "infra"])
+    p.add_argument("--expires", help="YYYY-MM-DD, or never; default one year from today")
     if argv[0] == "add":
         p.add_argument("--project")
         p.add_argument("--purpose", required=True)

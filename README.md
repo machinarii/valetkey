@@ -7,6 +7,7 @@
 <h2 align="center">Your agents use the key, but they never see it.</h2>
 
 <p align="center">
+  <b>A self-hosted credential broker for AI agents.</b><br>
   Give an AI agent access to a tool while the credentials stay on a separate machine:<br>
   a credential broker and a tool desk on their own machines, joined over your private Tailscale network.
 </p>
@@ -40,6 +41,7 @@
 > [Security limits](docs/security-boundaries.md) · [Use at your own risk](docs/security-boundaries.md#use-at-your-own-risk)
 
 <p align="center">
+  <a href="#what-valetkey-is">What it is</a> ·
   <a href="#how-it-works">How it works</a> ·
   <a href="#get-started">Get started</a> ·
   <a href="#updating-valetkey">Updating</a> ·
@@ -72,6 +74,22 @@
 </table>
 
 <br>
+
+## What valetkey is
+
+valetkey is a **credential broker for AI agents**, a kind of agent security infrastructure. It works
+with the agent harness you already use, such as Claude Code, Codex and/or T3 Code, and does not
+replace it.
+
+| Part | What it does | Also known as |
+|---|---|---|
+| Broker | Agents call a service through it with no key; it checks the calling machine and adds the key on the way out. | Credential-injecting proxy, "secretless" access |
+| Broker routes to MCP servers | Agents reach MCP servers that need a fixed key through the broker, and you see which tools the key opens. | MCP gateway |
+| Desk | Runs command-line tools and MCP servers that keep their own login on a separate machine. | Remote tool runner |
+| Rules, sweep and policy | Teach agents the workflow, report logins that appear on agent machines and limit MCP servers. | Agent guardrails |
+
+It is not an **agent harness or framework**: it runs no models and no agents. It is not a **secrets
+manager** either: Vaultwarden stores the keys, and valetkey makes sure agents never hold them.
 
 ## How it works
 
@@ -138,6 +156,7 @@ The broker, vault, desk and clients have different update procedures.
 | Approve an API route with an authenticator | [Route approval](docs/route-approval.md) |
 | Use API credits with Claude Code or Codex | [Model API accounts and OpenRouter](docs/model-api-accounts.md) |
 | Configure Claude Code, Codex or optional claude-mem capture | [Agent setup](docs/agent-setup.md) · Run `relay guide claude-mem` for offline guidance |
+| Run your agents from T3 Code | [T3 Code](docs/t3-code.md) |
 | Add a tool, MCP server or Git remote | [New tool recipe](docs/recipe-new-tool-with-credential.md) · [Git through the broker](docs/git-through-the-broker.md) · [Several keys for one service](docs/several-keys-per-service.md) |
 | Review the threat model or report a security issue | [Security model](docs/security-boundaries.md#security-model) · [Security policy](SECURITY.md) |
 | See measured overhead or run the test suite | [Token and latency measurements](docs/performance.md) · [Development](docs/development.md) |

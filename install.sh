@@ -5,6 +5,7 @@
 #   sudo ./install.sh broker [--with-deps]
 #   sudo ./install.sh desk              (bellhop desk: runs login-holding tools for agent machines; no agent here)
 #   sudo ./install.sh agent [--relay-url URL] [--desk-url URL] [--tools a,b] [--user NAME] [--no-policy]
+#                           [--t3-url http://127.0.0.1:PORT | --no-t3]
 #                                       (an agent machine in one command: clients, sweep, MCP policy; no keys)
 #   ./install.sh claude [--yes] [--dry-run]
 #                                       (agent machine: asks what to block, then updates CLAUDE.md and settings.json)
@@ -212,8 +213,24 @@ cmd_broker() {
 }
 
 # --- agent: everything an agent machine needs, as root-owned files the agent cannot change ---
+# T3 Code's server origin for the agent's user, if T3 Code is used there: its own record, else T3's
+# default port. Loopback only: the record is written by the agent's user, so it must not be able
+# to point the root-owned policy at another server.
+t3_origin() {
+  local home=$1 origin=''
+  [ -d "$home/.t3" ] || return 0
+  origin=$(python3 -I -c 'import json,sys; print(json.load(open(sys.argv[1])).get("origin",""))' \
+             "$home/.t3/userdata/server-runtime.json" 2>/dev/null) || origin=''
+  loopback_origin "$origin" && { printf '%s\n' "$origin"; return 0; }
+  printf 'http://127.0.0.1:3773\n'
+}
+loopback_origin() {
+  [[ $1 =~ ^http://(127\.0\.0\.1|localhost):([0-9]{1,5})$ ]] && [ "${BASH_REMATCH[2]}" -ge 1 ] \
+    && [ "${BASH_REMATCH[2]}" -le 65535 ]
+}
+
 cmd_agent() {
-  local relay_url='' desk_url='' tools='' user=${SUDO_USER:-} policy=yes home t existing
+  local relay_url='' desk_url='' tools='' user=${SUDO_USER:-} policy=yes home t existing t3=auto
   while [ $# -gt 0 ]; do
     case $1 in
       --relay-url) relay_url=${2:?--relay-url needs a URL}; shift 2 ;;
@@ -221,6 +238,8 @@ cmd_agent() {
       --tools) tools=${2:?--tools needs a comma-separated list}; shift 2 ;;
       --user) user=${2:?--user needs a name}; shift 2 ;;
       --no-policy) policy=no; shift ;;
+      --t3-url) t3=${2:?--t3-url needs an origin}; shift 2 ;;
+      --no-t3) t3=''; shift ;;
       -h|--help) usage; exit 0 ;;
       *) die "agent: unknown option $1" ;;
     esac
@@ -232,6 +251,9 @@ cmd_agent() {
     || die "agent: say which user the agent runs as: --user NAME"
   home=$(getent passwd "$user" | cut -d: -f6)
   need_python 9
+  [ "$t3" = auto ] && t3=$(t3_origin "$home")
+  t3=${t3%/}
+  [ -z "$t3" ] || loopback_origin "$t3" || die "agent: --t3-url must be http://127.0.0.1:PORT or http://localhost:PORT"
   if command -v bw >/dev/null; then
     warn "the Bitwarden CLI (bw) is installed here; an agent machine should not have a vault client"
   fi
@@ -301,7 +323,10 @@ Claude Code policy: /etc/claude-code/managed-settings.json, owned by root.
   Intent: give every Claude Code session on this machine valetkey's rules, and let it use MCP
   servers only at the broker and desk, in a file the agent's user cannot change.
   It also turns off every other MCP server here, including local and account-synced ones.
-  Recommended: y, unless this machine needs other MCP servers (T3 Code's own tools, for example).
+ASK
+    [ -z "$t3" ] || echo "  T3 Code's own tools at $t3/mcp stay allowed (--no-t3 to leave them out)." >&2
+    cat >&2 <<'ASK'
+  Recommended: y, unless this machine needs other MCP servers.
 ASK
     while :; do
       IFS= read -r -p "  Write it? [y/n] " answer </dev/tty || answer=n
@@ -314,13 +339,15 @@ ASK
   fi
   if [ "$policy" = yes ]; then  # Claude Code: MCP servers only at the broker and the desk; rules as standing instructions
     if [ -e /etc/claude-code/managed-settings.json ]; then
-      warn "/etc/claude-code/managed-settings.json exists and was left alone; allow MCP servers only at the broker and desk there"
+      warn "/etc/claude-code/managed-settings.json exists and was left alone; to rewrite it (for example to allow T3 Code's tools), remove it and run again"
     else
       install -d -m 755 /etc/claude-code
-      python3 -I - "$repo" "${relay_url%/}" "${desk_url%/}" <<'PY'
+      python3 -I - "$repo" "${relay_url%/}" "${desk_url%/}" "$t3" <<'PY'
 import json, sys
-repo, relay, desk = sys.argv[1:4]
+repo, relay, desk, t3 = sys.argv[1:5]
 allowed = [{"serverUrl": relay + "/*"}] if relay else []
+if t3:  # T3 Code gives each Claude session its own tools at <origin>/mcp, with a per-session token
+    allowed.append({"serverUrl": t3 + "/mcp"})
 rules = open(repo + "/agents/credential-rules.md").read()
 if desk:
     allowed.append({"serverUrl": desk + "/mcp/*"})
@@ -328,7 +355,7 @@ if desk:
 json.dump({"allowManagedMcpServersOnly": True, "allowedMcpServers": allowed, "claudeMd": rules},
           open("/etc/claude-code/managed-settings.json", "w"), indent=2)
 PY
-      ok "Claude Code policy: MCP servers only at the broker and desk (this also blocks local and account-synced ones; --no-policy to skip)"
+      ok "Claude Code policy: MCP servers only at the broker and desk${t3:+ and T3 Code ($t3/mcp)} (this also blocks local and account-synced ones; --no-policy to skip)"
     fi
   fi
 

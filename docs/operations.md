@@ -124,7 +124,7 @@ After changing org or collection names, run `relay-login` again for the affected
 | `sudo relay-login <local\|infra\|entry> <email>` | broker | Hidden-prompt login; stores the encrypted unlock; writes `org.json`. |
 | `sudo relay-check [local\|infra\|entry]` | broker | Lock state, `ok`/`FAIL` per item and route, unit state, recent audit lines. |
 | `sudo relay-routes check \| install [local\|infra]` | broker | Validates the configs; regenerates fnox proxy rules and restarts the read relays. |
-| `sudo ./install.sh agent [--relay-url URL] [--desk-url URL] [--tools a,b] [--user NAME] [--no-policy]` | agent machine (Linux) | Everything an agent machine needs, as root-owned files: `relay` in agent mode, the `bellhop` stand-in and tool links, the sweep and its timer, the MCP policy. No keys. |
+| `sudo ./install.sh agent [--relay-url URL] [--desk-url URL] [--tools a,b] [--user NAME] [--no-policy] [--t3-url URL \| --no-t3]` | agent machine (Linux) | Everything an agent machine needs, as root-owned files: `relay` in agent mode, the `bellhop` stand-in and tool links, the sweep and its timer, the MCP policy (with T3 Code's own tools when T3 is installed; see [T3 Code](t3-code.md)). No keys. |
 | `./install.sh claude [--yes] [--dry-run] [--hide-env NAMES]` | agent machine, as the agent's user | Asks what to block, then merges valetkey's rules into `~/.claude/CLAUDE.md` and `~/.claude/settings.json`. Keeps what is there; backs both files up. |
 | `sudo ./install.sh desk` | desk | Installs or updates the bellhop desk behind the same TLS front door. No tools, no logins. |
 | `bellhop <tool> [args…]` · `bellhop --list` | agent machine | Runs a listed tool on the desk · shows what this machine may use. Link it under a tool's name to use that name. |

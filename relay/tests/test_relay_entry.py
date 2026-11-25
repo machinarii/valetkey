@@ -1,3 +1,4 @@
+import datetime
 import io
 import json
 import os
@@ -414,6 +415,42 @@ class RelayEntryTest(unittest.TestCase):
         status, _, body = self.submit(r["id"], "again")
         self.assertEqual((status, body), (409, b"request is stored\n"))
 
+    def test_expiry_date_is_checked_and_stored_on_the_item(self):
+        self.start()
+        today = datetime.date.fromtimestamp(self.now)
+        for bad, why in (("2027/01/01", b"YYYY-MM-DD"), ("2027-02-30", b"not a real date"),
+                         (today.isoformat(), b"after today"), (5, b"YYYY-MM-DD")):
+            r = self.new_request("x-api-key-exp", purpose="expiry")
+            status, _, body = self.req(f"/v1/requests/{r['id']}/value", "POST",
+                                       {"value": "v-123", "expires": bad}, peer=OWNER_IP)
+            self.assertEqual(status, 400, bad)
+            self.assertIn(why, body)
+            self.assertEqual(self.items_named("x-api-key-exp"), [])
+        later = (today + datetime.timedelta(days=400)).isoformat()
+        status, _, _ = self.req(f"/v1/requests/{r['id']}/value", "POST",
+                                {"value": "v-123", "expires": later}, peer=OWNER_IP)
+        self.assertEqual(status, 200)
+        [it] = self.items_named("x-api-key-exp")
+        self.assertEqual(it["fields"], [{"name": "expires", "value": later, "type": 0}])
+        # Without a date the key does not expire: no field at all.
+        r = self.new_request("y-api-key-exp", purpose="no expiry")
+        self.assertEqual(self.submit(r["id"], "v-456")[0], 200)
+        self.assertNotIn("fields", self.items_named("y-api-key-exp")[0])
+
+    def test_no_expiration_box_wins_over_the_date(self):
+        self.start()
+        r = self.new_request("z-api-key-exp", purpose="never")
+        later = (datetime.date.fromtimestamp(self.now) + datetime.timedelta(days=30)).isoformat()
+        status, _, _ = self.req("/submit", "POST", peer=OWNER_IP, form={
+            "id": r["id"], "value": "v-7", "token": self.page_token(), "expires": later, "never": "1"})
+        self.assertEqual(status, 303)
+        self.assertNotIn("fields", self.items_named("z-api-key-exp")[0])
+
+    def test_default_expiry_is_one_year_later(self):
+        stamp = lambda y, m, d: time.mktime((y, m, d, 12, 0, 0, 0, 0, -1))
+        self.assertEqual(relay_entry.default_expiry(stamp(2026, 11, 24)), "2027-11-24")
+        self.assertEqual(relay_entry.default_expiry(stamp(2028, 2, 29)), "2029-02-28")
+
     def test_local_notes_item(self):
         self.start()
         r = self.new_request("ssh-key-pve", org="local", field="notes")
@@ -594,7 +631,8 @@ class RelayEntryTest(unittest.TestCase):
         # After the press the button says so; its label is the last node, after the spinner.
         self.assertIn("button.lastChild.textContent = 'Saving…'", page)
         self.assertIn('aria-live="polite"><span class="spin" aria-hidden="true"></span>Store value</button>', page)
-        self.assertIn("asked by devbox", page)
+        self.assertIn("Asked by devbox", page)
+        self.assertIn(f'name="expires" value="{relay_entry.default_expiry(self.now)}"', page)
 
     def test_page_shows_only_result_text_it_signed_itself(self):
         self.start()
@@ -636,19 +674,61 @@ class RelayEntryTest(unittest.TestCase):
         status, _, _ = self.req("/submit", "POST", form={"id": r["id"], "value": "v-2"}, peer=OWNER_IP)
         self.assertEqual(status, 403)  # no page token: a cross-site form post
         self.assertEqual(self.items_named(name)[0]["login"]["password"], "old-value-1")
-        self.assertNotIn("checkbox", self.req("/", peer=OWNER_IP)[2].decode())
+        self.assertNotIn('name="confirm"', self.req("/", peer=OWNER_IP)[2].decode())
         status, headers, _ = self.req("/submit", "POST", peer=OWNER_IP,
                                       form={"id": r["id"], "value": "v-2", "token": token})
         self.assertEqual(status, 303)
-        self.assertTrue(headers["Location"].startswith("/entry/?result=replaced+notion-api-key"))
-        self.assertIn("&for=" + r["id"], headers["Location"])
+        # A stored key goes to the page that says what it opens.
+        self.assertEqual(headers["Location"], "/entry/access/" + r["id"])
         self.assertEqual(self.items_named(name)[0]["login"]["password"], "v-2")
-        # The result sits in the request's own card, under where the button was, not at the top.
-        page = self.req("/" + headers["Location"].split("/entry/")[1], peer=OWNER_IP)[2].decode()
-        self.assertEqual(page.count('class="result"'), 1)
-        self.assertLess(page.index("notion-api-key"), page.index('class="result"'))
-        self.assertLess(page.index("<ul>"), page.index('class="result"'))
-        self.assertIn("replaced notion-api-key", page)
+        page = self.req("/access/" + r["id"], peer=OWNER_IP)[2].decode()
+        self.assertIn("notion-api-key", page)
+        self.assertIn("No route uses this key yet", page)
+
+    def test_store_then_page_shows_what_the_key_opens(self):
+        self.start()
+        seen = []
+
+        def fake_check(routes, org, item, value):
+            seen.append((org, item, value))
+            return {"routes": [{"name": "reports", "nodes": ["devbox"], "upstream": "https://mcp.example.com",
+                                "methods": ["POST"], "paths": ["/mcp"], "check": "ok", "server": "Example",
+                                "tools": [{"name": "list_reports", "description": "Lists <b>reports</b>",
+                                           "group": "read"},
+                                          {"name": "delete_report", "description": "", "group": "delete"}]}]}
+        self.srv.ctx["access_check"] = fake_check
+        r = self.new_request("reports-api-key", purpose="mcp")
+        token = self.page_token()
+        later = (datetime.date.fromtimestamp(self.now) + datetime.timedelta(days=30)).isoformat()
+        status, headers, _ = self.req("/submit", "POST", peer=OWNER_IP, form={
+            "id": r["id"], "value": "rep-value-1", "token": token, "expires": later})
+        self.assertEqual((status, headers["Location"]), (303, "/entry/access/" + r["id"]))
+        self.assertEqual(seen, [("infra", "reports-api-key", "rep-value-1")])
+        status, _, body = self.req("/access/" + r["id"], peer=OWNER_IP)
+        page = body.decode()
+        self.assertEqual(status, 200)
+        for text in ("Key stored", "Signed in", "list_reports", "delete_report", "Read only (1)",
+                     f"<dt>Expires</dt><dd>{later}</dd>", "No tool was run"):
+            self.assertIn(text, page)
+        self.assertIn("Lists &lt;b&gt;reports&lt;/b&gt;", page)  # a server's text never becomes markup
+        self.assertNotIn("rep-value-1", page + json.dumps(json.loads(self.read_requests())))
+        self.assertEqual(self.req("/access/" + r["id"], peer=AGENT_IP)[0], 403)
+        # The agent machine sees its own route's result and counts, but no text the server wrote.
+        got = json.loads(self.req(f"/v1/requests/{r['id']}")[2])
+        self.assertEqual(got["access"], [{"route": "reports", "paths": ["/mcp"], "check": "ok", "detail": "",
+                                          "tools": {"read": 1, "change": 0, "delete": 1}}])
+        self.assertNotIn("Lists", json.dumps(got))
+        self.assertEqual(json.loads(self.req(f"/v1/requests/{r['id']}", peer=OWNER_IP)[2])["access"], [])
+        self.assertEqual(self.req("/access/r_aaaaaaaaaa", peer=OWNER_IP)[0], 404)
+        # A check that fails outright still leaves the key stored, and says so.
+        self.srv.ctx["access_check"] = mock.Mock(side_effect=RuntimeError("boom"))
+        r = self.new_request("other-api-key", purpose="mcp")
+        self.assertEqual(self.submit(r["id"], "v-9")[0], 200)
+        self.assertIn("Could not check what this key opens", self.req("/access/" + r["id"], peer=OWNER_IP)[2].decode())
+
+    def read_requests(self):
+        with open(self.path("requests.json")) as f:
+            return f.read()
 
     def test_web_replace_button_creates_replace_request(self):
         self.start()

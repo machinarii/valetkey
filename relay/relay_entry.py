@@ -16,6 +16,7 @@ the state file, a response, an exception or an audit line.
 """
 import argparse
 import base64
+import datetime
 import hashlib
 import hmac
 import html
@@ -34,7 +35,7 @@ from pathlib import Path
 DEFAULT_COLLECTIONS = {"local": "local-broker-collection", "infra": "infra-broker-collection"}
 
 if __package__:
-    from .relaylib import approval_rpc
+    from .relaylib import access_check, approval_rpc
     from .relaylib import routes as routes_mod
     from .relaylib.bwclient import Bw, BwError, value_of
     from .relaylib.httpbase import RelayHandler, RelayServer
@@ -43,7 +44,7 @@ if __package__:
     from .relay_read import read_env_file
 else:  # installed as a script next to relaylib/
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    from relaylib import approval_rpc
+    from relaylib import access_check, approval_rpc
     from relaylib import routes as routes_mod
     from relaylib.bwclient import Bw, BwError, value_of
     from relaylib.httpbase import RelayHandler, RelayServer
@@ -92,6 +93,28 @@ def one_segment_apart(a, b):
 
 def near_duplicate(name, names):
     return next((n for n in sorted(names) if n != name and one_segment_apart(name, n)), None)
+
+
+def default_expiry(now):
+    """One year after the day of `now`, YYYY-MM-DD; 29 February becomes 28 February."""
+    d = datetime.date.fromtimestamp(now)
+    return (d.replace(year=d.year + 1) if (d.month, d.day) != (2, 29)
+            else d.replace(year=d.year + 1, day=28)).isoformat()
+
+
+def check_expiry(text, now):
+    """(YYYY-MM-DD or None, error or None). Empty or absent: the key does not expire."""
+    if text is None or text == "":
+        return None, None
+    if not isinstance(text, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", text):
+        return None, "expiration date must be YYYY-MM-DD"
+    try:
+        day = datetime.date.fromisoformat(text)
+    except ValueError:
+        return None, "expiration date is not a real date"
+    if day <= datetime.date.fromtimestamp(now):
+        return None, "expiration date must be after today"
+    return text, None
 
 
 def normalise(value):
@@ -188,7 +211,7 @@ class Entry:
                           else f"no collection {key}")
         return cols[key], None
 
-    def store_value(self, req, value):
+    def store_value(self, req, value, expires=None):
         """Write value for req and return the result text. Locks the vault on every path."""
         value = normalise(value)
         with self.write_lock:
@@ -209,7 +232,7 @@ class Entry:
             try:
                 session = Bw(env=self.bw_env).unlock(self.unlock_file)
                 bw = Bw(env={**self.bw_env, "BW_SESSION": session})
-                result, status = self._write(bw, req, value, col, backup)
+                result, status = self._write(bw, req, value, col, backup, expires)
             except Exception:  # BwError or anything unexpected: _write has undone what it could
                 result, status = "bw-error", "pending"
             finally:
@@ -225,7 +248,7 @@ class Entry:
             self.refresh(req.org)
         return result
 
-    def _write(self, bw, req, value, col, backup):
+    def _write(self, bw, req, value, col, backup, expires=None):
         org_id = self.org_ids[req.org]["org_id"]
         bw.sync()
         items = bw.list_items(org_id)
@@ -244,7 +267,7 @@ class Entry:
         new_id = None
         try:
             new_id = bw.create_item(req.name, org_id, col, value, req.field,
-                                    req.purpose if req.field == "password" else None)
+                                    req.purpose if req.field == "password" else None, expires)
             stored = value_of(bw.get_item(new_id), req.field) or ""
             ok = hmac.compare_digest(digest(stored), digest(value))
             stored = None
@@ -273,9 +296,11 @@ class Entry:
                 pass
 
 
-def public(r, owner=False):
+def public(r, owner=False, who=None):
     """A request as JSON. Agent-facing views (any tailnet machine) never name another item: a
-    near-duplicate is only `true` there; owner listings show its name."""
+    near-duplicate is only `true` there; owner listings show its name. `who` also gets the access
+    check for the routes that name it: route facts, the result and tool counts, never text the
+    upstream server wrote."""
     flags = dict(r.flags)
     if not owner and flags.get("near_duplicate"):
         flags["near_duplicate"] = True
@@ -284,6 +309,12 @@ def public(r, owner=False):
            "flags": flags, "result": r.result}
     if owner:  # who asked: the purpose text is the requester's own words
         out["requester"] = r.requester
+    if who and r.access.get("routes"):
+        out["access"] = [{"route": a["name"], "paths": a["paths"], "check": a.get("check", ""),
+                          "detail": a.get("detail", ""),
+                          "tools": {g: sum(t.get("group") == g for t in a.get("tools", []))
+                                    for g in ("read", "change", "delete")}}
+                         for a in r.access["routes"] if who in a["nodes"]]
     return out
 
 
@@ -335,6 +366,11 @@ class Handler(RelayHandler):
             if not owner:
                 return self.deny(who, "approval", 403, "approver device required")
             return self.approval_page(who, *match.groups())
+        access = re.fullmatch(r"/access/(r_[a-z2-7]{10})", path)
+        if access:
+            if not owner:
+                return self.deny(who, "entry", 403, "not allowed")
+            return self.only("GET", who, "entry") or self.access_page(who, access.group(1))
         m = REQ_PATH.match(path)
         if path == "/v1/requests" and self.command == "POST":
             return self.create(who)
@@ -398,23 +434,32 @@ class Handler(RelayHandler):
                         'to confirm pairing.</p><img alt="Authenticator pairing QR code" '
                         f'src="data:image/png;base64,{image}">')
             else:
-                spec = data["spec"]
-                fields = [("Requesting machine", data["node"]), ("Route", spec["name"]),
-                          ("Vault item", spec["org"] + "/" + spec["item"]), ("HTTPS destination", spec["upstream"]),
-                          ("Allowed methods", ", ".join(spec["methods"])),
-                          ("Allowed path prefixes (including descendants)", ", ".join(spec["paths"])),
-                          ("Authentication", "Bearer token"), ("Status", data["state"])]
-                card = "<dl>" + "".join(f"<dt>{k}</dt><dd>{html.escape(v)}</dd>" for k, v in fields) + "</dl>"
-                show_form = data["state"] == "pending"
+                spec, state, e = data["spec"], data["state"], html.escape
+                show_form = state == "pending"
+                card = (f'<p class="lead"><b class="id">{e(data["node"])}</b> asks to use the key '
+                        f'<b class="id">{e(spec["org"] + "/" + spec["item"])}</b> on '
+                        f'<b class="id">{e(spec["upstream"])}</b>.</p>')
                 if show_form:
-                    card += "<p>Verify that this provider controls the destination and should receive this key.</p>"
+                    card += ('<p class="check">Approve only if this address belongs to the provider '
+                             'that issued the key.</p>')
+                pill = {"pending": ("pending", "Waiting for approval"), "active": ("active", "Active")}.get(
+                    state, ("", state.capitalize()))
+                rows = [("Route", f'<code>{e(spec["name"])}</code>'),
+                        ("Methods", "".join(f'<span class="chip">{e(m)}</span>' for m in spec["methods"])),
+                        ("Paths", "".join(f"<code>{e(p)}</code><br>" for p in spec["paths"])
+                         + '<span class="hint">and everything under them</span>'),
+                        ("Key sent as", "Bearer token"),
+                        ("Status", f'<span class="pill {pill[0]}">{e(pill[1])}</span>')]
+                card += ('<dl class="spec">' + "".join(f"<div><dt>{k}</dt><dd>{v}</dd></div>" for k, v in rows)
+                         + "</dl>")
             if show_form:
                 button = "Confirm pairing" if pairing else "Approve this route"
                 card += (f'<form method="post" action="{html.escape(ctx["prefix"])}/{kind}/{rid}">'
                          f'<input type="hidden" name="token" value="{token}">'
-                         '<label for="code">Authenticator code</label><input id="code" type="password" '
+                         '<label id="code-label" for="code">Authenticator code</label>'
+                         '<input id="code" class="code" type="password" '
                          'inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" '
-                         f'name="code" required><button type="submit">{button}</button></form>')
+                         f'name="code" required><button class="wide" type="submit">{button}</button></form>')
         else:
             return self.deny(who, "approval", 405, "GET or POST required")
         page = ctx["template"].replace("Credential entry", title).replace("{{result}}", "").replace("{{pending}}", card)
@@ -501,7 +546,7 @@ class Handler(RelayHandler):
         r = self.server.ctx["store"].get(rid)
         if not r:
             return self.deny(who, f"request/{rid}", 404, "unknown request")
-        self.send_json(200, public(r))
+        self.send_json(200, public(r, who=who))
         self.audit(who, f"request/{rid}", 200)
 
     # --- owner side ---
@@ -516,7 +561,7 @@ class Handler(RelayHandler):
                                           for n, o, s in store.suspects_since()]})
         self.audit(who, "entry", 200)
 
-    def submit(self, rid, value):
+    def submit(self, rid, value, expires=None):
         """(http status, result text) for a value submission."""
         r = self.server.ctx["store"].get(rid)
         if not r:
@@ -525,14 +570,27 @@ class Handler(RelayHandler):
             return 409, f"request is {r.status}"
         if not isinstance(value, str) or not normalise(value):
             return 400, "value must be a non-empty string"
-        result = self.server.ctx["entry"].store_value(r, value)
+        expires, err = check_expiry(expires, self.server.ctx["clock"]())
+        if err:
+            return 400, err
+        ctx = self.server.ctx
+        result = ctx["entry"].store_value(r, value, expires)
+        if outcome(result) in ("stored", "replaced"):
+            # Which routes this key opens, and for an MCP server its tools; the value goes only
+            # to those routes' own upstreams. Never fatal: the key is already stored.
+            try:
+                access = ctx["access_check"](routes_mod.load_routes(ctx["routes_path"]), r.org, r.name, value)
+            except Exception:
+                access = {"error": "Could not check what this key opens."}
+            ctx["store"].set_access(rid, dict(access, expires=expires or ""))
+        value = None
         return OUTCOME_STATUS.get(outcome(result), 409), result
 
     def submit_json(self, who, rid):
         b = self.json_body(who, f"request/{rid}")
         if b is None:
             return
-        status, result = self.submit(rid, b.get("value"))
+        status, result = self.submit(rid, b.get("value"), b.get("expires"))
         b = None
         self.send_text(status, result)
         self.audit(who, f"request/{rid}", status, outcome(result))
@@ -546,6 +604,23 @@ class Handler(RelayHandler):
             return self.deny(who, "entry", status, r)
         self.send_json(status, public(r, owner=True))
         self.audit(who, f"request/{r.id}", status, "replace")
+
+    def see_other(self, who, route, location, note):
+        self.send_response(303)
+        self.send_header("Location", location)
+        self.send_header("Content-Length", "0")
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.audit(who, route, 303, note)
+
+    def access_page(self, who, rid):
+        r = self.server.ctx["store"].get(rid)
+        if not r or r.status not in ("stored", "replaced"):
+            return self.deny(who, f"request/{rid}", 404, "no stored key with this id")
+        text = self.server.ctx["template"].replace("Credential entry", "Key stored").replace(
+            "{{result}}", "").replace("{{pending}}", render_access(self.server.ctx, r))
+        self.send_bytes(200, text.encode(), "text/html; charset=utf-8")
+        self.audit(who, f"request/{rid}", 200, "access")
 
     def redirect(self, who, route, result, note, rid=None):
         """Back to the page. `rid` puts the result under that request's card, where the
@@ -569,8 +644,11 @@ class Handler(RelayHandler):
         rid = form.get("id", "")
         known = bool(REQ_PATH.match(f"/v1/requests/{rid}"))
         route = f"request/{rid}" if known else "entry"
-        _, result = self.submit(rid, form.get("value"))
+        expires = "" if form.get("never") else form.get("expires", "")  # the box wins over a date
+        _, result = self.submit(rid, form.get("value"), expires)
         form = None
+        if outcome(result) in ("stored", "replaced"):
+            return self.see_other(who, route, f"{self.server.ctx['prefix']}/access/{rid}", outcome(result))
         self.redirect(who, route, result, outcome(result), rid if known else None)
 
     def replace_form(self, who):
@@ -601,6 +679,61 @@ class Handler(RelayHandler):
         self.audit(who, "entry", 200)
 
 
+GROUPS = (("read", "Read only"), ("change", "Write"),
+          ("delete", "Can change or delete (or not labelled)"))
+CHECK_PILL = {"ok": ("active", "Signed in"), "refused": ("bad", "Key refused"),
+              "not-tested": ("", "Not tested"), "error": ("bad", "Could not check")}
+
+
+def render_access(ctx, r):
+    """The confirmation page: where the key is, which routes use it, and what each one opens."""
+    e, a = html.escape, r.access or {}
+    routes = a.get("routes") or []
+    expires = e(a["expires"]) if a.get("expires") else "Never"
+    # With routes the expiry is the first row of each card; without, it stays in the sentence.
+    tail = "" if routes else (f" It expires on {expires}." if a.get("expires") else " It does not expire.")
+    out = [f'<p class="lead"><b class="id">{e(r.name)}</b> is in the vault, in the {e(r.org)} org.{tail}</p>',
+           "<h2>What agents can do with it</h2>"]
+    if a.get("error"):
+        out.append(f'<p class="check">{e(a["error"])}</p>')
+    elif not routes:
+        out.append('<p class="check">No route uses this key yet, so no agent can use it. It becomes '
+                   'usable when you approve a route request or add a route on the broker.</p>')
+    for rt in routes:
+        cls, label = CHECK_PILL.get(rt.get("check"), ("", "Not tested"))
+        rows = [("Expires", expires),
+                ("Machines", "".join(f'<span class="chip">{e(n)}</span>' for n in rt["nodes"])),
+                ("Address", f'<code>{e(rt["upstream"])}</code>'),
+                ("Methods", "".join(f'<span class="chip">{e(m)}</span>' for m in rt["methods"])),
+                ("Paths", "".join(f"<code>{e(p)}</code><br>" for p in rt["paths"])
+                 + '<span class="hint">and everything under them</span>')]
+        card = [f'<li><div class="head"><span class="name">{e(rt["name"])}</span>'
+                f'<span class="pill {cls}">{e(label)}</span></div>']
+        # What the check found, right under the route's name; then the route's facts; then the tools.
+        if rt.get("detail"):
+            card.append(f'<p class="meta">{e(rt["detail"])}</p>')
+        tools = rt.get("tools") or []
+        if rt.get("check") == "ok":
+            server = f' ({e(rt["server"])})' if rt.get("server") else ""
+            card.append(f'<p class="meta">The MCP server{server} accepted the key and lists '
+                        f'{len(tools)} tool{"" if len(tools) == 1 else "s"}. The server labels its own tools; '
+                        'treat the groups as its claim, not a guarantee. No tool was run.</p>')
+        card.append('<dl class="spec">' + "".join(f"<div><dt>{k}</dt><dd>{v}</dd></div>" for k, v in rows) + "</dl>")
+        if rt.get("check") == "ok":
+            for key, title in GROUPS:
+                group = [t for t in tools if t.get("group") == key]
+                if group:
+                    items = "".join(f'<li><code>{e(t["name"])}</code>'
+                                    + (f'<span class="hint">{e(t["description"])}</span>' if t["description"] else "")
+                                    + "</li>" for t in group)
+                    card.append(f'<details class="tools {key}"{" open" if key != "read" else ""}>'
+                                f'<summary>{title} ({len(group)})</summary><ul>{items}</ul></details>')
+        card.append("</li>")
+        out.append("<ul>" + "".join(card) + "</ul>")
+    out.append(f'<p><a class="back" href="{e(ctx["prefix"])}/">Back to requests</a></p>')
+    return "\n".join(out)
+
+
 def result_sig(ctx, result, rid):
     return hmac.new(ctx["page_token"].encode(), f"{rid}\0{result}".encode(), "sha256").hexdigest()
 
@@ -620,7 +753,10 @@ def render_lists(ctx, result="", rid=""):
     e, prefix, token = html.escape, html.escape(ctx["prefix"]), html.escape(ctx["page_token"])
     now = ctx["clock"]()
     hidden = f'<input type="hidden" name="token" value="{token}">'
-    out = ['<h2>Waiting for a value</h2>']
+    expiry = default_expiry(now)
+    tomorrow = (datetime.date.fromtimestamp(now) + datetime.timedelta(days=1)).isoformat()
+    out = ['<p class="intro">Keys your agents asked for. A value you store goes straight into the vault; '
+           'agents never see it.</p><h2>Waiting for a value</h2>']
     pending = ctx["store"].pending()
     note = f'<p class="result" role="status">{e(result)}</p>' if result else ""
     placed = False
@@ -630,19 +766,20 @@ def render_lists(ctx, result="", rid=""):
     cards = sorted(pending + ([done] if done and done.status != "pending" else []),
                    key=lambda r: r.created)
     if not cards:
-        out.append('<p class="empty">Nothing is waiting.</p>')
+        out.append('<p class="empty">Nothing is waiting. When an agent asks for a key, it appears here.</p>')
     else:
         out.append("<ul>")
     for r in cards:
         if r.status != "pending":
-            out.append(f'<li><div class="name">{e(r.name)}</div>'
-                       f'<div class="meta">{e(r.org)}-org · {e(r.status)}</div>{note}</li>')
+            ok = " active" if r.status in ("stored", "replaced") else ""
+            out.append(f'<li><div class="head"><span class="name">{e(r.name)}</span>'
+                       f'<span class="pill{ok}">{e(r.status.capitalize())}</span></div>'
+                       f'<p class="meta">In the {e(r.org)} org.</p>{note}</li>')
             placed = True
             continue
-        where = " · ".join(x for x in (f"{r.org}-org", r.project and f"project {r.project}",
-                                       r.requester and f"asked by {r.requester}",
-                                       "multi-line" if r.field == "notes" else None,
-                                       age_text(now - r.created)) if x)
+        where = ((f"Asked by {r.requester}" if r.requester else "Requested") + f" for the {r.org} org"
+                 + (f", project {r.project}" if r.project else "") + "."
+                 + (" Multi-line value." if r.field == "notes" else ""))
         flags = ""
         if r.flags.get("near_duplicate"):
             flags += f'<p class="flag">Similar existing item: {e(r.flags["near_duplicate"])}</p>'
@@ -655,14 +792,23 @@ def render_lists(ctx, result="", rid=""):
                  '</textarea>' if r.field == "notes" else
                  f'<input id="{fid}" type="password" name="value" required autocomplete="off">')
         out.append(
-            f'<li><div class="name">{e(r.name)}</div><div class="meta">{e(where)}</div>'
+            f'<li><div class="head"><span class="name">{e(r.name)}</span>'
+            f'<span class="age">{e(age_text(now - r.created))}</span></div><p class="meta">{e(where)}</p>'
             f'<p class="purpose">{e(r.purpose)}</p>{flags}'
             f'<form method="post" action="{prefix}/submit">'
             f'<input type="hidden" name="id" value="{e(r.id)}">{hidden}'
             f'<label for="{fid}">Value</label>{field}'
+            f'<label for="x-{e(r.id)}">Expires</label>'
+            f'<div class="expiry"><input id="x-{e(r.id)}" class="date" type="date" name="expires" '
+            f'value="{expiry}" min="{e(tomorrow)}" aria-describedby="xh-{e(r.id)}">'
+            '<label class="never"><input type="checkbox" name="never" value="1"> No expiration</label></div>'
+            f'<p id="xh-{e(r.id)}" class="hint">Set to one year from today.</p>'
             f'<button type="submit" class="submit" aria-live="polite">'
             f'<span class="spin" aria-hidden="true"></span>'
-            f'{"Replace value" if r.replace else "Store value"}</button></form>'
+            f'{"Replace value" if r.replace else "Store value"}</button>'
+            '<p class="working" role="status" hidden><span class="bar" aria-hidden="true"></span>'
+            'Storing the key in the vault, then checking what it opens. This can take up to half a '
+            'minute; keep this page open.</p></form>'
             f'{note if r.id == rid else ""}</li>')
         if r.id == rid:
             placed = True
@@ -674,8 +820,9 @@ def render_lists(ctx, result="", rid=""):
         for name, org, since in suspects:
             when = time.strftime("%Y-%m-%d %H:%M", time.localtime(since))
             out.append(
-                f'<li><div class="name">{e(name)}</div>'
-                f'<div class="meta">{e(org)}-org · may be expired (upstream refused it, {e(when)})</div>'
+                f'<li><div class="head"><span class="name">{e(name)}</span></div>'
+                f'<p class="meta">In the {e(org)} org. The service refused it on {e(when)}, '
+                f'so it may be expired.</p>'
                 f'<form method="post" action="{prefix}/replace">'
                 f'<input type="hidden" name="name" value="{e(name)}">'
                 f'<input type="hidden" name="org" value="{e(org)}">{hidden}'
@@ -743,6 +890,8 @@ def build_server(args, **overrides):
         "page_token": secrets.token_urlsafe(32),
         "prefix": args.public_prefix.rstrip("/"),
         "template": template,
+        "routes_path": args.routes,
+        "access_check": access_check.check,
     }
     ctx.update(overrides)
     return RelayServer((args.bind, args.port), Handler, ctx)

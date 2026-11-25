@@ -212,7 +212,7 @@ git clone https://github.com/machinarii/valetkey && cd valetkey
 sudo ./install.sh agent --relay-url https://broker.<tailnet>.ts.net
 ```
 
-It installs `relay` in agent mode, the hourly sweep and a policy that limits MCP servers to the broker, all as root-owned files, and prints what is left for you. With a desk, add `--desk-url https://desk.<tailnet>.ts.net/desk --tools tool1,tool2`; each tool name becomes a stand-in. `--user NAME` says which user the agent runs as, and `--no-policy` skips the MCP policy.
+It installs `relay` in agent mode, the hourly sweep and a policy that limits MCP servers to the broker, all as root-owned files, and prints what is left for you. With a desk, add `--desk-url https://desk.<tailnet>.ts.net/desk --tools tool1,tool2`; each tool name becomes a stand-in. `--user NAME` says which user the agent runs as, and `--no-policy` skips the MCP policy. If T3 Code is installed for that user, the policy also allows T3's own tools; `--no-t3` leaves them out. [T3 Code](t3-code.md)
 
 Then, as the user the agent runs as, set up Claude Code itself:
 

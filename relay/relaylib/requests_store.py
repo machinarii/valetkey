@@ -31,6 +31,7 @@ class EntryRequest:
     flags: dict = field(default_factory=dict)
     result: str = ""
     requester: str = ""  # machine that asked; empty in older state files
+    access: dict = field(default_factory=dict)  # what the stored key opens; see access_check
 
 
 def new_id():
@@ -109,6 +110,11 @@ class RequestsStore:
         with self._lock:
             r = self._requests[rid]
             r.status, r.result = status, result
+            self._save()
+
+    def set_access(self, rid, access):
+        with self._lock:
+            self._requests[rid].access = access
             self._save()
 
     def mark_suspect(self, name, org, on: bool):

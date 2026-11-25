@@ -247,6 +247,15 @@ def cmd_status(a):
     print(r["status"])
     if r.get("result"):
         print(r["result"])
+    for a in r.get("access") or []:  # what the broker checked when the owner stored the key
+        t = a.get("tools") or {}
+        if a.get("check") == "ok":
+            print(f"route {a['route']}: signed in, {sum(t.values())} MCP tools ({t.get('read', 0)} read only, "
+                  f"{t.get('change', 0)} write, {t.get('delete', 0)} can change or delete)")
+            for path in a.get("paths") or []:
+                print(f"  MCP address: {BASE.rstrip('/')}/{r['org']}/{a['route']}{path}")
+        else:
+            print(f"route {a['route']}: {a.get('check') or 'not checked'}. {a.get('detail', '')}".rstrip())
     return 0
 
 

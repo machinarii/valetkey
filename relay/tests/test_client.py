@@ -72,7 +72,8 @@ class Fake(BaseHTTPRequestHandler):
             return self.reply(200, {"id": "r_1", "name": "n", "org": "infra", "project": None,
                                     "field": self.server.field, "purpose": "p",
                                     "status": self.server.req_status,
-                                    "result": "stored n in infra-org", "flags": {}})
+                                    "result": "stored n in infra-org", "flags": {},
+                                    "access": self.server.access})
         if p.startswith("/entry/v1/requests"):
             return self.reply(200, {"requests": [
                 {"id": "r_1", "name": "n", "org": "infra", "project": "pg", "field": "password",
@@ -105,6 +106,7 @@ class ClientCase(unittest.TestCase):
         self.srv.log = []
         self.srv.field = "password"
         self.srv.req_status = "stored"
+        self.srv.access = []
         threading.Thread(target=self.srv.serve_forever, daemon=True).start()
         self.base = f"http://127.0.0.1:{self.srv.server_port}"
         self.addCleanup(self.srv.server_close)
@@ -288,6 +290,17 @@ class RelayTests(ClientCase):
         p = self.run_tool("relay", "status", "r_1")
         self.assertEqual(self.out(p)[0], "stored\nstored n in infra-org\n")
 
+    def test_status_prints_what_the_key_opens_here(self):
+        self.srv.access = [
+            {"route": "dns", "paths": ["/mcp"], "check": "ok", "detail": "",
+             "tools": {"read": 3, "change": 2, "delete": 1}},
+            {"route": "rest", "paths": ["/v1"], "check": "not-tested",
+             "detail": "Not an MCP server, so the key was not tested here."}]
+        out = self.out(self.run_tool("relay", "status", "r_1"))[0]
+        self.assertIn("route dns: signed in, 6 MCP tools (3 read only, 2 write, 1 can change or delete)\n"
+                      f"  MCP address: {self.base}/infra/dns/mcp\n", out)
+        self.assertIn("route rest: not-tested. Not an MCP server, so the key was not tested here.\n", out)
+
 
 class ShimTests(ClientCase):
     def shim(self, *args, py=PY):
@@ -337,7 +350,8 @@ class EntryTests(ClientCase):
         self.assertIn("stored", out)
         post = [x for x in self.srv.log if x[0] == "POST"][0]
         self.assertEqual(post[1], "/entry/v1/requests/r_1/value")
-        self.assertEqual(post[2], {"value": SECRET})
+        self.assertEqual(post[2]["value"], SECRET)
+        self.assertRegex(post[2]["expires"], r"^\d{4}-\d{2}-\d{2}$")  # one year from today by default
         self.assertEqual(post[3], "application/json")
 
     def test_vault_entry_mismatch(self):
@@ -353,7 +367,7 @@ class EntryTests(ClientCase):
         out, err = self.out(p)
         self.assertEqual(p.returncode, 0, err)
         posts = [x for x in self.srv.log if x[0] == "POST"]
-        self.assertEqual([x[2] for x in posts], [{"value": pem}])  # asked twice, stored once
+        self.assertEqual([x[2]["value"] for x in posts], [pem])  # asked twice, stored once
         self.assertIn('(input hidden)', err)
         for line in ("PEMLINE-SECRET-1", "PEMLINE-SECRET-2"):
             self.assertNotIn(line, out + err)

@@ -59,7 +59,7 @@ class Bw:
     def _encode(self, obj):
         return self._run(["encode"], json.dumps(obj)).strip()
 
-    def create_item(self, name, org_id, collection_id, value, field, notes):
+    def create_item(self, name, org_id, collection_id, value, field, notes, expires=None):
         item = {"type": 1, "name": name, "notes": None, "favorite": False, "reprompt": 0,
                 "login": {"username": None, "password": None, "uris": []},
                 "organizationId": org_id or None,
@@ -69,6 +69,8 @@ class Bw:
         else:
             item["login"]["password"] = value
             item["notes"] = notes
+        if expires:  # YYYY-MM-DD, already checked; the vault has no expiry of its own for logins
+            item["fields"] = [{"name": "expires", "value": expires, "type": 0}]
         # Encoded item (value inside) goes on stdin, never into argv (/proc/<pid>/cmdline).
         return self._object(["create", "item"], self._encode(item))["id"]
 

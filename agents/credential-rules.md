@@ -96,7 +96,9 @@ For a broker-managed credential, follow these steps.
    never the Vaultwarden web-vault address, and never ask the owner to create the item in the
    vault themselves. Never run the entry prompt inside an agent tool, terminal recording, shared
    browser, or agent-controlled machine.
-6. Use `relay status <id>` until `stored` or `replaced`, then `relay check`. An entry request
+6. Use `relay status <id>` until `stored` or `replaced`, then `relay check`. Once stored, it also
+   lists this machine's routes for the key: whether an MCP server accepted it, its tool counts and
+   the MCP address to give your client (no key, no headers). An entry request
    does not grant a route: broker configuration still controls who can use the item.
    For a new fixed bearer API route, run `relay request-route --help` and submit the provider's
    origin, required methods and narrow path prefixes from the consuming agent. Give the owner

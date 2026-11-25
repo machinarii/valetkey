@@ -6,6 +6,8 @@
 
 For Claude Code, run `relay guide claude` to choose between a Valetkey-managed setup token and native web login. See [subscription authentication](secure-setup.md#claude-code-subscription-sign-in).
 
+If you run your agents from T3 Code, see [T3 Code](t3-code.md): which machine its server belongs on, how the policy keeps T3's own tools working, and how T3 signs in to Claude.
+
 [`agents/credential-rules.md`](../agents/credential-rules.md) is a drop-in section for `CLAUDE.md`, `AGENTS.md` or any agent instruction file. It teaches the agent to:
 
 - check with `relay check` instead of reading values;

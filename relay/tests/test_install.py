@@ -196,6 +196,26 @@ class InstallClientTests(unittest.TestCase):
         self.assertFalse((self.home / ".config" / "valetkey").exists())
 
 
+class T3OriginTests(unittest.TestCase):
+    """The T3 Code address the agent policy allows: T3's own record, loopback only."""
+
+    def test_record_default_and_planted_origin(self):
+        text = INSTALL.read_text()
+        funcs = text[text.index("t3_origin() {"):text.index("cmd_agent() {")]
+        with tempfile.TemporaryDirectory() as home:
+            record = Path(home, ".t3/userdata/server-runtime.json")
+            def origin():
+                return subprocess.run(["bash", "-c", funcs + '\nt3_origin "$1"', "_", home],
+                                      capture_output=True, text=True, timeout=10).stdout.strip()
+            self.assertEqual(origin(), "")  # T3 Code not used here
+            record.parent.mkdir(parents=True)
+            self.assertEqual(origin(), "http://127.0.0.1:3773")
+            record.write_text('{"origin": "http://127.0.0.1:4000"}')
+            self.assertEqual(origin(), "http://127.0.0.1:4000")
+            record.write_text('{"origin": "https://mcp.example.com"}')  # written by the agent's user
+            self.assertEqual(origin(), "http://127.0.0.1:3773")
+
+
 class ShellSyntaxTests(unittest.TestCase):
     def test_every_shell_script_parses(self):
         scripts = [p for p in ROOT.rglob("*") if p.is_file() and ".git" not in p.parts
