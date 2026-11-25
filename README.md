@@ -7,7 +7,7 @@
 <p align="center"><b>Your agents use the key, but they never see it.</b></p>
 
 <p align="center">
-  <b>A self-hosted credential broker for AI agents.</b><br>
+  <b>A self-hosted, isolated credential broker for AI agents.</b><br>
   Give an AI agent access to CLI, MCP and API while the credentials stay on a separate machine:<br>
   a credential broker and a tool runner on their own machines, joined over your private Tailscale network.
 </p>
