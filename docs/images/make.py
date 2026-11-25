@@ -96,7 +96,7 @@ ICONS = {"master": lambda d, x, y, bg, a=1: key(d, x, y, 24, mix(bg, GOLD, a), b
 
 
 BOXES = {  # name: (left, top, right, bottom, title, subtitle)
-    "agent": (40, 282, 270, 482, "Agent machine", "runs your AI agents"),
+    "agent": (40, 282, 270, 482, "agent machine", "runs your AI agents"),
     "broker": (365, 172, 595, 332, "broker", "checks the caller\nfnox adds the key"),
     "bellhop": (365, 402, 595, 562, "bellhop", "runs MCPs & other tools\nthat require sign in"),
     "vault": (700, 142, 920, 222, "vault", "every key, encrypted"),
