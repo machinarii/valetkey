@@ -85,7 +85,7 @@ replace it.
 2. **Tools with their own login:** the optional bellhop runs approved commands and returns their
    results.
 3. **New keys:** an agent requests the item by name, and you enter the key on your **approver
-   device**, a phone or computer where you can also approve requested routes. Keep agents off this
+   device**, a phone or workstation where you can also approve requested routes. Keep agents off this
    device. Use the broker's entry page in your browser or a hidden prompt in your terminal.
 4. **Models:** Claude Code and Codex can use their subscriptions or API credits. For API billing,
    valetkey keeps the Anthropic, OpenAI or OpenRouter key on the broker. Memory capture with
@@ -162,7 +162,7 @@ Pi (arm64) is also not a tested path yet.
 | **broker** | Debian 12+ or Ubuntu 24.04+ with systemd 250+ and Python 3.11+. The installer adds the Bitwarden CLI, [fnox](https://fnox.jdx.dev), `jq`, `git`, `gpg` and `qrencode`. |
 | **bellhop** (optional) | Debian 12+ or Ubuntu 24.04+ with systemd and Python 3.11+, plus the MCPs/tools you want it to run. |
 | **Agent machines** | macOS or Linux with Python 3.9+ and your agent, such as Claude Code or Codex. On macOS, [Homebrew](https://brew.sh) to install valetkey. |
-| **Approver device** | A phone or computer no agent runs on, with a browser and an authenticator app (TOTP) for approving routes. For the terminal prompt instead of the browser: macOS or Linux with Python 3.9+. |
+| **Approver device** | A phone or workstation no agent runs on, with a browser and an authenticator app (TOTP) for approving routes. For the terminal prompt instead of the browser: macOS or Linux with Python 3.9+. |
 
 Sizes and details for each role are in the
 [installation guide](docs/installation.md#requirements).
