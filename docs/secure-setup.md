@@ -13,7 +13,7 @@ Unix user or an ordinary Docker container on the agent's host does not provide t
 | bellhop VM (optional) | The logins of command-line tools it runs for agents | No | Agent-facing HTTPS 443; the bellhop service on loopback only |
 | vault server | Encrypted vault database and server secrets | No | HTTPS from broker and separate approver devices |
 | Approver device | Owner-entered values during private entry | No | vault UI, broker entry UI or `valetkey-entry` |
-| Trusted server | Only the keys its service requires | No | Narrow application interface; raw-value routes if unavoidable |
+| Trusted server (optional) | Only the keys its service requires | No | Narrow application interface; raw-value routes if unavoidable |
 | Hypervisor / management host | Administrative access to the above | No | Owner-only management; no agent access to VM disks or consoles |
 
 In broker configuration, list approver devices under `owner_nodes` in `entry.toml`.

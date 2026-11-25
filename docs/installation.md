@@ -4,7 +4,7 @@ Install valetkey with the package manager of each machine's system:
 
 | System | Install with | Roles it covers |
 |---|---|---|
-| **macOS** | [Homebrew](#macos-homebrew) | agent machine, approver device, trusted server |
+| **macOS** | [Homebrew](#macos-homebrew) | agent machine, approver device, trusted server (optional) |
 | **Linux** (Debian, Ubuntu) | [apt](#linux-apt) | every role, including the three servers: vault, broker and bellhop |
 
 A phone or tablet where you type keys needs nothing installed: open the broker's entry page in its
@@ -14,6 +14,8 @@ browser. For a Proxmox VE host or another Linux distribution, see
 Put each role on its own machine; [Containment](system-design.md#containment-where-everything-runs)
 explains why. The three servers (the vault, the broker and, optionally, the bellhop) run on Linux.
 Every machine needs Tailscale; see [Requirements](#requirements).
+
+A **trusted server** is optional. You need one only if an application must hold a key itself, such as a web app that reads its database password. Skip the role if all your tools use brokered API routes or the bellhop.
 
 ## macOS: Homebrew
 
@@ -134,7 +136,7 @@ What the installer runs for each role, if you'd rather name the role yourself. R
 | **bellhop** (optional) | `sudo ./install.sh bellhop` | Tailscale, the bellhop service, the TLS front door. No tools, no logins |
 | **Agent machine** | `sudo ./install.sh agent --broker-url … --bellhop-url … --tools …`<br>`./install.sh claude` | `valetkey-broker` in agent mode, the `bellhop` stand-in, the sweep and its timer, a policy that limits MCP servers to the broker and bellhop (it says why and asks first). Then, as the agent's user, the rules in `CLAUDE.md` (and Codex's `AGENTS.md`, if Codex is installed) and the blocks you choose in Claude Code's settings. No keys |
 | **Approver device** | `./install.sh client --owner --broker-url …` | `valetkey-broker` and `valetkey-entry` |
-| **Trusted server** | `./install.sh client --broker-url … --with-deps` | `valetkey-broker`, the `vault` shim, fnox |
+| **Trusted server** (optional) | `./install.sh client --broker-url … --with-deps` | `valetkey-broker`, the `vault` shim, fnox |
 
 Never combine two rows on one machine, with one exception: the hypervisor hosts the vault, broker and bellhop as separate guests. If you use Proxmox, the first row replaces the next three.
 

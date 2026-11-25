@@ -146,7 +146,7 @@ The rule is short: **a key lives only on a machine where no agent runs, and an a
 | **bellhop** (optional) | Logins of the command-line tools it runs | Never | Agent machines, port 443 only |
 | **vault** (Vaultwarden) | The encrypted vault | Never | The broker and approver devices, port 443 only |
 | **Approver device** (your laptop, phone) | What you type during entry | Never | Nothing |
-| **Trusted server** (a deployed service) | Only the keys its own process needs | Never | Its own application port |
+| **Trusted server** (optional; a deployed service) | Only the keys its own process needs | Never | Its own application port |
 | **Hypervisor** | Control of every VM on it | Never | You, at its console |
 
 ### Recommended layout
