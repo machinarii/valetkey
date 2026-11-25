@@ -79,16 +79,16 @@ deny_options = ["--debug", "--token"]
 
 1. **Agent files the request for the key.** A name and a purpose, no value:
    ```sh
-   relay request acme-api-key --org local --purpose "Acme reports through a broker route"
+   valetkey-relay request acme-api-key --org local --purpose "Acme reports through a broker route"
    ```
    It prints a request id.
 2. **Owner enters the key**, on their own device: the broker's entry page at
-   `https://broker.<tailnet>.ts.net/entry`, or `vault-entry <request id>` in a private terminal.
+   `https://broker.<tailnet>.ts.net/entry`, or `valetkey-entry <request id>` in a private terminal.
    Enter the bare key. Do not add "Bearer"; the route adds it.
 3. **Agent requests the route** from the machine that will use it.
 
    ```sh
-   relay request-route acme --org local --item acme-api-key \
+   valetkey-relay request-route acme --org local --item acme-api-key \
      --upstream https://api.acme.example --method GET --path /v1/reports
    ```
 
@@ -103,7 +103,7 @@ deny_options = ["--debug", "--token"]
 
 1. **Agent files the request**, so the owner sees what is wanted:
    ```sh
-   bellhop --request cli acme https://acme.example/cli "what it is for"
+   valetkey-bellhop --request cli acme https://acme.example/cli "what it is for"
    ```
 2. **Owner installs the program on the desk** and signs it in as the desk user:
    ```sh
@@ -127,7 +127,7 @@ deny_options = ["--debug", "--token"]
 4. **Agent links the stand-in** on the agent machine, so the tool keeps its own name:
    ```sh
    sudo ln -s bellhop /usr/local/bin/acme
-   bellhop --list
+   valetkey-bellhop --list
    ```
 
 ## Step 3: check the tool against the rules

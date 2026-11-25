@@ -73,6 +73,20 @@ need_python() {  # min-minor
 config_dir() { echo "${XDG_CONFIG_HOME:-$HOME/.config}/valetkey"; }
 
 # --- client ---
+# The command names before valetkey-*: remove our own scripts and links, nothing else of that name.
+remove_old_names() {
+  local dir=${1:?} t
+  for t in relay relay-version valetkey-relay-version vault-entry fnox-to-relay; do
+    if [ -L "$dir/$t" ]; then
+      case $(readlink "$dir/$t") in
+        relay|relay-version|valetkey-relay-version|vault-entry|fnox-to-relay) rm -f "${dir:?}/${t:?}" ;;
+      esac
+    elif [ -f "$dir/$t" ] && head -n 3 "$dir/$t" | grep -q 'python3'; then
+      rm -f "${dir:?}/${t:?}"
+    fi
+  done
+}
+
 cmd_client() {
   local prefix="$HOME/.local/bin" url='' owner=no agent=no deps=no tools
   while [ $# -gt 0 ]; do
@@ -103,17 +117,20 @@ except ValueError:
 sys.exit(0 if good else 1)
 ' || die "--relay-url must be an https:// origin on port 443 with no credentials, path or query"
   fi
-  tools="relay vault"
-  [ "$owner" = yes ] && tools="$tools vault-entry"
-  [ "$agent" = no ] || tools="relay"
+  tools="valetkey-relay vault"  # vault keeps its name: fnox calls it by that name
+  [ "$owner" = yes ] && tools="$tools valetkey-entry"
+  [ "$agent" = no ] || tools="valetkey-relay"
   install -d -m 755 "$prefix"
   for t in $tools; do
-    install -m 755 "$repo/client/$t" "$prefix/$t"
+    case $t in valetkey-relay) src=relay ;; valetkey-entry) src=vault-entry ;; *) src=$t ;; esac
+    # A server's link to the version tool must go first, or install would write through it.
+    if [ -L "$prefix/$t" ]; then rm -f "${prefix:?}/${t:?}"; fi
+    install -m 755 "$repo/client/$src" "$prefix/$t"
   done
-  ln -sfn relay "$prefix/valetkey-relay"  # the same command under the project's name
   if [ "$agent" = no ]; then
-    install -m 755 "$repo/relay/tools/fnox-to-relay.py" "$prefix/fnox-to-relay"
+    install -m 755 "$repo/relay/tools/fnox-to-relay.py" "$prefix/valetkey-fnox-to-relay"
   fi
+  remove_old_names "$prefix"
   install -d -m 755 "$prefix/../share/valetkey"
   install -m 644 "$repo/agents/credential-rules.md" "$prefix/../share/valetkey/credential-rules.md"
   ok "valetkey $version client tools in $prefix: $tools"
@@ -139,11 +156,11 @@ sys.exit(0 if good else 1)
   [ "$agent" = yes ] || command -v fnox >/dev/null || [ -x "$prefix/fnox" ] \
     || warn "fnox not found: re-run with --with-deps (or https://fnox.jdx.dev) to pull project secrets; relay and vault work without it"
   echo
-  echo "Check it: relay check local <item-name>     (ok / missing / not-allowed, never values)"
-  echo "Safety rules: relay guide     (offline; reference these in agent instructions)"
+  echo "Check it: valetkey-relay check local <item-name>     (ok / missing / not-allowed, never values)"
+  echo "Safety rules: valetkey-relay guide     (offline; reference these in agent instructions)"
   if [ "$agent" = yes ]; then
-    echo "Claude subscription: relay guide claude shows setup-token and web login options."
-    echo "Valetkey works with or without claude-mem. For memory capture setup, run relay guide claude-mem."
+    echo "Claude subscription: valetkey-relay guide claude shows setup-token and web login options."
+    echo "Valetkey works with or without claude-mem. For memory capture setup, run valetkey-relay guide claude-mem."
     echo "Broker must list this machine in [security].agent_nodes; never trusted_value_nodes or owner_nodes."
     echo "--agent does not remove existing tools or credentials and is not an access-control boundary."
   fi
@@ -178,10 +195,10 @@ client_deps() {  # prefix agent
 cmd_uninstall_client() {
   local prefix="$HOME/.local/bin"
   [ "${1:-}" = --prefix ] && prefix=${2:?--prefix needs a directory}
-  if [ -L "$prefix/valetkey-relay" ]; then rm -f "$prefix/valetkey-relay"; fi
-  for t in relay vault vault-entry fnox-to-relay; do
+  remove_old_names "$prefix"
+  for t in valetkey-relay valetkey-entry valetkey-fnox-to-relay vault; do
     # Only our Python scripts: never a real HashiCorp vault binary of the same name.
-    if [ -f "$prefix/$t" ] && head -n 3 "$prefix/$t" | grep -q 'python3'; then rm -f "$prefix/$t"; ok "removed $prefix/$t"; fi
+    if [ -f "$prefix/$t" ] && head -n 3 "$prefix/$t" | grep -q 'python3'; then rm -f "${prefix:?}/${t:?}"; ok "removed $prefix/$t"; fi
   done
   if [ -d "$(config_dir)" ]; then rm -rf "$(config_dir)"; ok "removed $(config_dir)"; fi
 }
@@ -270,19 +287,24 @@ cmd_agent() {
 
   if [ -n "$desk_url" ]; then  # the stand-in for tools that live on the desk
     case $desk_url in https://*) ;; http://*) warn "desk URL is plain http: test networks only" ;; *) die "--desk-url must be a URL" ;; esac
-    install -m 755 "$repo/bellhop/bellhop" /usr/local/bin/bellhop
+    rm -f /usr/local/bin/valetkey-bellhop  # a link from the short time both names existed
+    install -m 755 "$repo/bellhop/bellhop" /usr/local/bin/valetkey-bellhop
     install -d -m 755 /etc/bellhop
     printf '%s\n' "${desk_url%/}" > /etc/bellhop/url
     for t in ${tools//,/ }; do
       [[ $t =~ ^[a-z0-9][a-z0-9._-]*$ ]] || die "agent: bad tool name: $t"
       existing=$(command -v "$t" 2>/dev/null || true)
-      if [ -n "$existing" ] && [ "$(readlink -f "$existing")" != /usr/local/bin/bellhop ]; then
+      if [ -n "$existing" ] && case $(readlink -f "$existing") in /usr/local/bin/valetkey-bellhop|/usr/local/bin/bellhop) false ;; *) true ;; esac; then
         warn "$t is already installed at $existing and was left alone; remove it and its login to use the desk's"
         continue
       fi
-      ln -sf bellhop "/usr/local/bin/$t"
+      ln -sf valetkey-bellhop "/usr/local/bin/$t"
     done
-    ok "bellhop in /usr/local/bin, desk ${desk_url%/}${tools:+, stand-ins: $tools}"
+    for existing in /usr/local/bin/*; do  # stand-ins made before the rename, then the old name
+      if [ -L "$existing" ] && [ "$(readlink "$existing")" = bellhop ]; then ln -sfn valetkey-bellhop "$existing"; fi
+    done
+    rm -f /usr/local/bin/bellhop
+    ok "valetkey-bellhop in /usr/local/bin, desk ${desk_url%/}${tools:+, stand-ins: $tools}"
   fi
 
   # Where MCP servers may live, for the sweep and for the policy below.
@@ -290,7 +312,8 @@ cmd_agent() {
   : > /etc/bellhop/mcp-prefixes
   [ -z "$relay_url" ] || printf '%s\n' "${relay_url%/}" >> /etc/bellhop/mcp-prefixes
 
-  install -m 755 "$repo/bellhop/sweep.py" /usr/local/sbin/bellhop-sweep
+  rm -f /usr/local/sbin/valetkey-sweep /usr/local/sbin/bellhop-sweep
+  install -m 755 "$repo/bellhop/sweep.py" /usr/local/sbin/valetkey-sweep
   if command -v systemctl >/dev/null; then
     cat > /etc/systemd/system/bellhop-sweep.service <<'UNIT'
 # Installed by valetkey (install.sh agent). Reports logins and new tools on this machine, by name.
@@ -298,7 +321,7 @@ cmd_agent() {
 Description=bellhop sweep: logins and new tools on this agent machine
 [Service]
 Type=oneshot
-ExecStart=/usr/local/sbin/bellhop-sweep
+ExecStart=/usr/local/sbin/valetkey-sweep
 SuccessExitStatus=1
 UNIT
     cat > /etc/systemd/system/bellhop-sweep.timer <<'UNIT'
@@ -313,9 +336,9 @@ WantedBy=timers.target
 UNIT
     systemctl daemon-reload
     systemctl enable -q --now bellhop-sweep.timer
-    ok "sweep every hour (journalctl -u bellhop-sweep); findings now: $(/usr/local/sbin/bellhop-sweep --accept | tail -1)"
+    ok "sweep every hour (journalctl -u bellhop-sweep); findings now: $(/usr/local/sbin/valetkey-sweep --accept | tail -1)"
   else
-    warn "no systemd: run /usr/local/sbin/bellhop-sweep from your own scheduler, as root"
+    warn "no systemd: run /usr/local/sbin/valetkey-sweep from your own scheduler, as root"
   fi
 
   if [ "$policy" = yes ] && [ ! -e /etc/claude-code/managed-settings.json ] && { : </dev/tty; } 2>/dev/null; then
@@ -373,7 +396,7 @@ PY
 # --- doctor: what is installed here, without touching any secret ---
 cmd_doctor() {
   echo "valetkey $version ($repo)"
-  for c in python3 tailscale fnox relay vault vault-entry bw jq docker; do
+  for c in python3 tailscale fnox valetkey-relay vault valetkey-entry bw jq docker; do
     p=$(command -v "$c" 2>/dev/null || true)
     printf '%-12s %s\n' "$c" "${p:-not found}"
   done

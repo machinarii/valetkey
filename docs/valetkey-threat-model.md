@@ -34,8 +34,8 @@ whether the remaining high-priority assumptions hold.
 Python stdlib services provide TLS routing (`relay_front.py`), per-org reads/API forwarding
 (`relay_read.py`) and owner entry (`relay_entry.py`). `relaylib/bwclient.py` wraps `bw` with values
 on stdin rather than argv; it caches decrypted items in broker memory. Bash tools provision
-systemd services and generate fnox policies. The `relay` client handles metadata, `vault` is a
-raw-value shim for trusted servers, and `vault-entry` reads owner input. The entry page has
+systemd services and generate fnox policies. The `valetkey-relay` client handles metadata, `vault` is a
+raw-value shim for trusted servers, and `valetkey-entry` reads owner input. The entry page has
 bundled JS/CSS and escaped server-rendered request descriptions.
 
 ### Data flows and trust boundaries
@@ -210,7 +210,7 @@ Changes since the first review, each with a regression test:
   shared in from another tailnet cannot borrow an owner's or trusted server's name
   (`relaylib/identity.py`). Renamed or newly enrolled devices in the same tailnet remain an
   administration matter. After updating valetkey, confirm that known machines are still recognised
-  (`relay check` from one of them).
+  (`valetkey-relay check` from one of them).
 - TM-008: one machine may hold at most 20 pending entry requests (429 beyond); the owner's
   listing and page name the machine that asked (`relay_entry.py`, `relaylib/requests_store.py`).
   API forwarding and connection counts are still unlimited.
@@ -228,7 +228,7 @@ the front door.
 
 ### Broker updates
 
-`relay-update install` fetches the repository on the broker and runs its installer as root. The
+`valetkey-relay update` fetches the repository on the broker and runs its installer as root. The
 boundary is the owner's `y` at the broker console after reviewing the shown commit: nothing
 fetched is executed before it, and no network caller can start an install. Approval from the
 entry page is deliberately not offered, because a compromised entry service combined with push

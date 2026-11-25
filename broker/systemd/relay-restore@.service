@@ -4,5 +4,5 @@ After=tailscaled.service
 
 [Service]
 Type=oneshot
-ExecStart=/usr/local/sbin/relay-routes install %i
+ExecStart=/usr/local/libexec/relay/bin/relay-routes install %i
 TimeoutStartSec=200

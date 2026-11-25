@@ -10,7 +10,8 @@
 #   user  relay-front                            (no vault access; reads /var/lib/relay/tls)
 #   /usr/local/libexec/relay/   relaylib/, relay_{read,entry,front}.py, entry-page.html,
 #                               gen-fnox-config.py, vault-info.py, with-bw-session, relay-cert
-#   /usr/local/sbin/            relay-login, relay-check, relay-routes, relay-update
+#   /usr/local/libexec/relay/bin/  relay-login, relay-check, relay-routes, relay-update, relay-approval
+#                                  (run as: valetkey-relay login|check|routes|update|approval)
 #   /etc/relay/{routes,entry}.toml and vault.env (only if absent)
 #   /etc/credstore.encrypted/relay-loopback (generated once)
 #   relay-{local,infra,entry,front}.service, relay-cert.{service,timer}
@@ -59,14 +60,18 @@ ok "directories /var/lib/relay-{local,infra,entry} (700), /var/lib/relay/tls (ro
 
 # --- code ---
 install_code() {
-  install -d -m 755 "$libexec" "$libexec/relaylib"
+  install -d -m 755 "$libexec" "$libexec/relaylib" "$libexec/bin"
   rm -rf "$libexec/__pycache__" "$libexec/relaylib/__pycache__"
   install -m 644 "$src"/relaylib/*.py "$libexec/relaylib/"
   install -m 644 "$src/relay_read.py" "$src/relay_entry.py" "$src/relay_front.py" "$src/approval_worker.py" \
     "$src/entry-page.html" "$src/tools/gen-fnox-config.py" "$src/tools/vault-info.py" "$libexec/"
   install -m 755 "$here/bin/with-bw-session" "$here/bin/relay-cert" "$libexec/"
+  # Run through `valetkey-relay <word>`; they are not on the PATH.
   install -m 755 "$here/bin/relay-login" "$here/bin/relay-check" "$here/bin/relay-routes" \
-    "$here/bin/relay-update" "$here/bin/relay-approval" /usr/local/sbin/
+    "$here/bin/relay-update" "$here/bin/relay-approval" "$libexec/bin/"
+  for old in relay-login relay-check relay-routes relay-update relay-approval; do  # their place before
+    rm -f "/usr/local/sbin/${old:?}"
+  done
   bash "$repo/client/install-version-tools" || return 1
   install -m 644 "$repo/VERSION" "$libexec/VERSION"
   install -m 644 "$here/CONFIG_EPOCH" "$libexec/CONFIG_EPOCH"
@@ -75,7 +80,7 @@ install_code() {
   # The units call /usr/local/bin/fnox; point it at FNOX_BIN when fnox lives elsewhere.
   [ "$fnox" = /usr/local/bin/fnox ] || ln -sf "$fnox" /usr/local/bin/fnox
 }
-step "valetkey $(cat "$repo/VERSION") in $libexec; relay-login/relay-check/relay-routes/relay-update in /usr/local/sbin" install_code
+step "valetkey $(cat "$repo/VERSION") in $libexec; valetkey-relay update|routes|login|check|approval" install_code
 
 # --- configuration (the owner's edits are never overwritten) ---
 install -d -m 755 /etc/relay /etc/relay/approved-routes.d
@@ -94,7 +99,7 @@ if [ -n "$dns" ] && grep -q '^tailnet_name *= *"broker.example.ts.net"' /etc/rel
   sed -i "s|^tailnet_name *= *\"broker.example.ts.net\"|tailnet_name = \"$dns\"|" /etc/relay/entry.toml
   ok "/etc/relay/entry.toml tailnet_name = $dns"
 fi
-step "routes and entry config valid" /usr/local/sbin/relay-routes check
+step "routes and entry config valid" "$libexec/bin/relay-routes" check
 
 # --- loopback secret shared by the three services (32 random bytes, hex), generated once ---
 for name in relay-loopback relay-approval-front; do
@@ -134,14 +139,14 @@ step "relay-cert.timer (weekly)" systemctl enable --now relay-cert.timer --quiet
 
 # --- start what has credentials ---
 rc=0
-/usr/local/sbin/relay-routes install || rc=1   # relay-local, relay-infra: api.toml + restart
+"$libexec/bin/relay-routes" install || rc=1   # relay-local, relay-infra: api.toml + restart
 if [ -f "$credstore/bw-unlock-entry" ] && [ -f /var/lib/relay-entry/org.json ]; then
   systemctl restart relay-entry.service
   sleep 3
   if systemctl is-active --quiet relay-entry.service; then ok "relay-entry running"
   else echo "FAIL  relay-entry not running; see: journalctl -u relay-entry -n 30" >&2; rc=1; fi
 else
-  skip "relay-entry: run relay-login entry <email> first"
+  skip "relay-entry: run valetkey-relay login entry <email> first"
 fi
 if [ "$cert_ok" = yes ]; then
   systemctl restart relay-front.service
@@ -154,6 +159,6 @@ fi
 
 echo
 echo "Next: edit /etc/relay/routes.toml, entry.toml and vault.env for your machines, then"
-echo "      sudo relay-login local <email>; sudo relay-login infra <email>; sudo relay-login entry <email>"
-echo "      sudo relay-check"
+echo "      sudo valetkey-relay login local <email>; sudo valetkey-relay login infra <email>; sudo valetkey-relay login entry <email>"
+echo "      sudo valetkey-relay check"
 exit $rc

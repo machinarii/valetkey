@@ -6,7 +6,7 @@
 Description=Credential relay, infra-org (read)
 After=network-online.target tailscaled.service
 Wants=network-online.target
-# Not configured yet (relay-login infra, relay-routes install): stay inactive, don't crash-loop.
+# Not configured yet (valetkey-relay login infra, valetkey-relay routes install): stay inactive, don't crash-loop.
 ConditionPathExists=/etc/credstore.encrypted/bw-unlock-infra
 ConditionPathExists=/var/lib/relay-infra/api.toml
 ConditionPathExists=/var/lib/relay-infra/org.json

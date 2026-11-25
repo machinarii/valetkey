@@ -83,15 +83,12 @@ replace it.
 
 | Part | Role | What it does |
 |---|---|---|
-| Broker (`relay`) | Credential-injecting proxy, "secretless" access | Agents call a service through it with no key; it checks the calling machine and adds the key on the way out. It also serves the key entry page and route approvals. On agent machines, the `relay` command calls it, requests keys and reports their status. |
+| Broker (relay) | Credential-injecting proxy, "secretless" access | Agents call a service through it with no key; it checks the calling machine and adds the key on the way out. It also serves the key entry page and route approvals. On agent machines, the `valetkey-relay` command calls it, requests keys and reports their status. |
 | fnox | Secret injector | Runs inside the broker and puts the key into each outgoing request. |
 | Vaultwarden | Secrets manager (vault) | Keeps every key, encrypted, on its own machine. Agents never reach it; the broker reads from it. |
 | MCP routes | MCP gateway | Broker routes to MCP servers that need a fixed key: agents connect with no key, and you see which tools the key opens. |
 | Desk (`bellhop`) | Remote tool runner | Runs command-line tools and MCP servers that keep their own login, on a separate machine. |
 | Rules, policy & sweep | Agent guardrails | Teach agents the workflow, limit MCP servers and report logins that appear on agent machines. |
-
-It is not an **agent harness or framework**: it runs no models and no agents. It is not a **secrets
-manager** either: Vaultwarden stores the keys, and valetkey makes sure agents never hold them.
 
 ## How it works
 
@@ -127,7 +124,7 @@ brokered API routes. [Secure setup](docs/secure-setup.md)
    brew trust machinarii/valetkey
    brew install valetkey-agent      # machine where AI agents run; then: valetkey-agent-setup
    brew install valetkey-approver   # where you type keys
-   relay set-url https://broker.<tailnet>.ts.net
+   valetkey-relay set-url https://broker.<tailnet>.ts.net
    ```
 
 2. **The servers** (vault, broker, optional desk; Linux): on a Proxmox VE host,
@@ -145,9 +142,8 @@ brokered API routes. [Secure setup](docs/secure-setup.md)
 
 ## Updating valetkey
 
-Run `relay version` for the installed CLI version and `relay update` for the latest public release.
-`valetkey-relay` is the same command under the project's name; on the broker, `sudo valetkey-relay update`
-installs the broker's update.
+Run `valetkey-relay version` for the installed CLI version and `valetkey-relay update` for the latest public release.
+On the broker, `sudo valetkey-relay update` installs the broker's own update.
 The broker, vault, desk and clients have different update procedures.
 [Update by role](docs/updating-valetkey.md)
 
@@ -159,7 +155,7 @@ The broker, vault, desk and clients have different update procedures.
 | Add a credential, update a route or diagnose a failure | [Operations and command reference](docs/operations.md) · [Troubleshooting](docs/operations.md#troubleshooting) |
 | Approve an API route with an authenticator | [Route approval](docs/route-approval.md) |
 | Use API credits with Claude Code or Codex | [Model API accounts and OpenRouter](docs/model-api-accounts.md) |
-| Configure Claude Code, Codex or optional claude-mem capture | [Agent setup](docs/agent-setup.md) · Run `relay guide claude-mem` for offline guidance |
+| Configure Claude Code, Codex or optional claude-mem capture | [Agent setup](docs/agent-setup.md) · Run `valetkey-relay guide claude-mem` for offline guidance |
 | Run your agents from T3 Code | [T3 Code](docs/t3-code.md) |
 | Add a tool, MCP server or Git remote | [New tool recipe](docs/recipe-new-tool-with-credential.md) · [Git through the broker](docs/git-through-the-broker.md) · [Several keys for one service](docs/several-keys-per-service.md) |
 | Review the threat model or report a security issue | [Security model](docs/security-boundaries.md#security-model) · [Security policy](SECURITY.md) |

@@ -33,7 +33,7 @@ class InstallClientTests(unittest.TestCase):
         r = self.run_install("client", "--agent", "--prefix", str(self.prefix))
         self.assertEqual(r.returncode, 0, r.stderr)
         for flag in ("version", "--version"):
-            r = subprocess.run([str(self.prefix / "relay"), flag], cwd=self.home,
+            r = subprocess.run([str(self.prefix / "valetkey-relay"), flag], cwd=self.home,
                                env={"HOME": str(self.home), "PATH": os.environ["PATH"]},
                                capture_output=True, text=True, timeout=10)
             self.assertEqual(r.returncode, 0, r.stderr)
@@ -41,48 +41,61 @@ class InstallClientTests(unittest.TestCase):
 
     def test_version_tools_install_upgrade_and_preserve_full_client(self):
         args = ("--prefix", str(self.prefix))
+        self.prefix.mkdir()
+        (self.prefix / "relay-version").write_text((ROOT / "client/relay").read_text())  # an install before the rename
+        (self.prefix / "relay").symlink_to("relay-version")
         for command in ("version-tools", "update"):
             result = self.run_install(command, *args)
             self.assertEqual(result.returncode, 0, result.stderr)
-        relay = self.prefix / "relay"
-        self.assertTrue(relay.is_symlink())
-        self.assertEqual(subprocess.check_output([self.prefix / "valetkey-relay", "version"], text=True),
-                         (ROOT / "VERSION").read_text())
+        relay = self.prefix / "valetkey-relay"
+        self.assertEqual(os.readlink(relay), "valetkey-relay-version")
+        for old in ("relay", "relay-version"):
+            self.assertFalse((self.prefix / old).exists() or (self.prefix / old).is_symlink(), old)
         for cmd in ("version", "--version"):
             self.assertEqual(subprocess.check_output([relay, cmd], text=True), (ROOT / "VERSION").read_text())
         help_text = subprocess.check_output([relay, "--help"], text=True)
+        self.assertIn("usage: valetkey-relay", help_text)
         self.assertIn("update", help_text)
         self.assertNotIn("request", help_text)
         self.assertFalse((self.home / ".config").exists())
         result = self.run_install("client", "--agent", "--prefix", str(self.prefix))
         self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(relay.is_symlink())
+        self.assertFalse((self.prefix / "valetkey-relay-version").exists())
         result = self.run_install("update", *args)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("request", subprocess.check_output([relay, "--help"], text=True))
 
-    def test_version_tools_preserve_unmanaged_paths(self):
+    def test_version_tools_leave_an_unrelated_relay_alone(self):
         self.prefix.mkdir()
         foreign = self.home / "foreign"
         foreign.write_text("unmanaged")
-        relay = self.prefix / "relay"
-        relay.symlink_to(foreign)
+        other = self.prefix / "relay"  # another program of the old name: not ours to remove
+        other.symlink_to(foreign)
+        result = self.run_install("update", "--prefix", str(self.prefix))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(other.resolve(), foreign)
+        self.assertEqual(foreign.read_text(), "unmanaged")
+        taken = self.prefix / "valetkey-relay"  # our own name held by something else: refuse, change nothing
+        taken.unlink()
+        taken.symlink_to(foreign)
         result = self.run_install("update", "--prefix", str(self.prefix))
         self.assertNotEqual(result.returncode, 0)
-        self.assertEqual(relay.resolve(), foreign)
         self.assertEqual(foreign.read_text(), "unmanaged")
-        self.assertFalse((self.prefix / "relay-version").exists())
 
     def test_client_installs_tools_and_saves_url(self):
         r = self.run_install("client", "--prefix", str(self.prefix),
                              "--relay-url", "https://broker.example.ts.net/")
         self.assertEqual(r.returncode, 0, r.stderr)
-        for t in ("relay", "vault", "fnox-to-relay"):
+        for t in ("valetkey-relay", "vault", "valetkey-fnox-to-relay"):
             self.assertTrue(os.access(self.prefix / t, os.X_OK), t)
         # The same command under the project's name, and it says so in its help.
         named = subprocess.run([str(self.prefix / "valetkey-relay"), "--help"], capture_output=True, text=True,
                                env={"HOME": str(self.home), "PATH": os.environ["PATH"]}, timeout=10)
         self.assertIn("usage: valetkey-relay", named.stdout)
-        self.assertFalse((self.prefix / "vault-entry").exists())  # owner tool only with --owner
+        self.assertFalse((self.prefix / "valetkey-entry").exists())  # owner tool only with --owner
+        for old in ("relay", "vault-entry", "fnox-to-relay"):  # the names before valetkey-*
+            self.assertFalse((self.prefix / old).exists(), old)
         url = (self.home / ".config" / "valetkey" / "relay-url").read_text()
         self.assertEqual(url, "https://broker.example.ts.net\n")
 
@@ -91,7 +104,7 @@ class InstallClientTests(unittest.TestCase):
         answers.write_text("6\nhttps://broker.example.ts.net\n")
         r = self.run_install(VALETKEY_TTY=str(answers))
         self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertTrue((self.home / ".local/bin/vault-entry").exists())
+        self.assertTrue((self.home / ".local/bin/valetkey-entry").exists())
         url = (self.home / ".config" / "valetkey" / "relay-url").read_text()
         self.assertEqual(url, "https://broker.example.ts.net\n")
         # A wrong number, an empty and a non-https broker URL are asked again, not fatal.
@@ -109,16 +122,16 @@ class InstallClientTests(unittest.TestCase):
     def test_client_owner_adds_vault_entry(self):
         r = self.run_install("client", "--prefix", str(self.prefix), "--owner")
         self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertTrue((self.prefix / "vault-entry").exists())
+        self.assertTrue((self.prefix / "valetkey-entry").exists())
         self.assertIn("no broker URL yet", r.stderr)
 
     def test_agent_install_and_offline_guidance(self):
         r = self.run_install("client", "--agent", "--prefix", str(self.prefix))
         self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertTrue((self.prefix / "relay").exists())
-        for tool in ("vault", "vault-entry", "fnox-to-relay"):
+        self.assertTrue((self.prefix / "valetkey-relay").exists())
+        for tool in ("vault", "valetkey-entry", "valetkey-fnox-to-relay"):
             self.assertFalse((self.prefix / tool).exists())
-        r = subprocess.run([str(self.prefix / "relay"), "guide"],
+        r = subprocess.run([str(self.prefix / "valetkey-relay"), "guide"],
                            env={"PATH": os.environ["PATH"], "HOME": str(self.home)},
                            capture_output=True, text=True, timeout=10)
         self.assertEqual(r.returncode, 0, r.stderr)
@@ -155,7 +168,7 @@ class InstallClientTests(unittest.TestCase):
                 result = self.run_install("client", "--agent", "--prefix", str(self.prefix))
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertIn("works with or without claude-mem", result.stdout)
-                guide = subprocess.run([str(self.prefix / "relay"), "guide", "claude-mem"],
+                guide = subprocess.run([str(self.prefix / "valetkey-relay"), "guide", "claude-mem"],
                                        env={"HOME": str(self.home), "PATH": os.environ["PATH"]},
                                        capture_output=True, text=True, timeout=10)
                 self.assertEqual(guide.returncode, 0, guide.stderr)
@@ -182,8 +195,7 @@ class InstallClientTests(unittest.TestCase):
         r = self.run_install("uninstall-client", "--prefix", str(self.prefix))
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertTrue((self.prefix / "vault").exists())
-        self.assertFalse((self.prefix / "relay").exists())
-        self.assertFalse((self.prefix / "valetkey-relay").is_symlink())
+        self.assertFalse((self.prefix / "valetkey-relay").exists())
         self.assertFalse((self.home / ".config" / "valetkey").exists())
 
     def test_broker_refuses_without_root(self):

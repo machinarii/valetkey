@@ -44,7 +44,7 @@ LOGIN_FILES = [
 SECRET_COMMANDS = [
     "printenv*", "env", "gh auth token*", "gh auth status --show-token*", "op read *", "op item get *",
     "bw get *", "bw list *", "bw export *", "bw unlock*", "bw login*", "fnox get *", "fnox export *",
-    "pass show *", "secret-tool *", "vault *", "vault-entry *", "security find-generic-password*",
+    "pass show *", "secret-tool *", "vault *", "valetkey-entry *", "security find-generic-password*",
     "security find-internet-password*",
 ]
 
@@ -255,8 +255,8 @@ def main(argv=None):
     ap.add_argument("--hide-env", default=None, help="comma-separated variable names to remove from the agent's commands")
     args = ap.parse_args(argv)
     print("Claude subscription login options: claude setup-token or native web login with claude auth login.\n"
-          "Run relay guide claude for steps. This installer preserves your current login method.\n"
-          "Valetkey works with or without claude-mem. Run relay guide claude-mem for memory capture setup.")
+          "Run valetkey-relay guide claude for steps. This installer preserves your current login method.\n"
+          "Valetkey works with or without claude-mem. Run valetkey-relay guide claude-mem for memory capture setup.")
     settings_path, rules_path = os.path.expanduser(args.settings), os.path.expanduser(args.claude_md)
     codex_path = os.path.expanduser(args.codex_md)
     state_path = os.path.join(os.path.dirname(settings_path), "valetkey-setup.json")

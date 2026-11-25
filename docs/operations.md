@@ -5,7 +5,7 @@
 **Is an authorized item present?** This does not test upstream authentication.
 
 ```sh
-relay check infra stripe-api-key-shop-prod pgpassword-shop-qa
+valetkey-relay check infra stripe-api-key-shop-prod pgpassword-shop-qa
 # ok  stripe-api-key-shop-prod
 # missing  pgpassword-shop-qa
 ```
@@ -13,25 +13,25 @@ relay check infra stripe-api-key-shop-prod pgpassword-shop-qa
 **Add a key (agent or you).** Name it `<key>-<project>-<env>` (`dev|qa|prod`), or `<key>` for a tool-level key:
 
 ```sh
-relay request pgpassword-shop-qa --org infra --project shop --purpose "shop qa database"
+valetkey-relay request pgpassword-shop-qa --org infra --project shop --purpose "shop qa database"
 # request r_8f2c… (pending)
-# Enter it with: vault-entry r_8f2c…   or   https://broker.<tailnet>.ts.net/entry — your choice
+# Enter it with: valetkey-entry r_8f2c…   or   https://broker.<tailnet>.ts.net/entry — your choice
 ```
 
 Then enter the value on a separate approver device, whichever way you like:
 
-- **Terminal:** `vault-entry` lists pending requests, and `vault-entry r_8f2c…` asks for the value twice at a hidden prompt. For multi-line values (`--notes`), end with a line containing only `.`.
+- **Terminal:** `valetkey-entry` lists pending requests, and `valetkey-entry r_8f2c…` asks for the value twice at a hidden prompt. For multi-line values (`--notes`), end with a line containing only `.`.
 - **Web:** open `https://broker.<tailnet>.ts.net/entry` on a device listed in `owner_nodes`. Each request is a card: type the value and press **Store value**.
 
-`relay status r_8f2c…` turns to `stored`. `vault-entry add <name> --org … --purpose …` does the same without an agent.
+`valetkey-relay status r_8f2c…` turns to `stored`. `valetkey-entry add <name> --org … --purpose …` does the same without an agent.
 
-**Replace a key.** `relay request <name> --org … --replace …` or `vault-entry replace <name> --org …`. The old value becomes `<name>-backup-YYYYMMDD`. If that backup already exists, replacement is refused until the owner resolves the collision; no existing backup is deleted automatically.
+**Replace a key.** `valetkey-relay request <name> --org … --replace …` or `valetkey-entry replace <name> --org …`. The old value becomes `<name>-backup-YYYYMMDD`. If that backup already exists, replacement is refused until the owner resolves the collision; no existing backup is deleted automatically.
 
 **A key stopped working.** Agents report the item name and failing status. Only an owner or
 separate trusted server may check backups, newest first; never run this in an agent session:
 
 ```sh
-relay backups infra stripe-api-key-shop-prod     # 20261106, 20261020 …
+valetkey-relay backups infra stripe-api-key-shop-prod     # 20261106, 20261020 …
 vault kv get -field=value shop/stripe-api-key-shop-prod-backup-20261106   # only for a consumer, never in an agent session
 ```
 
@@ -63,7 +63,7 @@ listed in `trusted_value_nodes`. Grant that machine only the item it consumes.
 The service reads the value internally and keeps it out of arguments, logs and
 persistent files.
 
-**Revoke a machine.** Remove it from every `nodes` list and run `sudo relay-routes install`, or drop it from the tailnet ACL.
+**Revoke a machine.** Remove it from every `nodes` list and run `sudo valetkey-relay routes install`, or drop it from the tailnet ACL.
 
 ## Configuration
 
@@ -78,11 +78,11 @@ All configuration files on the broker hold names only.
 | `[value.<name>]` | `item` | `/<org>/value/<name>` |
 | `[project.<name>]` | `items` (exact names or `*-suffix` globs) | `/<org>/<project>/value/<item>[/notes]` |
 
-Route names may not be `value`, `check`, `refresh`, `names`, `v1` or `backups`. After editing: `sudo relay-routes check`, then `sudo relay-routes install`.
+Route names may not be `value`, `check`, `refresh`, `names`, `v1` or `backups`. After editing: `sudo valetkey-relay routes check`, then `sudo valetkey-relay routes install`.
 
-**`/etc/relay/entry.toml`** sets `owner_nodes` (your devices, which are the only ones that may submit values) and `tailnet_name` (the broker's DNS name, filled in by the installer). After editing: `sudo relay-routes check && sudo systemctl restart relay-entry`.
+**`/etc/relay/entry.toml`** sets `owner_nodes` (your devices, which are the only ones that may submit values) and `tailnet_name` (the broker's DNS name, filled in by the installer). After editing: `sudo valetkey-relay routes check && sudo systemctl restart relay-entry`.
 
-**`/etc/relay/vault.env`** is read by `relay-login`:
+**`/etc/relay/vault.env`** is read by `valetkey-relay login`:
 
 | Key | Default |
 |---|---|
@@ -90,64 +90,90 @@ Route names may not be `value`, `check`, `refresh`, `names`, `v1` or `backups`. 
 | `LOCAL_ORG` / `LOCAL_COLLECTION` | `local-org` / `local-broker-collection` |
 | `INFRA_ORG` / `INFRA_COLLECTION` | `infra-org` / `infra-broker-collection` |
 
-After changing org or collection names, run `relay-login` again for the affected relays.
+After changing org or collection names, run `valetkey-relay login` again for the affected relays.
 
 **Clients:**
 
 | Setting | Where |
 |---|---|
-| Broker URL for `relay` and `vault-entry` | `$RELAY_URL`, else `~/.config/valetkey/relay-url` (written by `install.sh client --relay-url`) |
+| Broker URL for `valetkey-relay` and `valetkey-entry` | `$RELAY_URL`, else `~/.config/valetkey/relay-url` (written by `install.sh client --relay-url`) |
 | Broker URL for the `vault` shim | `VAULT_ADDR`, which fnox sets from the provider's `address` |
 
 **Broker install environment** (`install.sh broker --with-deps`): `FNOX_VERSION` (default `1.35.3`), `BROKER_HOSTNAME` (default `broker`), `BROKER_TAGS` (default `tag:broker`), `FNOX_BIN`.
 
 ## Commands
 
+### Command names
+
+Every command you type starts with `valetkey-`, with the action as its first word. The earlier names
+are gone: each installer removes them (only valetkey's own files) when it next runs.
+
+| Command | Was | Where |
+|---|---|---|
+| `valetkey-relay <command>` | `relay <command>` | every machine |
+| `sudo valetkey-relay update` | `sudo relay‑update install` | broker |
+| `sudo valetkey-relay rollback`, `sudo valetkey-relay setup <repo>` | `sudo relay‑update rollback`, `… setup <repo>` | broker |
+| `sudo valetkey-relay routes check`, `sudo valetkey-relay routes install [org]` | `sudo relay‑routes …` | broker |
+| `sudo valetkey-relay login <org> <email>` | `sudo relay‑login …` | broker |
+| `sudo valetkey-relay check [org]` | `sudo relay‑check …` | broker |
+| `sudo valetkey-relay approval pair <device>` | `sudo relay‑approval …` | broker |
+| `valetkey-entry [<id>]` | `vault‑entry` | approver devices |
+| `valetkey-bellhop --list`, `valetkey-bellhop --request …` | `bellhop …` | agent machines |
+| `sudo valetkey-sweep` | `sudo bellhop‑sweep` | agent machines |
+| `sudo valetkey-desk --requests`, `sudo valetkey-desk --done <id>` | `python3 -I …/desk.py …` | desk |
+| `valetkey-fnox-to-relay` | `fnox‑to‑relay` | trusted servers, approver devices |
+| `valetkey-agent-setup` | | agent machines (Homebrew) |
+
+Three names stay as they are: `vault` (fnox calls it by that name), the stand-ins that carry each
+desk tool's own name, and the broker's own tool files, which live in `/usr/local/libexec/relay/bin`
+and are run through `valetkey-relay`. On the broker, `valetkey-relay check` is the broker's own
+check; on other machines it is the client's.
+
 | Command | Runs on | Does |
 |---|---|---|
 | `sudo ./install.sh vaultwarden` | vault host | Installs Docker and Tailscale, runs Vaultwarden and publishes it on the tailnet only. |
 | `./install.sh client [--relay-url URL] [--agent\|--owner] [--prefix DIR] [--with-deps]` | client | `--agent`: metadata CLI and guidance only. Otherwise installs consumer tools; `--owner` adds private entry; `--with-deps` adds Tailscale and fnox. |
 | `sudo ./install.sh update` | existing Linux installation | Refreshes just the version commands from the checkout. Preserves the commands of an existing full client. Use `--prefix BIN_DIR` for a nondefault install. |
-| `relay version` or `relay --version` | all roles | Prints the installed Valetkey CLI version offline, for example `0.1.2`. |
-| `sudo relay-approval pair OWNER_NODE` | trusted broker console | Issue a ten-minute authenticator pairing link with a locally rendered QR code. [Pair and approve a route](route-approval.md). |
-| `relay request-route --help` | agent | Propose a fixed bearer API route and print its owner approval link. |
-| `relay update` | all roles | Prints the highest stable `vMAJOR.MINOR.PATCH` tag from the public Valetkey repository on GitHub. Requires network access and only checks for updates. |
-| `relay guide` / `./install.sh guidance` | any | Prints offline safety rules for persistent agent instructions; no credential access. |
+| `valetkey-relay version` or `valetkey-relay --version` | all roles | Prints the installed Valetkey CLI version offline, for example `0.1.2`. |
+| `sudo valetkey-relay approval pair OWNER_NODE` | trusted broker console | Issue a ten-minute authenticator pairing link with a locally rendered QR code. [Pair and approve a route](route-approval.md). |
+| `valetkey-relay request-route --help` | agent | Propose a fixed bearer API route and print its owner approval link. |
+| `valetkey-relay update` | all roles | Prints the highest stable `vMAJOR.MINOR.PATCH` tag from the public Valetkey repository on GitHub. Requires network access and only checks for updates. |
+| `valetkey-relay guide` / `./install.sh guidance` | any | Prints offline safety rules for persistent agent instructions; no credential access. |
 | `sudo ./install.sh broker [--with-deps]` | broker | Installs or updates the broker. Idempotent. |
 | `./install.sh doctor` / `version` / `uninstall-client` | any | Status, version, removal. |
-| `relay check <org> <name>…` | client | `ok` / `missing` / `not-allowed` per name; exits 1 unless all are `ok`. |
-| `relay request <name> --org … [--project P] --purpose … [--notes] [--replace]` | client | Opens an entry request. |
-| `relay status <id>` · `relay backups <org> <name>` | client | Request state · backup dates. |
+| `valetkey-relay check <org> <name>…` | client | `ok` / `missing` / `not-allowed` per name; exits 1 unless all are `ok`. |
+| `valetkey-relay request <name> --org … [--project P] --purpose … [--notes] [--replace]` | client | Opens an entry request. |
+| `valetkey-relay status <id>` · `valetkey-relay backups <org> <name>` | client | Request state · backup dates. |
 | `vault kv get -field=<field> <path>/<name>` | client | The fnox shim. Prints one value; used by fnox, not by people. |
-| `vault-entry [<id> \| add … \| replace …]` | approver device | Lists requests and enters values at a hidden prompt. |
-| `fnox-to-relay --project P --env E --org O` | client | Turns `fnox list` output into a relay `fnox.toml`. |
-| `sudo relay-login <local\|infra\|entry> <email>` | broker | Hidden-prompt login; stores the encrypted unlock; writes `org.json`. |
-| `sudo relay-check [local\|infra\|entry]` | broker | Lock state, `ok`/`FAIL` per item and route, unit state, recent audit lines. |
-| `sudo relay-routes check \| install [local\|infra]` | broker | Validates the configs; regenerates fnox proxy rules and restarts the read relays. |
-| `sudo ./install.sh agent [--relay-url URL] [--desk-url URL] [--tools a,b] [--user NAME] [--no-policy] [--t3-url URL \| --no-t3]` | agent machine (Linux) | Everything an agent machine needs, as root-owned files: `relay` in agent mode, the `bellhop` stand-in and tool links, the sweep and its timer, the MCP policy (with T3 Code's own tools when T3 is installed; see [T3 Code](t3-code.md)). No keys. |
+| `valetkey-entry [<id> \| add … \| replace …]` | approver device | Lists requests and enters values at a hidden prompt. |
+| `valetkey-fnox-to-relay --project P --env E --org O` | client | Turns `fnox list` output into a relay `fnox.toml`. |
+| `sudo valetkey-relay login <local\|infra\|entry> <email>` | broker | Hidden-prompt login; stores the encrypted unlock; writes `org.json`. |
+| `sudo valetkey-relay check [local\|infra\|entry]` | broker | Lock state, `ok`/`FAIL` per item and route, unit state, recent audit lines. |
+| `sudo valetkey-relay routes check \| install [local\|infra]` | broker | Validates the configs; regenerates fnox proxy rules and restarts the read relays. |
+| `sudo ./install.sh agent [--relay-url URL] [--desk-url URL] [--tools a,b] [--user NAME] [--no-policy] [--t3-url URL \| --no-t3]` | agent machine (Linux) | Everything an agent machine needs, as root-owned files: `valetkey-relay` in agent mode, the `bellhop` stand-in and tool links, the sweep and its timer, the MCP policy (with T3 Code's own tools when T3 is installed; see [T3 Code](t3-code.md)). No keys. |
 | `./install.sh claude [--yes] [--dry-run] [--hide-env NAMES]` | agent machine, as the agent's user | Asks what to block, then merges valetkey's rules into `~/.claude/CLAUDE.md` and `~/.claude/settings.json`. Keeps what is there; backs both files up. |
 | `sudo ./install.sh desk` | desk | Installs or updates the bellhop desk behind the same TLS front door. No tools, no logins. |
-| `bellhop <tool> [args…]` · `bellhop --list` | agent machine | Runs a listed tool on the desk · shows what this machine may use. Link it under a tool's name to use that name. |
-| `bellhop --request cli <name> [source] [why]` | agent machine | Asks the owner to install a tool on the desk. |
+| `bellhop <tool> [args…]` · `valetkey-bellhop --list` | agent machine | Runs a listed tool on the desk · shows what this machine may use. Link it under a tool's name to use that name. |
+| `valetkey-bellhop --request cli <name> [source] [why]` | agent machine | Asks the owner to install a tool on the desk. |
 | `desk.py --requests` · `desk.py --done <id>` | desk | Lists waiting install requests · clears one. |
 | `sweep.py [--accept]` | agent machine, as root | Reports logins and new tools by name · takes the current tools as known. |
-| `sudo relay-update setup <repo> \| install \| rollback` | broker | Fetches a new version, shows what changes, installs after `y`; puts the previous code back if the relays do not return, or on request. |
+| `sudo valetkey-relay setup <repo> \| install \| rollback` | broker | Fetches a new version, shows what changes, installs after `y`; puts the previous code back if the relays do not return, or on request. |
 
 ## Troubleshooting
 
 | Symptom | Cause and fix |
 |---|---|
-| `relay check` → `not-allowed` | Route denied, item unmatched, or raw consumer absent from `trusted_value_nodes`. Never fix this by trusting an agent machine. |
-| `relay check` → `missing` | No item with that name in the org's collections. Check the name, or `relay request` it. |
+| `valetkey-relay check` → `not-allowed` | Route denied, item unmatched, or raw consumer absent from `trusted_value_nodes`. Never fix this by trusting an agent machine. |
+| `valetkey-relay check` → `missing` | No item with that name in the org's collections. Check the name, or `valetkey-relay request` it. |
 | `403` from the broker | The caller isn't a tailnet peer (a LAN address, or another tailnet). |
 | Connection timeout | The tailnet ACL doesn't grant `tag:broker:443`, or the broker is down (`./install.sh doctor`). |
 | Every item `FAIL` but the account is `unlocked` | The collection access is set to *hide passwords*. Use *Can view*. |
-| A new project's items are `missing` | Either the `-infra`/`-entry` accounts weren't granted the new nested collection, or the relays haven't seen it yet. Grant it, run `sudo relay-login infra …` and `sudo relay-login entry …` again, then `sudo relay-check infra`. |
-| `no collection for project …` on entry | Create `infra-broker-collection/<project>` first, grant it, then run `relay-login entry …` again. |
+| A new project's items are `missing` | Either the `-infra`/`-entry` accounts weren't granted the new nested collection, or the relays haven't seen it yet. Grant it, run `sudo valetkey-relay login infra …` and `sudo valetkey-relay login entry …` again, then `sudo valetkey-relay check infra`. |
+| `no collection for project …` on entry | Create `infra-broker-collection/<project>` first, grant it, then run `valetkey-relay login entry …` again. |
 | fnox runs the wrong `vault` | Put the valetkey prefix before HashiCorp Vault on `PATH`. |
 | `relay-front` fails after setup | HTTPS Certificates are off in the tailnet DNS settings. Turn them on and re-run `install.sh broker`. |
-| The broker stops answering during `relay-check` or `relay-routes install`, or after adding `[api.*]` routes | Out of memory: fnox fetches one vault item per API route when a read relay starts, each through the Bitwarden CLI. Give the VM 2 GB and 2 cores (Proxmox: `qm stop <id>; qm set <id> --memory 2048 --cores 2; qm start <id>`). |
-| A relay unit is inactive | It has no login yet (the units wait for `relay-login`). `journalctl -u relay-<name> -n 30` shows why. |
-| Every route of one org answers `502 backend unavailable` | That read relay restarts in a loop because fnox cannot resolve an `[api.*]` item: it is missing, or its name is contained in another item's name (a `--replace` backup). `sudo relay-check <org>` names it. Fix the item, then run `sudo relay-routes install <org>`. |
+| The broker stops answering during `valetkey-relay check` or `valetkey-relay routes install`, or after adding `[api.*]` routes | Out of memory: fnox fetches one vault item per API route when a read relay starts, each through the Bitwarden CLI. Give the VM 2 GB and 2 cores (Proxmox: `qm stop <id>; qm set <id> --memory 2048 --cores 2; qm start <id>`). |
+| A relay unit is inactive | It has no login yet (the units wait for `valetkey-relay login`). `journalctl -u relay-<name> -n 30` shows why. |
+| Every route of one org answers `502 backend unavailable` | That read relay restarts in a loop because fnox cannot resolve an `[api.*]` item: it is missing, or its name is contained in another item's name (a `--replace` backup). `sudo valetkey-relay check <org>` names it. Fix the item, then run `sudo valetkey-relay routes install <org>`. |
 | An `[api.*]` call answers `502 upstream error: SSLCertVerificationError` | The broker's relay predates the Python 3.13 fix (fnox's proxy certificates fail the strict default check). Update the broker. |
 | git through a route answers `400` | The item holds the raw token. See [Git through the broker](git-through-the-broker.md). |

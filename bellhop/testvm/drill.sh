@@ -65,7 +65,7 @@ show() { printf '  %-44s %s\n' "\$1" "\$2"; }
 show "tool over HTTPS, caller named by machine:"  "\$(bellhop fakefield whoami 2>&1)"
 show "file sent over HTTPS:"                      "\$(bellhop fakefield upload scene.png 2>&1 | cut -c1-40)"
 show "subcommand not on the list:"                "\$(bellhop fakefield auth token 2>&1 | cut -c1-60)"
-show "allowed here:"                              "\$(bellhop --list 2>&1 | tr '\n' ' ')"
+show "allowed here:"                              "\$(valetkey-bellhop --list 2>&1 | tr '\n' ' ')"
 show "plain HTTP straight to the desk port:"      "\$(BELLHOP_URL=http://$drill_ip:8460 bellhop fakefield whoami 2>&1 | cut -c1-60)"
 EOF
 

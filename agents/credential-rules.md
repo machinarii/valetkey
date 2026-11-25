@@ -1,6 +1,6 @@
 # Credential safety memory — valetkey
 
-Read these rules at the start of every agent session that uses Valet. `relay guide` prints this
+Read these rules at the start of every agent session that uses Valet. `valetkey-relay guide` prints this
 file offline, without contacting the broker or reading credentials. Put a reference to the
 installed file (`~/.local/share/valetkey/credential-rules.md` with the default prefix) in your
 `AGENTS.md` or `CLAUDE.md`, or copy these rules there. Instructions guide behavior; the broker's
@@ -29,12 +29,12 @@ existing method until the owner chooses to switch.
 
 - **Setup token.** The owner runs `claude setup-token` on a separate approver device in an
   unrecorded terminal and authorizes it in the browser. For a new item, file
-  `relay request claude-code-oauth-<node> --org local --purpose "Claude subscription login"`.
-  The owner enters the value privately through the broker entry page or `vault-entry <id>`.
+  `valetkey-relay request claude-code-oauth-<node> --org local --purpose "Claude subscription login"`.
+  The owner enters the value privately through the broker entry page or `valetkey-entry <id>`.
   An existing stored token can be reused. The approved launcher
   retrieves the token for the Claude process through its exact `claude_setup_token = true`
   route. Every process on the authorized VM can copy it. Agents check access with
-  `relay check local claude-code-oauth-<node>` and never retrieve the value.
+  `valetkey-relay check local claude-code-oauth-<node>` and never retrieve the value.
 - **Web login.** When the owner approves a local Claude session on this machine, the owner
   runs the native `claude auth login` as the user that runs Claude, selects their subscription
   and completes the browser flow. Claude stores the session in its own credential store.
@@ -45,16 +45,16 @@ existing method until the owner chooses to switch.
 Verify the chosen method with a short model turn. This choice covers Claude’s model login
 only. Keep existing rules for MCP, tools and project credentials.
 
-For optional memory capture, see `relay guide claude-mem`.
+For optional memory capture, see `valetkey-relay guide claude-mem`.
 
 ## API-billed model access
 
-For an owner-approved API account, use `relay model <claude|codex> <route> <model-id>`.
+For an owner-approved API account, use `valetkey-relay model <claude|codex> <route> <model-id>`.
 The owner configures a `[model.*]` route on the broker. Claude Code supports Anthropic
 and OpenRouter, and Codex supports OpenAI and OpenRouter. Request the provider API key
 by item name and offer private entry on the approver device. Keep the key on the broker
 side and use a separate launcher for subscriptions. A paid model turn uses credits.
-Check storage with `relay check` and verify billing and model access separately.
+Check storage with `valetkey-relay check` and verify billing and model access separately.
 
 ## Optional claude-mem integration
 
@@ -83,28 +83,28 @@ the client would store tokens on the agent VM, leave the server unconfigured.
 For a broker-managed credential, follow these steps.
 
 1. Ask which service consumes the credential; choose the existing Vaultwarden item reference.
-2. Run `relay check <local|infra> <item-name>` for storage/access status only. `ok` means a value
+2. Run `valetkey-relay check <local|infra> <item-name>` for storage/access status only. `ok` means a value
    is present and this route is allowed; it does **not** establish upstream authentication.
 3. Call only the approved broker API route. Test authentication with a harmless authorized
    operation; report storage and authentication status separately, without response secrets.
-4. For a missing item, use `relay request <name> --org local|infra --purpose "service and use"`
+4. For a missing item, use `valetkey-relay request <name> --org local|infra --purpose "service and use"`
    (add `--project P` or `--notes` when needed). Purpose is non-secret technical context only.
-5. Always offer the owner both private entry methods and let them choose: `vault-entry <id>`
+5. Always offer the owner both private entry methods and let them choose: `valetkey-entry <id>`
    in their own unrecorded terminal on a separate approver device, or the encrypted Tailscale web
    entry field at `https://broker.<tailnet>.ts.net/entry`. File the request (step 4) before
    sending the link: the entry page lists only pending requests. Send the broker's entry link,
    never the Vaultwarden web-vault address, and never ask the owner to create the item in the
    vault themselves. Never run the entry prompt inside an agent tool, terminal recording, shared
    browser, or agent-controlled machine.
-6. Use `relay status <id>` until `stored` or `replaced`, then `relay check`. Once stored, it also
+6. Use `valetkey-relay status <id>` until `stored` or `replaced`, then `valetkey-relay check`. Once stored, it also
    lists this machine's routes for the key: whether an MCP server accepted it, its tool counts and
    the MCP address to give your client (no key, no headers). An entry request
    does not grant a route: broker configuration still controls who can use the item.
-   If the route already exists for another machine, run `relay join-route <route>` instead and give
+   If the route already exists for another machine, run `valetkey-relay join-route <route>` instead and give
    the owner the approval link; nothing else about the route changes.
    For a service that uses HTTP Basic with the key as user name, add `--encode basic` to
-   `relay request` and `--auth basic` to `relay request-route`; the owner still pastes the plain key.
-   For a new fixed bearer API route, run `relay request-route --help` and submit the provider's
+   `valetkey-relay request` and `--auth basic` to `valetkey-relay request-route`; the owner still pastes the plain key.
+   For a new fixed bearer API route, run `valetkey-relay request-route --help` and submit the provider's
    origin, required methods and narrow path prefixes from the consuming agent. Give the owner
    the approval link. Only the owner scans pairing QR codes and enters authenticator codes.
 7. If upstream authentication fails, report the item name and failure status. An owner can

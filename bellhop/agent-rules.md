@@ -4,15 +4,15 @@ External tools that require a login run on the desk and are available through `b
 Claude Code’s own subscription sign-in follows the machine-specific owner approval in the
 credential safety rules. Only the owner handles that login.
 
-- See what is available with `bellhop --list`. Listed tools are called by their own name, for
+- See what is available with `valetkey-bellhop --list`. Listed tools are called by their own name, for
   example `higgsfield upload scene.png`. Files you name are sent along; result files come back.
 - When the user asks for a command-line tool that needs a key, a login or an account: do not
-  install it here and do not sign in here. File a request with `bellhop --request cli NAME SOURCE WHY`,
+  install it here and do not sign in here. File a request with `valetkey-bellhop --request cli NAME SOURCE WHY`,
   and tell the user the request id and that the owner installs it on the desk. It appears in
-  `bellhop --list` when it is ready.
+  `valetkey-bellhop --list` when it is ready.
 - When the user asks for an MCP server that uses a fixed key: it goes through the credential
   broker, not this machine and not the desk. File a request for the key by name with
-  `relay request NAME-api-key --org local --purpose "..."`, use `relay request-route` from the consuming machine and give the owner
+  `valetkey-relay request NAME-api-key --org local --purpose "..."`, use `valetkey-relay request-route` from the consuming machine and give the owner
   its approval link. The owner enters a missing key on the broker's entry page and approves
   the proposed route with their paired authenticator. Point the MCP client at the broker's
   address for that route, with no key.

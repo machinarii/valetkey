@@ -21,7 +21,7 @@ if not result.get("exited") or result.get("exitcode") != 0:
 
 # Verify the selected roles before installing anywhere.
 pct exec "$vault" -- test -f /opt/vaultwarden/compose.yaml </dev/null
-guest "$broker" -- /usr/bin/test -x /usr/local/sbin/relay-check
+guest "$broker" -- /bin/sh -c 'test -x /usr/local/libexec/relay/bin/relay-check || test -x /usr/local/sbin/relay-check'
 guest "$desk" -- /usr/bin/test -f /usr/local/libexec/relay/desk.py
 
 payload=$(tar -czf - -C "$repo/client" relay install-version-tools | base64 -w0)
@@ -31,7 +31,7 @@ work=$(mktemp -d)
 trap 'rm -rf -- "$work"' EXIT
 printf '%s' "$1" | base64 -d | tar -xzf - -C "$work"
 bash "$work/install-version-tools"
-test "$(/usr/local/bin/relay version)" = "$2"
+test "$(/usr/local/bin/valetkey-relay version)" = "$2"
 INSTALL
 )
 bash -c "$apply" _ "$payload" "$version"

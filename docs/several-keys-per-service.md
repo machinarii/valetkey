@@ -82,7 +82,7 @@ with an allow list of subcommands.
   owner which token to create:
 
   ```sh
-  relay request github-api-read-acme --org local \
+  valetkey-relay request github-api-read-acme --org local \
     --purpose "GitHub API, read-only: fine-grained token for acme, Contents/Issues/Pull requests: read"
   ```
 
@@ -90,4 +90,4 @@ with an allow list of subcommands.
 
 More keys means more to create, renew and rotate. Set an expiry on each token. When one
 expires, the service answers `401` and the entry page marks the item as possibly expired; replace
-it with `relay request <item> --replace`. This is cheaper than a broad key leaking.
+it with `valetkey-relay request <item> --replace`. This is cheaper than a broad key leaking.

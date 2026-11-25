@@ -66,7 +66,7 @@ Agent machine, one command from the repository root:
 ```sh
 sudo ./install.sh agent --desk-url https://<desk>/desk --tools higgsfield   # add --relay-url for the broker
 higgsfield upload scene.png                      # runs on the desk
-bellhop --list
+valetkey-bellhop --list
 ```
 
 It installs the stand-in and one link per tool, the sweep and its timer, and the MCP policy, all
@@ -113,7 +113,7 @@ Step by step, for either the broker or the desk: [the recipe](../docs/recipe-new
 
 **An MCP server with a fixed key belongs on valetkey's broker, not on the desk.** A broker `[api.*]`
 route does the same forwarding, keeps the key in the vault, takes the key through the entry page
-and is changed only at the broker console. The agent files `relay request NAME-api-key`, the
+and is changed only at the broker console. The agent files `valetkey-relay request NAME-api-key`, the
 owner enters the value and adds the route, and the MCP client uses
 `https://<broker>/<org>/<route>/...` with no key. The desk's `[mcp.*]` entries remain for a
 server that runs on the desk itself.
@@ -124,7 +124,7 @@ Installing something on the desk does nothing until it is listed in `desk.toml` 
 restarted. The agent cannot install on the desk. It asks, and the owner decides:
 
 ```sh
-bellhop --request mcp buffer https://mcp.buffer.com/mcp "schedule posts"   # agent machine
+valetkey-bellhop --request mcp buffer https://mcp.buffer.com/mcp "schedule posts"   # agent machine
 python3 -I desk.py --requests                                              # desk: what is waiting
 python3 -I desk.py --done <id>                                             # desk: handled
 ```

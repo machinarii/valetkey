@@ -46,6 +46,9 @@ install -d "$lib/relaylib" /etc/bellhop
 install -m 644 "$repo"/relay/relaylib/*.py "$lib/relaylib/"
 install -m 755 "$repo/relay/relay_front.py" "$repo/bellhop/desk.py" "$repo/broker/bin/relay-cert" "$lib/"
 install -m 644 "$repo/bellhop/desk.example.toml" /etc/bellhop/desk.example.toml
+# valetkey-desk: the desk's own commands (--requests, --done ID) without the long path.
+printf '#!/bin/sh\nexec /usr/bin/python3 -I %s/desk.py --config /etc/bellhop/desk.toml "$@"\n' "$lib" > /usr/local/sbin/valetkey-desk
+chmod 755 /usr/local/sbin/valetkey-desk
 install -d -o desk -g desk -m 700 /var/lib/bellhop /etc/bellhop/keys
 if [ ! -f /etc/bellhop/desk.toml ]; then
   cat > /etc/bellhop/desk.toml <<'EOF'
@@ -118,5 +121,5 @@ Next, on this machine:
   2. List each tool and MCP server in /etc/bellhop/desk.toml (see desk.example.toml), naming the
      agent machines that may use it, then: systemctl restart bellhop-desk
   3. In the tailnet policy, let agent machines reach this machine on tcp:443 and nothing else.
-Requests from agents:  python3 -I $lib/desk.py --requests
+Requests from agents:  valetkey-desk --requests
 EOF

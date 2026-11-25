@@ -13,9 +13,9 @@ class ValetkeyTrustedServer < Formula
   conflicts_with "valetkey-approver", because: "one machine has one valetkey role"
 
   def install
-    bin.install "client/relay", "client/vault"
-    bin.install "relay/tools/fnox-to-relay.py" => "fnox-to-relay"
-    bin.install_symlink bin/"relay" => "valetkey-relay"  # the same command under the project's name
+    bin.install "client/relay" => "valetkey-relay"
+    bin.install "client/vault"  # fnox calls it by this name
+    bin.install "relay/tools/fnox-to-relay.py" => "valetkey-fnox-to-relay"
     (share/"valetkey").install "agents/credential-rules.md"
   end
 
@@ -23,14 +23,14 @@ class ValetkeyTrustedServer < Formula
     <<~EOS
       Needs python3 3.9 or newer on PATH (macOS and most Linux systems have it).
       Point it at your broker once (names only, never a key):
-        relay set-url https://broker.<tailnet>.ts.net
+        valetkey-relay set-url https://broker.<tailnet>.ts.net
       Projects pull keys through fnox's vault provider: install fnox (https://fnox.jdx.dev).
       List this machine in the broker's trusted_value_nodes; never run agents on it.
     EOS
   end
 
   test do
-    assert_equal version.to_s, shell_output("#{bin}/relay version").strip unless build.head?
-    assert_match "Machine boundaries", shell_output("#{bin}/relay guide")
+    assert_equal version.to_s, shell_output("#{bin}/valetkey-relay version").strip unless build.head?
+    assert_match "Machine boundaries", shell_output("#{bin}/valetkey-relay guide")
   end
 end

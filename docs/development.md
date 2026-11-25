@@ -12,14 +12,14 @@ valetkey/
 │   ├── relay_entry.py          entry service: requests, owner writes, web page
 │   ├── entry-page.html
 │   ├── relaylib/               bw client and cache, routes, whois identity, request store
-│   ├── tools/                  gen-fnox-config, vault-info, fnox-to-relay, vault-stub
+│   ├── tools/                  gen-fnox-config, vault-info, valetkey-fnox-to-relay, vault-stub
 │   └── tests/                  unit and policy tests with fake bw / tailscale / fnox
 ├── broker/
 │   ├── deps.sh                 apt packages, Tailscale, bw, fnox
 │   ├── setup.sh                users, code, configs, credentials, units
-│   ├── bin/                    relay-login, relay-check, relay-routes, relay-update, relay-cert, with-bw-session
+│   ├── bin/                    valetkey-relay login, valetkey-relay check, valetkey-relay routes, valetkey-relay update, relay-cert, with-bw-session
 │   └── systemd/                relay-{front,local,infra,entry}.service, relay-cert.{service,timer}
-├── client/                     relay, vault (fnox shim), vault-entry
+├── client/                     relay, vault (fnox shim), valetkey-entry
 ├── bellhop/                    the desk: tools with their own login
 │   ├── desk.py                 desk service: listed tools, install requests
 │   ├── bellhop                 stand-in command for agent machines

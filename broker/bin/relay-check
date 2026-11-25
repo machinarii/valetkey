@@ -1,5 +1,5 @@
 #!/bin/bash
-# Usage: sudo relay-check [local|infra|entry]
+# Usage: sudo valetkey-relay check [local|infra|entry]
 # Per relay user: unlocked/locked; for local/infra, ok/FAIL per item in each collection of
 # org.json and per routes entry of that org; the collections each account sees (compare them
 # with the web vault: a nested collection the account was not given shows up only there).
@@ -13,7 +13,7 @@ libexec=/usr/local/libexec/relay
 case ${1:-all} in
   local|infra|entry) names=$1 ;;
   all) names="local infra entry" ;;
-  *) echo "usage: relay-check [local|infra|entry]" >&2; exit 2 ;;
+  *) echo "usage: valetkey-relay check [local|infra|entry]" >&2; exit 2 ;;
 esac
 
 rc=0
@@ -21,10 +21,10 @@ for n in $names; do
   user=relay-$n home=/var/lib/relay-$n
   echo "== relay-$n"
   if [ ! -f "/etc/credstore.encrypted/bw-unlock-$n" ]; then
-    echo "relay-$n: locked (no unlock credential: sudo relay-login $n <email>)"; rc=1; continue
+    echo "relay-$n: locked (no unlock credential: sudo valetkey-relay login $n <email>)"; rc=1; continue
   fi
   if [ ! -f "$home/org.json" ]; then
-    echo "relay-$n: no org.json (sudo relay-login $n <email>)"; rc=1; continue
+    echo "relay-$n: no org.json (sudo valetkey-relay login $n <email>)"; rc=1; continue
   fi
   inner=(/usr/bin/python3 -I "$libexec/vault-info.py" check "$n"
          --routes /etc/relay/routes.toml --org-ids "$home/org.json")
@@ -39,7 +39,7 @@ for n in $names; do
   fi
   if [ "${2:-}" = --api-only ]; then exit "$r"; fi
   if [ -z "$out" ]; then
-    echo "relay-$n: locked (unlock failed; re-run: sudo relay-login $n <email>)"
+    echo "relay-$n: locked (unlock failed; re-run: sudo valetkey-relay login $n <email>)"
   else
     printf '%s\n' "$out"
   fi

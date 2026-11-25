@@ -74,7 +74,7 @@ T3 asks which Claude program to run. That choice decides how Claude signs in; se
 
   Any process on the machine can run this launcher and so use the subscription; that is the
   trade-off the setup-token route accepts. Agents must not run it or print what it fetches.
-- **API credits:** point T3 at a wrapper that runs `relay model`, as in
+- **API credits:** point T3 at a wrapper that runs `valetkey-relay model`, as in
   [Model API accounts](model-api-accounts.md). Don't put provider API keys in T3's own settings:
   they would sit on the agent machine.
 

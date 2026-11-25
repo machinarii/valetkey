@@ -257,7 +257,26 @@ class RelayTests(ClientCase):
             execv.side_effect = SystemExit(0)
             with self.assertRaises(SystemExit):
                 relay.cmd_update(None)
-            execv.assert_called_once_with("/usr/local/sbin/relay-update", ["/usr/local/sbin/relay-update", "install"])
+            execv.assert_called_once_with("/usr/local/libexec/relay/bin/relay-update", ["/usr/local/libexec/relay/bin/relay-update", "install"])
+
+    def test_broker_words_run_broker_tools_only_on_a_server_install(self):
+        from importlib.machinery import SourceFileLoader
+        from unittest import mock
+        relay = SourceFileLoader("relay_client_broker_words", os.path.join(CLIENT, "relay")).load_module()
+        with mock.patch.object(relay.os, "execv") as execv, mock.patch.object(relay.os, "access", return_value=True):
+            relay.broker_tool(["routes", "install", "local"])  # a full client: never handed over
+            execv.assert_not_called()
+            with mock.patch.object(relay.Path, "resolve", return_value=relay.Path("/usr/local/bin/valetkey-relay-version")):
+                relay.broker_tool(["routes", "install", "local"])
+                execv.assert_called_once_with("/usr/local/libexec/relay/bin/relay-routes",
+                                              ["/usr/local/libexec/relay/bin/relay-routes", "install", "local"])
+                execv.reset_mock()
+                relay.broker_tool(["rollback"])
+                execv.assert_called_once_with("/usr/local/libexec/relay/bin/relay-update", ["/usr/local/libexec/relay/bin/relay-update", "rollback"])
+                execv.reset_mock()
+                for argv in ([], ["version"], ["request", "x"]):
+                    relay.broker_tool(argv)
+                execv.assert_not_called()
 
     def test_join_route_sends_only_the_route_name(self):
         p = self.run_tool("relay", "join-route", "reports")
@@ -282,7 +301,7 @@ class RelayTests(ClientCase):
         out, _ = self.out(p)
         self.assertEqual(p.returncode, 0)
         self.assertIn("request r_1 (pending)", out)
-        self.assertIn(f"Enter it with: vault-entry r_1   or   {self.base}/entry — your choice", out)
+        self.assertIn(f"Enter it with: valetkey-entry r_1   or   {self.base}/entry — your choice", out)
         method, path, body, ctype = self.srv.log[0]
         self.assertEqual(path, "/entry/v1/requests")
         self.assertEqual(ctype, "application/json")
@@ -310,13 +329,13 @@ class RelayTests(ClientCase):
 
     def test_backups_errors_exit_1(self):
         p = self.run_tool("relay", "backups", "infra", "forbidden")
-        self.assertEqual((p.returncode, self.out(p)), (1, ("", "relay: not allowed (403)\n")))
+        self.assertEqual((p.returncode, self.out(p)), (1, ("", "valetkey-relay: not allowed (403)\n")))
         p = self.run_tool("relay", "backups", "infra", "unknown")
-        self.assertEqual((p.returncode, self.out(p)), (1, ("", "relay: not found (404)\n")))
+        self.assertEqual((p.returncode, self.out(p)), (1, ("", "valetkey-relay: not found (404)\n")))
         p = self.run_tool("relay", "backups", "infra", "boom")
-        self.assertEqual((p.returncode, self.out(p)), (1, ("", "relay: backups failed (503)\n")))
+        self.assertEqual((p.returncode, self.out(p)), (1, ("", "valetkey-relay: backups failed (503)\n")))
         p = self.run_tool("relay", "backups", "moved", "x")
-        self.assertEqual((p.returncode, self.out(p)), (1, ("", "relay: backups failed (302)\n")))
+        self.assertEqual((p.returncode, self.out(p)), (1, ("", "valetkey-relay: backups failed (302)\n")))
         p = self.run_tool("relay", "backups", "infra", "x", env=STRAY_PROXY)
         self.assertEqual((p.returncode, self.out(p)[0]), (0, "20261106\n20261030\n"), p.stderr)
         self.assertEqual([x for x in self.srv.log if x[1] == "/infra/shop/value/x"], [])
@@ -686,7 +705,7 @@ class RetryTests(unittest.TestCase):
         f = self.flaky(["reset", "close", "ok"], b'{"a": "ok"}')
         p = self.run_tool(f, "relay", "check", "infra", "a")
         self.assertEqual(p.returncode, 1)
-        self.assertRegex(p.stderr.decode(), r"^relay: cannot reach broker \([A-Za-z]+\)\n$")
+        self.assertRegex(p.stderr.decode(), r"^valetkey-relay: cannot reach broker \([A-Za-z]+\)\n$")
         self.assertEqual(len(f.paths), 2)
         f = self.flaky(["reset"], b'{"id": "r_1", "status": "pending"}')
         p = self.run_tool(f, "relay", "request", "n", "--org", "infra", "--purpose", "x")

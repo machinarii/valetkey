@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""vault-entry: owner tool. Lists pending credential requests and enters values with a hidden prompt."""
+"""valetkey-entry: owner tool. Lists pending credential requests and enters values with a hidden prompt."""
 import argparse
 import getpass
 import json
@@ -30,7 +30,7 @@ def _relay_url():
 
 BASE = _relay_url()
 NO_URL = ("no broker URL: set RELAY_URL=https://broker.<tailnet>.ts.net or run "
-          "`relay set-url https://broker.<tailnet>.ts.net`")
+          "`valetkey-relay set-url https://broker.<tailnet>.ts.net`")
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -46,7 +46,7 @@ OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect
 
 def call(method, path, body=None):
     if not good_addr(BASE):
-        sys.exit("vault-entry: bad RELAY_URL (https:// required; HTTP allowed only on loopback for tests)")
+        sys.exit("valetkey-entry: bad RELAY_URL (https:// required; HTTP allowed only on loopback for tests)")
     data = json.dumps(body).encode() if body is not None else None
     req = urllib.request.Request(BASE + "/entry/v1" + path, data=data, method=method)
     if data is not None:
@@ -57,7 +57,7 @@ def call(method, path, body=None):
     except urllib.error.HTTPError as e:
         return e.code, e.read().decode("utf-8", "replace")
     except Exception as e:
-        sys.exit(f"vault-entry: cannot reach broker ({type(getattr(e, 'reason', e)).__name__})")
+        sys.exit(f"valetkey-entry: cannot reach broker ({type(getattr(e, 'reason', e)).__name__})")
 
 
 def one_line(text):
@@ -66,7 +66,7 @@ def one_line(text):
 
 def die(status, text):
     # Broker/proxy error bodies can contain a reflected submitted value.
-    sys.exit(f"vault-entry: request failed ({status})")
+    sys.exit(f"valetkey-entry: request failed ({status})")
 
 
 def good_addr(addr):
@@ -156,7 +156,7 @@ def read_notes():
     the scrollback). Non-terminal input is refused."""
     prompts = ('Lines, end with a single "." (input hidden)', 'Again, end with a single "."')
     if not sys.stdin.isatty():
-        sys.exit("vault-entry: use a private terminal or the encrypted web entry page")
+        sys.exit("valetkey-entry: use a private terminal or the encrypted web entry page")
     import termios
     fd = sys.stdin.fileno()
     saved = termios.tcgetattr(fd)
@@ -176,7 +176,7 @@ def read_notes():
 
 def read_value(field):
     if not sys.stdin.isatty():
-        sys.exit("vault-entry: use a private terminal or the encrypted web entry page")
+        sys.exit("valetkey-entry: use a private terminal or the encrypted web entry page")
     if field == "notes":
         first, second = read_notes()
         if first != second:
@@ -187,7 +187,7 @@ def read_value(field):
         if getpass.getpass("Again: ") != first:
             sys.exit("values differ")
     except (getpass.GetPassWarning, EOFError):
-        sys.exit("vault-entry: hidden input unavailable; use the encrypted web entry page")
+        sys.exit("valetkey-entry: hidden input unavailable; use the encrypted web entry page")
     return first
 
 
@@ -213,7 +213,7 @@ def enter(rid, req=None, expires=None):
         sys.exit("empty value")
     status, text = call("POST", f"/requests/{urllib.parse.quote(req['id'], safe='')}/value", {"value": value, "expires": expires})
     value = None
-    print("stored" if status == 200 else f"vault-entry: submission failed ({status})")
+    print("stored" if status == 200 else f"valetkey-entry: submission failed ({status})")
     if status == 200:
         print(f"What it opens: {BASE.rstrip('/')}/entry/access/{req['id']}")
     return 0 if status == 200 else 1
@@ -238,17 +238,17 @@ def cmd_replace(a):
 def main():
     argv = sys.argv[1:]
     if not BASE:
-        sys.exit(f"vault-entry: {NO_URL}")
+        sys.exit(f"valetkey-entry: {NO_URL}")
     if not argv:
         return listing()
     if argv[0] not in ("add", "replace"):
         rest = argv[1:]
         expires = rest[1] if len(rest) == 2 and rest[0] == "--expires" else None
         if argv[0].startswith("-") or (rest and expires is None):
-            sys.exit("usage: vault-entry [<id> | add <name> --org … --purpose … | replace <name> --org …]"
+            sys.exit("usage: valetkey-entry [<id> | add <name> --org … --purpose … | replace <name> --org …]"
                      " [--expires YYYY-MM-DD|never]")
         return enter(argv[0], expires=expires)
-    p = argparse.ArgumentParser(prog="vault-entry " + argv[0])
+    p = argparse.ArgumentParser(prog="valetkey-entry " + argv[0])
     p.add_argument("name")
     p.add_argument("--org", required=True, choices=["local", "infra"])
     p.add_argument("--expires", help="YYYY-MM-DD, or never; default one year from today")

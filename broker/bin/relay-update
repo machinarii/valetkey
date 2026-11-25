@@ -1,8 +1,8 @@
 #!/bin/bash
-# Usage: sudo relay-update setup https://github.com/<owner>/<repo>.git [branch]   (public repository)
-#        sudo relay-update setup git@github.com:<owner>/<repo>.git [branch]       (private repository)
-#        sudo relay-update install      (also: sudo valetkey-relay update)
-#        sudo relay-update rollback
+# Usage: sudo valetkey-relay setup https://github.com/<owner>/<repo>.git [branch]   (public repository)
+#        sudo valetkey-relay setup git@github.com:<owner>/<repo>.git [branch]       (private repository)
+#        sudo valetkey-relay update
+#        sudo valetkey-relay rollback
 # Updates the broker's valetkey code from its repository, from the broker's own console only.
 # Nothing on the network can start an install: anyone who can push to the repository would
 # otherwise run code as root here.
@@ -20,7 +20,7 @@
 # rollback puts back the code the last install replaced, for an update that starts but misbehaves.
 set -euo pipefail
 umask 077
-usage="usage: relay-update setup <https://github.com/|git@github.com:><owner>/<repo>.git [branch] | install | rollback"
+usage="usage: valetkey-relay setup <https://github.com/|git@github.com:><owner>/<repo>.git [branch] | update | rollback"
 
 # RELAY_UPDATE_ROOT (tests only): a directory used in place of /. sudo does not pass it on.
 root=${RELAY_UPDATE_ROOT:-}
@@ -75,7 +75,9 @@ restore() {  # the installed code becomes exactly what $backup holds
     systemctl restart relay-approval.service
   fi
   # api.toml was written by the new generator: let the previous one write it again.
-  "$sbin/relay-routes" install
+  routes=$libexec/bin/relay-routes  # a copy from before the tools moved keeps them in sbin
+  [ -x "$routes" ] || routes=$sbin/relay-routes
+  "$routes" install
   systemctl restart relay-entry.service relay-front.service
   rm -f "$marker"
   set -e
@@ -134,7 +136,7 @@ cmd_setup() {
 
 cmd_install() {
   local url='' branch=main key val tmp new cur short answer='' staged before count epoch_new epoch_cur
-  [ -f "$conf" ] || fail "not set up: sudo relay-update setup https://github.com/<owner>/<repo>.git"
+  [ -f "$conf" ] || fail "not set up: sudo valetkey-relay setup https://github.com/<owner>/<repo>.git"
   while IFS='=' read -r key val; do  # read, never sourced
     case $key in UPDATE_REPO) url=$val ;; UPDATE_BRANCH) branch=$val ;; esac
   done < "$conf"
@@ -240,18 +242,18 @@ except (OSError, ValueError, RoutesError) as err:
     echo "FAIL  ports$before did not all come back: putting the previous code back" >&2
     restore
     rm -rf "$staged"
-    fail "$short not installed; the previous code is running (check: sudo relay-check)"
+    fail "$short not installed; the previous code is running (check: sudo valetkey-relay check)"
   fi
   echo "$new" > "$libexec/COMMIT"
   chmod 644 "$libexec/COMMIT"
   rm -rf "$staged" "$marker"
   ok "installed $short; ports listening:${before:- none before, none checked}"
-  echo "Next: sudo relay-check"
+  echo "Next: sudo valetkey-relay check"
 }
 
 case ${1:-} in
   setup) shift; cmd_setup "$@" ;;
   install) cmd_install ;;
-  rollback) restore; ok "previous code restored (check: sudo relay-check)" ;;
+  rollback) restore; ok "previous code restored (check: sudo valetkey-relay check)" ;;
   *) echo "$usage" >&2; exit 2 ;;
 esac

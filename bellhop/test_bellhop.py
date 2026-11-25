@@ -204,6 +204,12 @@ callers = ["someone-else"]
         def client(*args):
             return subprocess.run([link, *args], cwd=work, env=env, capture_output=True, text=True, timeout=30)
 
+        # Under the project's name it is still bellhop itself, never a stand-in for a tool of that name.
+        named = os.path.join(os.path.dirname(link), "valetkey-bellhop")
+        os.symlink(os.path.realpath(link), named)
+        listed = subprocess.run([named, "--list"], cwd=work, env=env, capture_output=True, text=True, timeout=30)
+        self.assertIn("tools:", listed.stdout)
+
         done = client("upload", "--image=scene.png")
         self.assertEqual(done.returncode, 0, done.stderr)
         self.assertIn(hashlib.sha256(b"local picture").hexdigest(), done.stdout)

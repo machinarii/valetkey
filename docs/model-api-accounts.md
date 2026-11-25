@@ -22,10 +22,10 @@ Claude Code uses the Anthropic Messages protocol. OpenRouter recommends Anthropi
 For OpenRouter, request an item by name from the agent:
 
 ```sh
-relay request openrouter-api-key --org local --purpose "API-billed model requests"
+valetkey-relay request openrouter-api-key --org local --purpose "API-billed model requests"
 ```
 
-On a separate approver device, enter the provider API key in the broker entry page printed by the request, or run `vault-entry <request-id>` in your own unrecorded terminal. For a direct provider, use a dedicated item such as `anthropic-api-key` or `openai-api-key`. Subscription tokens belong to the subscription sign-in flow. [Subscription setup](secure-setup.md#claude-code-subscription-sign-in)
+On a separate approver device, enter the provider API key in the broker entry page printed by the request, or run `valetkey-entry <request-id>` in your own unrecorded terminal. For a direct provider, use a dedicated item such as `anthropic-api-key` or `openai-api-key`. Subscription tokens belong to the subscription sign-in flow. [Subscription setup](secure-setup.md#claude-code-subscription-sign-in)
 
 ## 2. Authorize a model route
 
@@ -52,7 +52,7 @@ For direct billing, use the same table format with `provider = "anthropic"` and 
 Apply the local routes from the broker console:
 
 ```sh
-sudo relay-routes check && sudo relay-routes install local
+sudo valetkey-relay routes check && sudo valetkey-relay routes install local
 ```
 
 Model routes generate exact POST rules for inference. Claude routes also allow token counting at `/v1/messages/count_tokens`; provider support can vary. Direct OpenAI routes also allow `/v1/responses/compact`. Model discovery, account management and raw key reads are outside the grant. Any process on an authorized machine can spend credits through the route and select a model the provider key permits. Set model restrictions and spending limits with the provider where available. Prompts, tool definitions and tool results go to the selected provider, including OpenRouter and its serving provider when you choose OpenRouter.
@@ -62,27 +62,27 @@ Model routes generate exact POST rules for inference. Claude routes also allow t
 On the authorized agent, check storage and route access by item name. Then make one short model turn to verify upstream authentication. The turn uses API credits.
 
 ```sh
-relay check local openrouter-api-key
-relay model claude router-claude anthropic/claude-sonnet-4.6 -p "Reply OK"
-relay model codex router-codex openai/gpt-5.4 exec "Reply OK"
+valetkey-relay check local openrouter-api-key
+valetkey-relay model claude router-claude anthropic/claude-sonnet-4.6 -p "Reply OK"
+valetkey-relay model codex router-codex openai/gpt-5.4 exec "Reply OK"
 ```
 
 For direct billing, if you named the routes `anthropic-dev` and `openai-dev`, the equivalent commands are
 
 ```sh
-relay model claude anthropic-dev claude-sonnet-4-6 -p "Reply OK"
-relay model codex openai-dev gpt-5.4 exec "Reply OK"
+valetkey-relay model claude anthropic-dev claude-sonnet-4-6 -p "Reply OK"
+valetkey-relay model codex openai-dev gpt-5.4 exec "Reply OK"
 ```
 
-The model IDs above are examples. Use the provider's exact ID, including the organization prefix for OpenRouter. For an interactive session omit `-p "Reply OK"` or `exec "Reply OK"`. For a route in the infra organization, put `--org infra` immediately after `relay model`. [OpenRouter model catalog](https://openrouter.ai/models) · [Anthropic API](https://platform.claude.com/docs/en/api/overview) · [Codex provider configuration](https://developers.openai.com/codex/config-reference)
+The model IDs above are examples. Use the provider's exact ID, including the organization prefix for OpenRouter. For an interactive session omit `-p "Reply OK"` or `exec "Reply OK"`. For a route in the infra organization, put `--org infra` immediately after `valetkey-relay model`. [OpenRouter model catalog](https://openrouter.ai/models) · [Anthropic API](https://platform.claude.com/docs/en/api/overview) · [Codex provider configuration](https://developers.openai.com/codex/config-reference)
 
-A successful `relay check` verifies item presence and machine permission. A model reply verifies the provider accepted the request. For a 401 or 403, check the route's machine list, provider and item before replacing a key. A 402 or 429 can indicate insufficient credits or a provider limit. Codex may show fallback metadata for a model outside its bundled catalog. In Claude Code, `/status` should show the broker base URL. Check for conflicting provider settings if it shows a different URL.
+A successful `valetkey-relay check` verifies item presence and machine permission. A model reply verifies the provider accepted the request. For a 401 or 403, check the route's machine list, provider and item before replacing a key. A 402 or 429 can indicate insufficient credits or a provider limit. Codex may show fallback metadata for a model outside its bundled catalog. In Claude Code, `/status` should show the broker base URL. Check for conflicting provider settings if it shows a different URL.
 
-For a host such as T3 that takes a CLI binary path, the owner can point it at a dedicated executable wrapper for the API-billed instance. Use the full path to the installed `relay` if the service has a limited PATH. The native `claude` or `codex` executable must also be on that PATH. For example:
+For a host such as T3 that takes a CLI binary path, the owner can point it at a dedicated executable wrapper for the API-billed instance. Use the full path to the installed `valetkey-relay` if the service has a limited PATH. The native `claude` or `codex` executable must also be on that PATH. For example:
 
 ```sh
 #!/bin/sh
-exec relay model codex router-codex openai/gpt-5.4 "$@"
+exec valetkey-relay model codex router-codex openai/gpt-5.4 "$@"
 ```
 
 Keep your subscription launcher as a separate selection. Neither configuring a route nor reading this guide switches a running session.

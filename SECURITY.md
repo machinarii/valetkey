@@ -52,11 +52,11 @@ See [Claude Code subscription sign-in](docs/secure-setup.md#claude-code-subscrip
 
 ## Operational rules
 
-- Values are entered only at hidden prompts (`relay-login`, `vault-entry`) or in Vaultwarden or the entry page. They never go in command arguments, files in this repo, chat, or cloud documents.
+- Values are entered only at hidden prompts (`valetkey-relay login`, `valetkey-entry`) or in Vaultwarden or the entry page. They never go in command arguments, files in this repo, chat, or cloud documents.
 - Read accounts are *Can view*, never *Admin* or *Owner*. Collection access must not be *hide passwords*, or every item reports `FAIL`.
 - Back up Vaultwarden's data directory and the broker VM. The vault items are encrypted, but the backups still need protecting.
 - Old backups (`<name>-backup-YYYYMMDD`) are never deleted automatically. Remove them yourself after rotating.
-- `relay guide` and `./install.sh guidance` provide offline memory rules. `--agent` installs only
+- `valetkey-relay guide` and `./install.sh guidance` provide offline memory rules. `--agent` installs only
   metadata tools; server policy supplies enforcement. Existing tools or secrets are not removed.
-- Report storage/access (`relay check`) separately from upstream authentication. Test denied raw
+- Report storage/access (`valetkey-relay check`) separately from upstream authentication. Test denied raw
   endpoints only with synthetic credentials; a live misconfiguration could return a real key.

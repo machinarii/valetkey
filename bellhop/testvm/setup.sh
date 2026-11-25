@@ -129,7 +129,7 @@ Try these here. The tool and its login live on $DESK; nothing on this machine ho
   fakefield upload scene.png       the file is sent along with the command
   fakefield make result.txt        a file the tool writes comes back here
   fakefield auth token             refused: that subcommand would print the login
-  bellhop --list                   what the desk lets this machine use
+  valetkey-bellhop --list                   what the desk lets this machine use
   claude                           after signing in: the fakemcp server offers a whoami tool
 TXT
 chown -R \$user:\$user \$project
@@ -155,7 +155,7 @@ rm -f result.txt; fakefield make result.txt >/dev/null 2>&1
 show "file the tool wrote came back:"        "\$(cat result.txt 2>&1)"
 show "login-printing subcommand:"            "\$(fakefield auth token 2>&1 | cut -c1-60)"
 show "path on the desk as an argument:"      "\$(fakefield upload /etc/bellhop/keys/fakemcp 2>&1 | cut -c1-60)"
-show "allowed here:"                         "\$(bellhop --list 2>&1 | tr '\n' ' ')"
+show "allowed here:"                         "\$(valetkey-bellhop --list 2>&1 | tr '\n' ' ')"
 ask='{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"whoami"}}'
 show "MCP through the desk, no key here:"    "\$(python3 -c "
 import urllib.request,json,sys
@@ -166,7 +166,7 @@ import urllib.request
 try: urllib.request.urlopen('http://$desk_ip:8470/mcp', data=b'{}', timeout=5); print('REACHABLE')
 except Exception as e: print('blocked (' + type(e).__name__ + ')')" 2>&1)"
 show "synthetic login anywhere on this machine:" "\$(grep -rIl 'synthetic-' /home /etc /opt /usr/local /tmp 2>/dev/null | grep -v bellhop-src | head -3 | tr '\n' ' ' | grep . || echo none)"
-show "install request filed with the desk:"  "\$(bellhop --request mcp buffer https://mcp.buffer.com/mcp schedule posts 2>&1 | cut -c1-60)"
+show "install request filed with the desk:"  "\$(valetkey-bellhop --request mcp buffer https://mcp.buffer.com/mcp schedule posts 2>&1 | cut -c1-60)"
 show "MCP server added outside the desk:"    "\$(claude mcp add --transport http rogue https://mcp.example.com/mcp 2>&1 | tail -1 | cut -c1-70)"
 show "sudo for the agent's user:"            "\$(sudo -n true 2>/dev/null && echo STILL ALLOWED || echo removed)"
 show "reach into the Mac (mac command):"     "\$(timeout 10 mac echo reached 2>/dev/null | grep -q reached && echo WORKS || echo no)"
@@ -179,11 +179,11 @@ echo "synthetic-login-planted-for-the-test" > ~/.config/higgsfield/credentials.j
 printf 'API_KEY=synthetic-key-planted-for-test\n' > ~/bellhop-test/.env
 printf '#!/bin/sh\n' > ~/.local/bin/newtool && chmod +x ~/.local/bin/newtool
 PLANT
-echo '/usr/local/sbin/bellhop-sweep | sed "s/^/  /"; systemctl list-timers bellhop-sweep.timer --no-pager | sed -n 2p | cut -c1-70' | as_root "$AGENT"
+echo '/usr/local/sbin/valetkey-sweep | sed "s/^/  /"; systemctl list-timers bellhop-sweep.timer --no-pager | sed -n 2p | cut -c1-70' | as_root "$AGENT"
 as_user "$AGENT" <<'CLEAN'
 rm -rf ~/.config/higgsfield ~/bellhop-test/.env ~/.local/bin/newtool
 CLEAN
-echo '/usr/local/sbin/bellhop-sweep | sed "s/^/  after cleanup: /"' | as_root "$AGENT"
+echo '/usr/local/sbin/valetkey-sweep | sed "s/^/  after cleanup: /"' | as_root "$AGENT"
 
 echo "== desk: what the owner sees"
 echo 'python3 -I /opt/bellhop/desk.py --requests | sed "s/^/  /"; : > /var/lib/bellhop/requests.jsonl' | as_root "$DESK"   # shown, then cleared: it was a test

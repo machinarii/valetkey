@@ -116,4 +116,4 @@ echo
 echo "Nothing is signed in yet. On this machine, as the owner:"
 for step in "${steps[@]}"; do printf '\n  %s\n' "$step"; done
 echo
-echo "Then, from an agent machine:  bellhop --list"
+echo "Then, from an agent machine:  valetkey-bellhop --list"

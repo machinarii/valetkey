@@ -27,7 +27,7 @@ valetkey takes a different route:
 |---|---|
 | Keys copied onto every machine | Agent machines receive no raw provider key through approved API routes. Separate trusted servers fetch only what their processes need. Existing secret files are not removed by Valet. |
 | Broker client tokens to protect and rotate | **Identity is the machine.** The broker asks Tailscale who is calling (`tailscale whois`). There is no additional Valet bearer token; Tailscale identity still needs protecting. |
-| Agents that can read and print secrets | Declared agent machines use API routes by default. A Claude setup-token exception exposes that token to the named machine. `relay check` reports storage/access status, not upstream authentication. |
+| Agents that can read and print secrets | Declared agent machines use API routes by default. A Claude setup-token exception exposes that token to the named machine. `valetkey-relay check` reports storage/access status, not upstream authentication. |
 | Pasting a new key into chat | The owner types the value into a **hidden terminal prompt or a web page on the tailnet**. The agent picks the name, so naming can't drift. |
 | A key that silently expired | **Replace with backup**: the old value is kept as `<name>-backup-YYYYMMDD`. Only trusted servers/operators may use backups. |
 
@@ -37,9 +37,9 @@ valetkey takes a different route:
 - **Key injection.** `[api.*]` routes add credentials to outgoing HTTPS calls (exact host, methods and path prefixes) through `fnox proxy`. The calling process never has the key.
 - **Works with fnox as is.** Uses fnox's own `vault` provider with a 100-line shim. Keep `fnox exec`, profiles and `if_missing = "error"`.
 - **Broker-only agent policy.** Agent nodes can check and request; ordinary raw reads require a separate grant for a trusted server. Includes offline guidance for agent memory.
-- **Owner entry, two ways.** Hidden terminal prompt (`vault-entry`) or a plain, phone-friendly web page that only your devices can submit to.
+- **Owner entry, two ways.** Hidden terminal prompt (`valetkey-entry`) or a plain, phone-friendly web page that only your devices can submit to.
 - **Replace with backup.** Each replace keeps `<name>-backup-YYYYMMDD`; same-day collisions are refused. Backups require the same trusted raw-consumer policy as the original.
-  fnox may find multiple items when a backup contains the original name. The owner must resolve that ambiguity privately before restarting the route; agents must not delete backups. `relay-check` and `relay-routes install` report it.
+  fnox may find multiple items when a backup contains the original name. The owner must resolve that ambiguity privately before restarting the route; agents must not delete backups. `valetkey-relay check` and `valetkey-relay routes install` report it.
 - **Upstream 401/403 detection.** An API route that starts failing marks its item *may be expired*. You see the mark next to a one-click replace.
 - **Least privilege on the broker.** Separate system users, separate Vaultwarden accounts, view-only read accounts, a write account unlocked for seconds at a time, and hardened systemd units (`ProtectSystem=strict`, `NoNewPrivileges`, and more).
 - **Names only, everywhere.** Audit logs, checks, errors and installer output contain item names and `ok` / `FAIL`, never values.
@@ -62,10 +62,10 @@ valetkey is several small tools, each with one job, and each belongs on a partic
 | &nbsp;&nbsp;`relay-local`, `relay-infra` | The read side, one per vault organization: checks, values for trusted servers, API routes. | Broker |
 | &nbsp;&nbsp;`relay-entry` | The write side: named requests from agents, and the page and prompt where you type a value. | Broker |
 | **fnox** | On the broker, adds the key to an outgoing API call (`fnox proxy`). On a trusted server, starts a program with its secrets (`fnox exec`). | Broker; trusted servers |
-| **Broker tools** `relay-login`, `relay-check`, `relay-routes`, `relay-update` | Sign the relays in to the vault, check them, apply route changes, update the broker. | Broker, at its console |
-| **`relay`** | The client. Asks the broker whether a key exists and requests a new one by name. Never shows a value. | Agent machines and every other client |
+| **Broker tools** `valetkey-relay login`, `valetkey-relay check`, `valetkey-relay routes`, `valetkey-relay update` | Sign the relays in to the vault, check them, apply route changes, update the broker. | Broker, at its console |
+| **`valetkey-relay`** | The client. Asks the broker whether a key exists and requests a new one by name. Never shows a value. | Agent machines and every other client |
 | **`vault`** | A small shim that lets fnox fetch a value from the broker for a trusted program. | Trusted servers only |
-| **`vault-entry`** | A hidden prompt for typing a key's value. | Approver devices only |
+| **`valetkey-entry`** | A hidden prompt for typing a key's value. | Approver devices only |
 | **bellhop desk** | Runs command-line tools that keep their own login, on behalf of agent machines, within a list you write. | Desk |
 | **`bellhop`** | The stand-in. Sends a command and its files to the desk and returns the output. Linked under each tool's own name. | Agent machines |
 | **sweep** | An hourly check that no login and no unexpected tool has appeared. Reports names only. | Agent machines, as root |
@@ -85,7 +85,7 @@ valetkey is several small tools, each with one job, and each belongs on a partic
 │   fnox → vault shim       │        │ fnox proxy: adds the key to [api.*] calls    │       ┌─────────────────────┐
 ├───────────────────────────┤        │ relay-approval: authenticator, route grants  │──────▶│ service APIs and    │
 │ approver device           │───────▶│ relay-entry: key entry; checks what a stored │       │ MCP servers         │
-│   vault-entry, browser    │        │   key opens on its MCP routes                │       └─────────────────────┘
+│   valetkey-entry, browser    │        │   key opens on its MCP routes                │       └─────────────────────┘
 └───────────────────────────┘        └──────────────────────────────────────────────┘
  identity = Tailscale machine name   each relay: own Linux user, own Vaultwarden account,
  nothing stored on an agent machine  own encrypted unlock, own audit log
@@ -126,7 +126,7 @@ its own Claude subscription token. See [why this exception exists](security-boun
 
 1. **Pull.** A project's `fnox.toml` points fnox's `vault` provider at the broker. fnox runs the `vault` shim for each secret, the shim does one HTTPS GET, and the value goes into the process's environment and nowhere else. `fnox exec -- npm run dev` works as before.
 2. **Inject.** A client calls `https://broker.<tailnet>.ts.net/local/stripe-shop/v1/…` with no key. The broker adds the key on the way out. The client never holds it.
-3. **Entry.** An agent runs `relay request stripe-api-key-shop-prod --org infra --project shop --purpose "…"`. You enter the value with `vault-entry <id>` in your private terminal or on `https://broker.<tailnet>.ts.net/entry`, on a separate approver device. The broker writes it, verifies it and tells the agent `stored`; the response contains no value.
+3. **Entry.** An agent runs `valetkey-relay request stripe-api-key-shop-prod --org infra --project shop --purpose "…"`. You enter the value with `valetkey-entry <id>` in your private terminal or on `https://broker.<tailnet>.ts.net/entry`, on a separate approver device. The broker writes it, verifies it and tells the agent `stored`; the response contains no value.
 
 **The desk (optional).** Some tools cannot go through an API route: a command-line tool that signs in and keeps its own login file, for example. bellhop puts those on a second small VM, the desk. The agent machine has a stand-in command under the tool's name; it sends the command and any files to the desk, which runs the real tool with its own login and returns the output. See [The desk](agent-setup.md#the-desk-tools-with-their-own-login).
 

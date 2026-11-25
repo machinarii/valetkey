@@ -1,8 +1,8 @@
 # valetkey entry service settings. Installed to /etc/relay/entry.toml by `install.sh broker`
-# (only if absent). After editing: sudo relay-routes check && sudo systemctl restart relay-entry
+# (only if absent). After editing: sudo valetkey-relay routes check && sudo systemctl restart relay-entry
 #
 # owner_nodes  Tailscale machine names of the owner's own devices; only these may submit values
-#              (terminal `vault-entry` or the web page). Any other device gets "not allowed".
+#              (terminal `valetkey-entry` or the web page). Any other device gets "not allowed".
 # tailnet_name DNS name of the broker, used in the links shown to the owner.
 owner_nodes  = ["laptop", "tablet", "phone"]
 tailnet_name = "broker.example.ts.net"

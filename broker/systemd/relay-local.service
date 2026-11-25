@@ -6,7 +6,7 @@
 Description=Credential relay, local-org (read)
 After=network-online.target tailscaled.service
 Wants=network-online.target
-# Not configured yet (relay-login local, relay-routes install): stay inactive, don't crash-loop.
+# Not configured yet (valetkey-relay login local, valetkey-relay routes install): stay inactive, don't crash-loop.
 ConditionPathExists=/etc/credstore.encrypted/bw-unlock-local
 ConditionPathExists=/var/lib/relay-local/api.toml
 ConditionPathExists=/var/lib/relay-local/org.json

@@ -23,9 +23,9 @@ Then install the package for that machine's role, and point it at your broker:
 
 | This machine | Install | Then |
 |---|---|---|
-| **Runs AI agents** (Claude Code, Codex, …) | `brew install valetkey-agent` | `relay set-url https://broker.<tailnet>.ts.net`, then `valetkey-agent-setup`: valetkey's rules and settings for Claude Code and Codex, asking before each change |
-| **Where you type keys** and approve routes | `brew install valetkey-approver` | `relay set-url https://broker.<tailnet>.ts.net` |
-| **A server whose app reads a key itself** (optional) | `brew install valetkey-trusted-server` | `relay set-url https://broker.<tailnet>.ts.net`, and install [fnox](https://fnox.jdx.dev) |
+| **Runs AI agents** (Claude Code, Codex, …) | `brew install valetkey-agent` | `valetkey-relay set-url https://broker.<tailnet>.ts.net`, then `valetkey-agent-setup`: valetkey's rules and settings for Claude Code and Codex, asking before each change |
+| **Where you type keys** and approve routes | `brew install valetkey-approver` | `valetkey-relay set-url https://broker.<tailnet>.ts.net` |
+| **A server whose app reads a key itself** (optional) | `brew install valetkey-trusted-server` | `valetkey-relay set-url https://broker.<tailnet>.ts.net`, and install [fnox](https://fnox.jdx.dev) |
 
 - One machine, one role: the packages refuse to install side by side.
 - `brew upgrade` keeps them current.
@@ -102,9 +102,9 @@ What the installer runs for each role, if you'd rather name the role yourself. R
 | **Vault host** | `sudo ./install.sh vaultwarden` | Docker, Tailscale, Vaultwarden published on the tailnet only |
 | **Broker** | `sudo ./install.sh broker --with-deps` | Tailscale, Bitwarden CLI, fnox, the relay services and broker tools |
 | **Desk** (optional) | `sudo ./install.sh desk` | Tailscale, the desk service, the TLS front door. No tools, no logins |
-| **Agent machine** | `sudo ./install.sh agent --relay-url … --desk-url … --tools …`<br>`./install.sh claude` | `relay` in agent mode, the `bellhop` stand-in, the sweep and its timer, a policy that limits MCP servers to the broker and desk (it says why and asks first). Then, as the agent's user, the rules in `CLAUDE.md` (and Codex's `AGENTS.md`, if Codex is installed) and the blocks you choose in Claude Code's settings. No keys |
-| **Approver device** | `./install.sh client --owner --relay-url …` | `relay` and `vault-entry` |
-| **Trusted server** | `./install.sh client --relay-url … --with-deps` | `relay`, the `vault` shim, fnox |
+| **Agent machine** | `sudo ./install.sh agent --relay-url … --desk-url … --tools …`<br>`./install.sh claude` | `valetkey-relay` in agent mode, the `bellhop` stand-in, the sweep and its timer, a policy that limits MCP servers to the broker and desk (it says why and asks first). Then, as the agent's user, the rules in `CLAUDE.md` (and Codex's `AGENTS.md`, if Codex is installed) and the blocks you choose in Claude Code's settings. No keys |
+| **Approver device** | `./install.sh client --owner --relay-url …` | `valetkey-relay` and `valetkey-entry` |
+| **Trusted server** | `./install.sh client --relay-url … --with-deps` | `valetkey-relay`, the `vault` shim, fnox |
 
 Never combine two rows on one machine, with one exception: the hypervisor hosts the vault, broker and desk as separate guests. If you use Proxmox, the first row replaces the next three.
 
@@ -112,7 +112,7 @@ What no installer can do for you, because each step is a decision or a secret:
 
 - edit the tailnet policy in the Tailscale admin console;
 - create the Vaultwarden accounts and organizations, and type their passwords;
-- sign the relays in (`relay-login`) and sign tools in on the desk;
+- sign the relays in (`valetkey-relay login`) and sign tools in on the desk;
 - write the routes and the desk's tool list: who may use what;
 - take `sudo` away from the agent's user.
 
@@ -165,7 +165,7 @@ In the web vault, in your browser:
 3. As yourself, create the organizations `local-org` and `infra-org` with those collections, and invite the relay accounts. Log in once as each relay account to accept, then **Confirm** each member as yourself.
 4. Close sign-ups: `pct exec 210 -- /opt/vaultwarden/close-signups.sh` (or run the script inside the container).
 
-Vaultwarden grants access per collection: a parent does not include its children. Each new project collection (`infra-broker-collection/<project>`) needs the `-infra` and `-entry` accounts granted on it, and then `sudo relay-login infra …` and `sudo relay-login entry …` run again on the broker. The relays record collection IDs at login (`/var/lib/relay-<name>/org.json`). Different org or collection names are fine; set them in `/etc/relay/vault.env` (step 4).
+Vaultwarden grants access per collection: a parent does not include its children. Each new project collection (`infra-broker-collection/<project>`) needs the `-infra` and `-entry` accounts granted on it, and then `sudo valetkey-relay login infra …` and `sudo valetkey-relay login entry …` run again on the broker. The relays record collection IDs at login (`/var/lib/relay-<name>/org.json`). Different org or collection names are fine; set them in `/etc/relay/vault.env` (step 4).
 
 ### 4. Install the broker
 
@@ -197,10 +197,10 @@ sudo nano /etc/relay/vault.env     # VAULT_URL and org/collection names, if not 
 From a secure terminal on the broker (its console, or LAN SSH). Each command asks for that account's password at a hidden prompt:
 
 ```sh
-sudo relay-login local <-local account address>
-sudo relay-login infra <-infra account address>
-sudo relay-login entry <-entry account address>
-sudo relay-check        # expect: unlocked ×3, ok for every item and route, all units active
+sudo valetkey-relay login local <-local account address>
+sudo valetkey-relay login infra <-infra account address>
+sudo valetkey-relay login entry <-entry account address>
+sudo valetkey-relay check        # expect: unlocked ×3, ok for every item and route, all units active
 ```
 
 ### 6. Set up the machines that use keys
@@ -212,7 +212,7 @@ git clone https://github.com/machinarii/valetkey && cd valetkey
 sudo ./install.sh agent --relay-url https://broker.<tailnet>.ts.net
 ```
 
-It installs `relay` in agent mode, the hourly sweep and a policy that limits MCP servers to the broker, all as root-owned files, and prints what is left for you. With a desk, add `--desk-url https://desk.<tailnet>.ts.net/desk --tools tool1,tool2`; each tool name becomes a stand-in. `--user NAME` says which user the agent runs as, and `--no-policy` skips the MCP policy. If T3 Code is installed for that user, the policy also allows T3's own tools; `--no-t3` leaves them out. [T3 Code](t3-code.md)
+It installs `valetkey-relay` in agent mode, the hourly sweep and a policy that limits MCP servers to the broker, all as root-owned files, and prints what is left for you. With a desk, add `--desk-url https://desk.<tailnet>.ts.net/desk --tools tool1,tool2`; each tool name becomes a stand-in. `--user NAME` says which user the agent runs as, and `--no-policy` skips the MCP policy. If T3 Code is installed for that user, the policy also allows T3's own tools; `--no-t3` leaves them out. [T3 Code](t3-code.md)
 
 Then, as the user the agent runs as, set up Claude Code itself:
 
@@ -257,14 +257,14 @@ items = ["*-shop-qa", "*-shop-prod"]
 ```
 
 ```sh
-sudo relay-routes install
+sudo valetkey-relay routes install
 ```
 
 Point the project's `fnox.toml` at the broker. To generate it from your current `fnox list` (names only, never values):
 
 ```sh
 { fnox list; echo "== production"; fnox list -P production --no-defaults; } \
-  | fnox-to-relay --project shop --env qa --org infra > fnox.toml
+  | valetkey-fnox-to-relay --project shop --env qa --org infra > fnox.toml
 ```
 
 ```toml
@@ -282,7 +282,7 @@ TLS_KEY      = { provider = "relay", value = "tls-key-shop-qa/notes", if_missing
 Check every item, then run as usual:
 
 ```sh
-relay check infra $(sed -n 's/.* value = "\([^"]*\)".*/\1/p' fnox.toml)    # all ok
+valetkey-relay check infra $(sed -n 's/.* value = "\([^"]*\)".*/\1/p' fnox.toml)    # all ok
 FNOX_DAEMON=off fnox exec -- npm run dev
 ```
 
@@ -316,4 +316,4 @@ curl -fsS https://vault.<tailnet>.ts.net/alive                          # approv
 curl -fsS "https://broker.<tailnet>.ts.net/local/check?names=x"         # {"x": "not-allowed"} or "missing"
 ```
 
-From a device that isn't on the tailnet, both should fail. On the broker, `sudo relay-check` should show `unlocked` ×3 and `ok` everywhere.
+From a device that isn't on the tailnet, both should fail. On the broker, `sudo valetkey-relay check` should show `unlocked` ×3 and `ok` everywhere.

@@ -32,7 +32,7 @@ Two sides:
 │   fnox → vault shim       │        │ fnox proxy: adds the key to [api.*] calls    │       ┌─────────────────────┐
 ├───────────────────────────┤        │ relay-approval: authenticator, route grants  │──────▶│ service APIs and    │
 │ approver device           │───────▶│ relay-entry: key entry; checks what a stored │       │ MCP servers         │
-│   vault-entry, browser    │        │   key opens on its MCP routes                │       └─────────────────────┘
+│   valetkey-entry, browser    │        │   key opens on its MCP routes                │       └─────────────────────┘
 └───────────────────────────┘        └──────────────────────────────────────────────┘
 ```
 
@@ -43,8 +43,8 @@ Two sides:
 | Entry service | `relay/relay_entry.py` | `relay-entry` | Holds no session. Unlocks → writes → verifies → locks per owner submission. Requests are kept in `/var/lib/relay-entry/requests.json` (names, never values) and expire after 24 h. After a value is stored, it checks the routes that use it (`relaylib/access_check.py`): for an MCP server it signs in with the new key at that route's own upstream and lists the tools, never running one. |
 | Approval worker | `relay/approval_worker.py` | `relay-approval` | Pairs the owner's authenticator (console only) and approves proposed `[api.*]` routes with its codes. Reached by the entry service over a local socket. |
 | Shared libs | `relay/relaylib/` | | `bwclient` (the only module that runs `bw`; 5-minute item cache), `routes` (parse and validate), `identity` (`tailscale whois`, cached 5 min), `requests_store`, `httpbase`. |
-| Broker CLIs | `broker/bin/` | root | `relay-login`, `relay-check`, `relay-routes`, `relay-update`, `relay-cert`, `with-bw-session`. |
-| Clients | `client/` | user | `relay` (check/request/status/backups), `vault` (fnox shim), `vault-entry` (owner). Stdlib Python ≥ 3.9; no proxies from the environment; redirects are errors. |
+| Broker CLIs | `broker/bin/` | root | `valetkey-relay login`, `valetkey-relay check`, `valetkey-relay routes`, `valetkey-relay update`, `relay-cert`, `with-bw-session`. |
+| Clients | `client/` | user | `valetkey-relay` (check/request/status/backups), `vault` (fnox shim), `valetkey-entry` (owner). Stdlib Python ≥ 3.9; no proxies from the environment; redirects are errors. |
 
 ## Identity
 
@@ -109,4 +109,4 @@ Names follow `^[a-z0-9]+(-[a-z0-9]+)*-(dev|qa|prod)$` with a project, or `^[a-z0
 
 fnox 1.35's `vault` provider shells out to a `vault` CLI rather than speaking HTTP (see [fnox-vault-provider.md](fnox-vault-provider.md)). The `client/vault` shim answers exactly `vault kv get -field=<field> <path>/<name>` with one GET to `$VAULT_ADDR/<path>/value/<name>[/<field>]`. `VAULT_TOKEN` is ignored. A missing or forbidden item prints `No value found at …` and exits 2, which fnox reports normally. With `if_missing = "error"`, `fnox exec` stops instead of starting the app with an empty variable.
 
-On the broker, `relay-routes install` turns each org's `[api.*]` routes into an fnox config (`gen-fnox-config.py`) of `[[proxy.rules]]` with exact host, methods and paths, and bitwarden-provider references. `fnox proxy run` then injects values into matching requests. fnox resolves every proxy secret before it starts the relay, so a single `[api.*]` item it cannot find (missing, or a name another item's name contains) stops that org's relay; `relay-routes install` checks the items first, waits until the relay listens, and puts the previous config back if it never does. [Git through the broker](git-through-the-broker.md) is a worked example of such a route.
+On the broker, `valetkey-relay routes install` turns each org's `[api.*]` routes into an fnox config (`gen-fnox-config.py`) of `[[proxy.rules]]` with exact host, methods and paths, and bitwarden-provider references. `fnox proxy run` then injects values into matching requests. fnox resolves every proxy secret before it starts the relay, so a single `[api.*]` item it cannot find (missing, or a name another item's name contains) stops that org's relay; `valetkey-relay routes install` checks the items first, waits until the relay listens, and puts the previous config back if it never does. [Git through the broker](git-through-the-broker.md) is a worked example of such a route.

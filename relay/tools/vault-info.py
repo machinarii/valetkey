@@ -1,5 +1,5 @@
 #!/usr/bin/python3 -I
-"""Vault lookups for relay-login and relay-check. Names and counts only, never ids or values.
+"""Vault lookups for valetkey-relay login and valetkey-relay check. Names and counts only, never ids or values.
 
 Runs as relay-<name> with BW_SESSION and BITWARDENCLI_APPDATA_DIR in its environment:
 
@@ -149,7 +149,7 @@ def print_visible(bw, rep, label, block, org):
             rep.fail(f"collection {c} in org.json is no longer visible")
     for c in visible:
         if (c == parent or c.startswith(parent + "/")) and c not in block["collections"]:
-            rep.fail(f"collection {c} is new: re-run relay-login to add it to org.json")
+            rep.fail(f"collection {c} is new: re-run valetkey-relay login to add it to org.json")
 
 
 def check_api_items(bw, name, routes_path, org_ids_path):

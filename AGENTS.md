@@ -15,5 +15,5 @@ for agents are in [bellhop/agent-rules.md](bellhop/agent-rules.md); its tests ar
 `python3 -m unittest bellhop/test_bellhop.py`.
 
 Keep authorization in the broker, deny raw reads by default, preserve per-org isolation, and
-test both denied requests and permitted workflows. `relay check` verifies storage/access;
+test both denied requests and permitted workflows. `valetkey-relay check` verifies storage/access;
 upstream authentication is a separate status. See [docs/secure-setup.md](docs/secure-setup.md).

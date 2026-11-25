@@ -2,15 +2,15 @@
 
 ## Working with AI agents
 
-**Optional memory capture.** Valetkey is designed to work with or without claude-mem. You can install Valetkey and sign in to Claude Code without a memory worker. If you already use claude-mem, `relay guide claude-mem` explains local capture and how to migrate remote ingest without granting agents a raw token.
+**Optional memory capture.** Valetkey is designed to work with or without claude-mem. You can install Valetkey and sign in to Claude Code without a memory worker. If you already use claude-mem, `valetkey-relay guide claude-mem` explains local capture and how to migrate remote ingest without granting agents a raw token.
 
-For Claude Code, run `relay guide claude` to choose between a Valetkey-managed setup token and native web login. See [subscription authentication](secure-setup.md#claude-code-subscription-sign-in).
+For Claude Code, run `valetkey-relay guide claude` to choose between a Valetkey-managed setup token and native web login. See [subscription authentication](secure-setup.md#claude-code-subscription-sign-in).
 
 If you run your agents from T3 Code, see [T3 Code](t3-code.md): which machine its server belongs on, how the policy keeps T3's own tools working, and how T3 signs in to Claude.
 
 [`agents/credential-rules.md`](../agents/credential-rules.md) is a drop-in section for `CLAUDE.md`, `AGENTS.md` or any agent instruction file. It teaches the agent to:
 
-- check with `relay check` instead of reading values;
+- check with `valetkey-relay check` instead of reading values;
 - create named requests and **always offer you both entry methods** (terminal or web);
 - keep agents separate from trusted servers and approver devices;
 - never ask for, print or store a secret, including in Notion or other cloud documents.

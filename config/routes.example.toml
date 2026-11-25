@@ -1,6 +1,6 @@
 # valetkey routes: which machine may use which credential. Names only; every value lives in
 # Vaultwarden. Installed to /etc/relay/routes.toml by `install.sh broker` (only if absent).
-# After editing /etc/relay/routes.toml run `sudo relay-routes install`.
+# After editing /etc/relay/routes.toml run `sudo valetkey-relay routes install`.
 #
 # Every entry has `org` ("local" or "infra") and `nodes`: the Tailscale machine names allowed to
 # call it (checked with `tailscale whois`, so nothing is stored on the client).

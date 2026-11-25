@@ -1,5 +1,5 @@
 #!/bin/bash
-# Usage: sudo relay-login <local|infra|entry> <account-email>
+# Usage: sudo valetkey-relay login <local|infra|entry> <account-email>
 # Interactive only (a secure terminal on the broker or its hypervisor console). For one relay user:
 # the master password is read with hidden input, passed to bw in an environment variable (never
 # an argument), and stored encrypted as /etc/credstore.encrypted/bw-unlock-<name>. While still
@@ -8,7 +8,7 @@
 # VAULT_URL (default https://vault.<tailnet suffix>) and LOCAL_ORG, INFRA_ORG, LOCAL_COLLECTION,
 # INFRA_COLLECTION (see vault-info.py).
 set -euo pipefail
-usage="usage: relay-login <local|infra|entry> <account-email>"
+usage="usage: valetkey-relay login <local|infra|entry> <account-email>"
 [ "$(id -u)" = 0 ] || { echo "Run with sudo." >&2; exit 1; }
 [ -t 0 ] || { echo "Run from an interactive terminal." >&2; exit 1; }
 name=${1:?$usage}
@@ -42,7 +42,7 @@ cd /
 
 # Stop the unit first: its own `bw unlock` as the same user (a restart, or a restart loop on an
 # old credential) would replace this login's session mid-way. It is started again at the end,
-# after api.toml (read relays, via relay-routes install) and org.json exist.
+# after api.toml (read relays, via valetkey-relay routes install) and org.json exist.
 systemctl stop "relay-$name.service" 2>/dev/null || true
 
 # bw as the relay user, with its own data dir. runuser keeps the exported BW_* variables.
@@ -68,7 +68,7 @@ umask 077
 if ! runuser -u "$user" -- env HOME="$home" BITWARDENCLI_APPDATA_DIR="$appdata" \
       /usr/bin/python3 -I "$libexec/vault-info.py" org-json "$name" > "$tmp"; then
   rm -f "$tmp"
-  echo "FAIL  org.json not written; fix the access above, then re-run relay-login $name <email>" >&2
+  echo "FAIL  org.json not written; fix the access above, then re-run valetkey-relay login $name <email>" >&2
   exit 1
 fi
 chown "$user:$user" "$tmp"
@@ -88,7 +88,7 @@ if [ -f "/etc/systemd/system/relay-$name.service" ]; then
     if systemctl is-active --quiet relay-entry.service; then echo "ok    relay-entry running"
     else echo "FAIL  relay-entry not running; see: journalctl -u relay-entry -n 30" >&2; exit 1; fi
   else
-    /usr/local/sbin/relay-routes install "$name"
+    "$(dirname "$0")/relay-routes" install "$name"
   fi
 fi
-echo "Next: sudo relay-check $name"
+echo "Next: sudo valetkey-relay check $name"
