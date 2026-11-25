@@ -40,6 +40,7 @@
 
 <p align="center">
   <a href="#what-valetkey-is">What it is</a> ·
+  <a href="#key-highlights">Key highlights</a> ·
   <a href="#how-it-works">How it works</a> ·
   <a href="#prerequisites">Prerequisites</a> ·
   <a href="#quick-start">Quick start</a> ·
@@ -50,6 +51,23 @@
 </p>
 
 <br>
+
+## What valetkey is
+
+valetkey is a **credential broker for AI agents**, a kind of agent security infrastructure. It works
+with the agent harness you already use, such as Claude Code, Codex and/or T3 Code, and does not
+replace it.
+
+| Part | Role | What it does |
+|---|---|---|
+| broker | Credential-injecting proxy, "secretless" access | Agents call a service through it with no key; it checks the calling machine and adds the key on the way out. It also serves the key entry page and route approvals. On agent machines, the `valetkey-broker` command calls it, requests keys and reports their status. |
+| fnox | Secret injector | Runs inside the broker and puts the key into each outgoing request. |
+| vault | Secrets manager (Vaultwarden) | Keeps every key, encrypted, on its own machine. Agents never reach it; the broker reads from it. |
+| bellhop | Remote tool runner | Runs command-line tools and MCP servers that keep their own login, on a separate machine. |
+| MCP routes | MCP gateway | broker routes to MCP servers that need a fixed key: agents connect with no key, and you see which tools the key opens. |
+| Rules, policy & sweep | Agent guardrails | Teach agents the workflow, limit MCP servers and report logins that appear on agent machines. |
+
+## Key highlights
 
 <table>
   <tr>
@@ -71,23 +89,6 @@
     </td>
   </tr>
 </table>
-
-<br>
-
-## What valetkey is
-
-valetkey is a **credential broker for AI agents**, a kind of agent security infrastructure. It works
-with the agent harness you already use, such as Claude Code, Codex and/or T3 Code, and does not
-replace it.
-
-| Part | Role | What it does |
-|---|---|---|
-| broker | Credential-injecting proxy, "secretless" access | Agents call a service through it with no key; it checks the calling machine and adds the key on the way out. It also serves the key entry page and route approvals. On agent machines, the `valetkey-broker` command calls it, requests keys and reports their status. |
-| fnox | Secret injector | Runs inside the broker and puts the key into each outgoing request. |
-| vault | Secrets manager (Vaultwarden) | Keeps every key, encrypted, on its own machine. Agents never reach it; the broker reads from it. |
-| bellhop | Remote tool runner | Runs command-line tools and MCP servers that keep their own login, on a separate machine. |
-| MCP routes | MCP gateway | broker routes to MCP servers that need a fixed key: agents connect with no key, and you see which tools the key opens. |
-| Rules, policy & sweep | Agent guardrails | Teach agents the workflow, limit MCP servers and report logins that appear on agent machines. |
 
 ## How it works
 
