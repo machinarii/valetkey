@@ -142,7 +142,7 @@ brokered API routes. [Secure setup](docs/secure-setup.md)
 
 1. **Install valetkey on each machine.** Pick the setup that matches your machines.
 
-   **Setup A: macOS for the agent and approver machines, Linux for the servers**
+   **Setup A: macOS for the approver and agent machines, Linux for the servers**
 
    **On each Mac** (Homebrew), add valetkey's packages:
 
@@ -192,7 +192,21 @@ brokered API routes. [Secure setup](docs/secure-setup.md)
    valetkey-setup
    ```
 
-   **Setup B: Linux for every machine**
+   **Setup B: macOS for the approver machine, Linux for the agent machine and servers**
+
+   **On the Mac** (Homebrew), the **approver machine**:
+
+   ```sh
+   brew tap machinarii/valetkey https://github.com/machinarii/valetkey
+   brew trust machinarii/valetkey
+   brew install valetkey-approver
+   valetkey-broker set-url https://broker.<tailnet>.ts.net
+   ```
+
+   **The Linux machines**: the **agent machine** and the three servers. Install them as in setup C
+   below.
+
+   **Setup C: Linux for every machine**
 
    **The Linux servers**: the **vault**, the **broker** and the **bellhop**. Recommended:
    **Proxmox VE**, with the one command shown in setup A. Otherwise install them with apt, like the
@@ -215,7 +229,7 @@ brokered API routes. [Secure setup](docs/secure-setup.md)
    valetkey-setup
    ```
 
-   In either setup, an optional trusted server is one more Linux machine, installed the same way.
+   In any setup, an optional trusted server is one more Linux machine, installed the same way.
 
    On another Linux distribution, run the installer script; see
    [the installation guide](docs/installation.md#other-ways-to-install), which also covers choosing
