@@ -17,7 +17,7 @@
   <img alt="Self-hosted with Proxmox, Tailscale and Vaultwarden" src="https://img.shields.io/badge/self--hosted-Proxmox%20%C2%B7%20Tailscale%20%C2%B7%20Vaultwarden-1d4e6e?style=flat-square">
   <img alt="Clients: Linux and macOS" src="https://img.shields.io/badge/clients-Linux%20%C2%B7%20macOS-2d81ff?style=flat-square">
   <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-3a3a3a?style=flat-square">
-  <img alt="Status: 0.3.0, for home setups" src="https://img.shields.io/badge/status-0.3.0%20%C2%B7%20for%20home%20setups-d69e2e?style=flat-square">
+  <img alt="Status: 0.3.0, for personal use" src="https://img.shields.io/badge/status-0.3.0%20%C2%B7%20for%20personal%20use-d69e2e?style=flat-square">
 </p>
 
 <p align="center">
@@ -167,7 +167,7 @@ The broker, vault, desk and clients have different update procedures.
 ## Status
 
 > [!IMPORTANT]
-> **valetkey is for home setups.** It is a practical way to reduce the risk of running AI
+> **valetkey is currently intended for personal use, not for enterprise use.** It is a practical way to reduce the risk of running AI
 > agents on your own machines, not a bulletproof one, and it has had no independent security audit.
 > If you have compliance requirements, many users or keys whose loss you could not absorb, use it as
 > a starting point and not as your only control.
