@@ -20,7 +20,7 @@
    "note": "the agent calls a route on the broker; the request holds no key",
    "at": 0.3,
    "travel": 1.2,
-   "label": "no key",
+   "label": "request",
    "from": [
     160,
     336
@@ -53,21 +53,11 @@
    "note": "act 2",
    "at": 1.7,
    "until": 4.1,
-   "text": "2 · the valet key fits, fnox adds the key",
+   "text": "2 · the broker checks, fnox adds the key",
    "x": 28,
    "y": 66,
    "color": "#FBDC8E",
    "anchor": "start"
-  },
-  {
-   "id": "vk",
-   "kind": "pulse",
-   "note": "the broker checks that the caller's valet key fits this route",
-   "at": 1.55,
-   "x": 360,
-   "y": 257,
-   "color": "#A880FF",
-   "dur": 0.6
   },
   {
    "id": "m2",

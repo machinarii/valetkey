@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="660" height="496" viewBox="0 0 660 496" fill="none" role="img" aria-label="An agent machine that holds no keys sends the broker a key request; the broker checks that the machine's valet key fits the route, takes the master key from the vault, and fnox adds it on the way to the service. The answer returns without the key. A tool that keeps its own credential runs on the bellhop, which returns only the output.">
+<svg xmlns="http://www.w3.org/2000/svg" width="660" height="496" viewBox="0 0 660 496" fill="none" role="img" aria-label="An agent machine that holds no keys sends the broker a request; the broker checks the calling machine, takes the master key from the vault, and fnox adds it on the way to the service. The answer returns without the key. A tool that keeps its own credential runs on the bellhop, which returns only the output.">
   <style>
     /* ---- type ramp (dark skin) --------------------------------------- */
     text { font-family: 'Source Code Pro', ui-monospace, Menlo, Consolas, monospace; }
@@ -41,8 +41,6 @@
     @keyframes m1-glow { 0%, 11.54% { opacity: 0; } 12.15% { opacity: 0.3; } 14.62%, 100% { opacity: 0; } }
     /* ph2: act 2 */
     @keyframes ph2 { 0%, 12.31% { opacity: 0; } 13.08%, 31.54% { opacity: 1; } 32.31%, 100% { opacity: 0; } }
-    /* vk: the broker checks that the caller's valet key fits this route */
-    @keyframes vk { 0%, 11.92% { transform: scale(0.4); opacity: 0; } 12.29% { transform: scale(0.5); opacity: 0.8; } 16.54%, 100% { transform: scale(1.4); opacity: 0; } }
     /* m2: the broker takes that route's master key from the vault */
     @keyframes m2 {
       0%, 13.85% { transform: translate(0, 0); opacity: 0; }
@@ -169,8 +167,7 @@
   <circle cx="250" cy="257" r="2.5" fill="#4CF490" class="tick" style="animation-delay:-0.7s"/>
   <text class="t-name" x="260" y="260">broker</text>
   <text class="t-desc" x="248" y="276">Proxmox VM</text>
-  <text class="t-desc" x="248" y="288">checks the caller's valet key</text>
-  <circle cx="360" cy="257" r="4" fill="#A880FF"/>
+  <text class="t-desc" x="248" y="288">checks the calling machine</text>
   <rect x="248" y="300" width="116" height="32" rx="6" fill="#0D0D0E" stroke="#363840"/>
   <text class="t-small" x="260" y="318">fnox adds the key</text>
   <rect x="236" y="372" width="140" height="64" rx="7" fill="#141416" stroke="#363840"/>
@@ -191,12 +188,11 @@
   <text class="t-tag story" x="28" y="66" text-anchor="start" fill="#4CF490" style="animation-name:ph1;opacity:0">1 · the agent asks, with no key</text>
   <g class="pkt" style="animation-name:m1">
     <circle cx="160" cy="336" r="4" fill="#4CF490"/>
-    <text class="t-tag" x="160" y="324" text-anchor="middle" fill="#4CF490">no key</text>
+    <text class="t-tag" x="160" y="324" text-anchor="middle" fill="#4CF490">request</text>
   </g>
   <circle cx="236" cy="272" r="10" fill="none" stroke="#4CF490" stroke-width="1.5" class="ring" style="animation-name:m1-ring"/>
   <rect x="236" y="240" width="140" height="106" rx="7" fill="#4CF490" class="glow" style="animation-name:m1-glow"/>
-  <text class="t-tag story" x="28" y="66" text-anchor="start" fill="#FBDC8E" style="animation-name:ph2;opacity:0">2 · the valet key fits, fnox adds the key</text>
-  <circle cx="360" cy="257" r="10" fill="none" stroke="#A880FF" stroke-width="1.5" class="ring" style="animation-name:vk"/>
+  <text class="t-tag story" x="28" y="66" text-anchor="start" fill="#FBDC8E" style="animation-name:ph2;opacity:0">2 · the broker checks, fnox adds the key</text>
   <circle cx="308" cy="208" r="4" fill="#FBDC8E" class="pkt" style="animation-name:m2"/>
   <circle cx="308" cy="240" r="10" fill="none" stroke="#FBDC8E" stroke-width="1.5" class="ring" style="animation-name:m2-ring"/>
   <rect x="248" y="300" width="116" height="32" rx="6" fill="#FBDC8E" class="glow" style="animation-name:m2-glow"/>
@@ -238,11 +234,9 @@
 
   <!-- legend strip -->
   <circle cx="36" cy="472" r="4" fill="#4CF490"/>
-  <text class="t-name" x="46" y="476">key request</text>
-  <circle cx="188" cy="472" r="4" fill="#FBDC8E"/>
-  <text class="t-name" x="198" y="476">master key</text>
-  <circle cx="336" cy="472" r="4" fill="#A880FF"/>
-  <text class="t-name" x="346" y="476">valet key</text>
-  <circle cx="476" cy="472" r="4" fill="#02BEFA"/>
-  <text class="t-name" x="486" y="476">credential</text>
+  <text class="t-name" x="46" y="476">request</text>
+  <circle cx="196" cy="472" r="4" fill="#FBDC8E"/>
+  <text class="t-name" x="206" y="476">master key</text>
+  <circle cx="364" cy="472" r="4" fill="#02BEFA"/>
+  <text class="t-name" x="374" y="476">credential</text>
 </svg>
