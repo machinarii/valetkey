@@ -32,7 +32,7 @@
   <a href="#how-it-works">How it works</a> ·
   <a href="#quick-start">Quick start</a> ·
   <a href="#prerequisites">Prerequisites</a> ·
-  <a href="#updating-valetkey">Updating</a> ·
+  <a href="#updating-procedure">Updating</a> ·
   <a href="#guides">Guides</a> ·
   <a href="#status">Status</a> ·
   <a href="#license-and-credits">License</a>
@@ -169,7 +169,7 @@ Sizes and details for each role are in the
 
 <a id="upgrading"></a>
 
-## Updating valetkey
+## Updating procedure
 
 Run `valetkey-broker version` for the installed CLI version and `valetkey-broker update` for the latest public release.
 On the broker, `sudo valetkey-broker update` installs the broker's own update.
