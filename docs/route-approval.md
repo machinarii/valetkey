@@ -5,7 +5,7 @@ valetkey 0.1.2 adds two separate links. A broker administrator issues a **pairin
 ## Pair once
 
 1. On the trusted broker, install the 0.1.2 broker services from a reviewed checkout with `sudo ./install.sh broker`. The QR page uses the distribution's `qrencode` package. On Debian or Ubuntu, install it with `sudo apt-get install qrencode`. The broker installer also includes it with `--with-deps`. The `./install.sh update` command refreshes the version CLI.
-2. Choose the Tailscale machine name of an untagged approver device already listed in `/etc/valetkey-broker/entry.toml` under `owner_nodes`. Keep agents on separate machines in `routes.toml` under `security.agent_nodes`.
+2. Choose the Tailscale machine name of an untagged approver device already listed in `/etc/valetkey-broker/entry.toml` under `owner_nodes`. To list one, for example your phone, run `sudo valetkey-broker approval add <its Tailscale name or address>` at the broker console; `sudo valetkey-broker approval devices` shows your own devices on the tailnet. Keep agents on separate machines in `routes.toml` under `security.agent_nodes`.
 3. At the broker console run the following, substituting that device's name for `laptop`.
 
    ```sh

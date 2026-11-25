@@ -1,6 +1,12 @@
 #!/usr/bin/python3 -I
-"""Create an expiring owner-device authenticator pairing link at the trusted broker console."""
+"""Approver devices, at the trusted broker console.
+
+  valetkey-broker approval devices          your own devices on the tailnet that could be one
+  valetkey-broker approval add NAME|ADDRESS  let that device enter keys (lists it in entry.toml)
+  valetkey-broker approval pair NAME         an expiring link to pair its authenticator, for approving routes
+"""
 import argparse
+import json
 import os
 from pathlib import Path
 import secrets
@@ -11,16 +17,46 @@ import time
 
 sys.path.insert(0, "/usr/local/libexec/valetkey-broker")
 from brokerlib.approval_rpc import request
+from brokerlib.owners import OwnerError, add_owner, devices, resolve
 from brokerlib.routes import load_entry_config, load_routes
+
+ENTRY, ROUTES = "/etc/valetkey-broker/entry.toml", "/etc/valetkey-broker/routes.toml"
+
+
+def tailnet():
+    out = subprocess.run(["tailscale", "status", "--json"], capture_output=True, timeout=10, check=True)
+    return json.loads(out.stdout)
+
+
+def add(text):
+    try:
+        status = tailnet()
+        name = resolve(status, text)
+        print(add_owner(ENTRY, name, load_routes(ROUTES).agent_nodes))
+    except OwnerError as exc:
+        sys.exit(str(exc))
+    # The entry service reads the list when it starts.
+    if subprocess.run(["/usr/bin/systemctl", "is-active", "--quiet", "valetkey-broker-entry"]).returncode == 0:
+        subprocess.run(["/usr/bin/systemctl", "restart", "valetkey-broker-entry"], check=True)
+    print(f"It can open https://{load_entry_config(ENTRY).tailnet_name}/entry to enter keys. To approve routes "
+          f"from it too, pair its authenticator once: sudo valetkey-broker approval pair {name}")
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("action", choices=["pair"])
-    parser.add_argument("owner", help="Tailscale name of a configured approver device")
+    parser.add_argument("action", choices=["pair", "add", "devices"])
+    parser.add_argument("owner", nargs="?", help="Tailscale name of the device (add also takes its address)")
     args = parser.parse_args()
     if os.getuid() != 0:
         sys.exit("Run from the broker console with sudo.")
+    if args.action == "devices":
+        for name, (system, _) in sorted(devices(tailnet()).items()):
+            print(f"{name}  {system}".rstrip())
+        return
+    if not args.owner:
+        parser.error("name the device")
+    if args.action == "add":
+        return add(args.owner)
     conf = load_entry_config("/etc/valetkey-broker/entry.toml")
     load_routes("/etc/valetkey-broker/routes.toml").validate_owners(conf.owner_nodes)
     if args.owner not in conf.owner_nodes:

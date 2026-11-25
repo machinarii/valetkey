@@ -220,7 +220,7 @@ Edit the configs for your machines (see [Configuration](operations.md#configurat
 
 ```sh
 sudo nano /etc/valetkey-broker/routes.toml   # who may use what
-sudo nano /etc/valetkey-broker/entry.toml    # your own devices (owner_nodes)
+sudo nano /etc/valetkey-broker/entry.toml    # your own devices (owner_nodes); or: sudo valetkey-broker approval add <device>
 sudo nano /etc/valetkey-broker/vault.env     # VAULT_URL and org/collection names, if not the defaults
 ```
 
@@ -256,7 +256,7 @@ It asks six questions about what to block, shows the changes, and writes them on
 
 **On a Mac that runs agents**, use `./install.sh client --agent --broker-url https://broker.<tailnet>.ts.net` to install the agent CLI and offline guide.
 
-**On the phone or computer where you enter keys**, open the broker’s entry page in your browser. The broker administrator lists this device in `owner_nodes`. If you prefer a hidden terminal prompt on an approved computer, run this from the checkout:
+**On the phone or computer where you enter keys**, open the broker’s entry page in your browser. The device must be one of your approver devices: the broker's installer asks for them the first time it runs, and you can add one later at the broker console with `sudo valetkey-broker approval add <its Tailscale name or address>`. Nothing is installed on a phone or tablet; it only needs Tailscale. If you prefer a hidden terminal prompt on an approved computer, run this from the checkout:
 
 ```sh
 ./install.sh client --owner --broker-url https://broker.<tailnet>.ts.net

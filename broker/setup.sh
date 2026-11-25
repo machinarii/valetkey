@@ -137,6 +137,23 @@ if [ -n "$dns" ] && grep -q '^tailnet_name *= *"broker.example.ts.net"' /etc/val
 fi
 step "routes and entry config valid" "$libexec/bin/valetkey-broker-routes" check
 
+# --- approver devices: asked once, while entry.toml still has the example's placeholder names ---
+if grep -q '^owner_nodes *= *\["laptop", "tablet", "phone"\]' /etc/valetkey-broker/entry.toml; then
+  if [ -t 0 ]; then
+    echo
+    echo "Approver devices are your own phone, tablet or computer: the only devices that may enter keys"
+    echo "and approve routes. No agent may run on them. Your devices on this tailnet:"
+    "$libexec/bin/valetkey-broker-approval" devices | sed 's/^/  /' || true
+    while read -r -p "Tailscale name or address of one, for example your phone (Enter to finish): " device \
+        && [ -n "$device" ]; do
+      "$libexec/bin/valetkey-broker-approval" add "$device" || true
+    done
+  fi
+  if grep -q '^owner_nodes *= *\["laptop", "tablet", "phone"\]' /etc/valetkey-broker/entry.toml; then
+    skip "no approver device yet: sudo valetkey-broker approval add <its Tailscale name or address>"
+  fi
+fi
+
 # --- loopback secret shared by the three services (32 random bytes, hex), generated once ---
 for name in valetkey-broker-loopback valetkey-broker-approval-front; do
   if [ -f "$credstore/$name" ]; then

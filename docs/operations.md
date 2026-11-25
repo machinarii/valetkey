@@ -146,6 +146,7 @@ before 0.5 is moved over by its installer the first time it runs.
 | `./install.sh client [--broker-url URL] [--agent\|--owner] [--prefix DIR] [--with-deps]` | client | `--agent`: metadata CLI and guidance only. Otherwise installs consumer tools; `--owner` adds private entry; `--with-deps` adds Tailscale and fnox. |
 | `sudo ./install.sh update` | existing Linux installation | Refreshes just the version commands from the checkout. Preserves the commands of an existing full client. Use `--prefix BIN_DIR` for a nondefault install. |
 | `valetkey-broker version` or `valetkey-broker --version` | all roles | Prints the installed valetkey CLI version offline, for example `0.1.2`. |
+| `sudo valetkey-broker approval add NAME_OR_ADDRESS` | trusted broker console | Make one of your own devices (a phone, tablet or computer on the tailnet, without a tag) an approver device: lists it in `entry.toml` and restarts the entry service. `approval devices` shows the candidates. |
 | `sudo valetkey-broker approval pair OWNER_NODE` | trusted broker console | Issue a ten-minute authenticator pairing link with a locally rendered QR code. [Pair and approve a route](route-approval.md). |
 | `valetkey-broker request-route --help` | agent | Propose a fixed bearer API route (for an MCP server, optionally limited with `--tools`) and print its owner approval link. |
 | `valetkey-broker update` | all roles | Prints the highest stable `vMAJOR.MINOR.PATCH` tag from the public valetkey repository on GitHub. Requires network access and only checks for updates. |
