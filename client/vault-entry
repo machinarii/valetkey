@@ -13,24 +13,26 @@ import warnings
 from datetime import date, datetime, timezone
 
 warnings.filterwarnings("error", category=getpass.GetPassWarning)
-def _relay_url():
-    """Broker URL: $RELAY_URL, else the first line of ~/.config/valetkey/relay-url (written by
-    `install.sh client --relay-url ...`). Empty if neither is set."""
-    url = os.environ.get("RELAY_URL", "").strip()
-    if not url:
+def _broker_url():
+    """Broker URL: $BROKER_URL, else the first line of ~/.config/valetkey/broker-url (written by
+    `install.sh client --broker-url ...`). Empty if neither is set."""
+    url = os.environ.get("BROKER_URL", "").strip()
+    for name in ("broker-url", "relay-url"):  # relay-url: the file's name before 0.4
+        if url:
+            break
         cfg = os.path.join(os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config"),
-                           "valetkey", "relay-url")
+                           "valetkey", name)
         try:
             with open(cfg, encoding="utf-8") as f:
                 url = f.readline().strip()
         except OSError:
-            url = ""
+            pass
     return url.rstrip("/")
 
 
-BASE = _relay_url()
-NO_URL = ("no broker URL: set RELAY_URL=https://broker.<tailnet>.ts.net or run "
-          "`valetkey-relay set-url https://broker.<tailnet>.ts.net`")
+BASE = _broker_url()
+NO_URL = ("no broker URL: set BROKER_URL=https://broker.<tailnet>.ts.net or run "
+          "`valetkey-broker set-url https://broker.<tailnet>.ts.net`")
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -46,7 +48,7 @@ OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect
 
 def call(method, path, body=None):
     if not good_addr(BASE):
-        sys.exit("valetkey-entry: bad RELAY_URL (https:// required; HTTP allowed only on loopback for tests)")
+        sys.exit("valetkey-entry: bad BROKER_URL (https:// required; HTTP allowed only on loopback for tests)")
     data = json.dumps(body).encode() if body is not None else None
     req = urllib.request.Request(BASE + "/entry/v1" + path, data=data, method=method)
     if data is not None:
@@ -82,7 +84,7 @@ def good_addr(addr):
 
 
 def age(created):
-    """Age of a request; `created` is epoch seconds (the relay) or an ISO UTC time."""
+    """Age of a request; `created` is epoch seconds (the broker) or an ISO UTC time."""
     try:
         if isinstance(created, (int, float)) and not isinstance(created, bool):
             s = int(time.time() - created)

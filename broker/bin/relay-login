@@ -1,6 +1,6 @@
 #!/bin/bash
-# Usage: sudo valetkey-relay login <local|infra|entry> <account-email>
-# Interactive only (a secure terminal on the broker or its hypervisor console). For one relay user:
+# Usage: sudo valetkey-broker login <local|infra|entry> <account-email>
+# Interactive only (a secure terminal on the broker or its hypervisor console). For one broker user:
 # the master password is read with hidden input, passed to bw in an environment variable (never
 # an argument), and stored encrypted as /etc/credstore.encrypted/bw-unlock-<name>. While still
 # unlocked it writes /var/lib/relay-<name>/org.json (org and collection ids, mode 600), then locks.
@@ -8,7 +8,7 @@
 # VAULT_URL (default https://vault.<tailnet suffix>) and LOCAL_ORG, INFRA_ORG, LOCAL_COLLECTION,
 # INFRA_COLLECTION (see vault-info.py).
 set -euo pipefail
-usage="usage: valetkey-relay login <local|infra|entry> <account-email>"
+usage="usage: valetkey-broker login <local|infra|entry> <account-email>"
 [ "$(id -u)" = 0 ] || { echo "Run with sudo." >&2; exit 1; }
 [ -t 0 ] || { echo "Run from an interactive terminal." >&2; exit 1; }
 name=${1:?$usage}
@@ -42,10 +42,10 @@ cd /
 
 # Stop the unit first: its own `bw unlock` as the same user (a restart, or a restart loop on an
 # old credential) would replace this login's session mid-way. It is started again at the end,
-# after api.toml (read relays, via valetkey-relay routes install) and org.json exist.
+# after api.toml (read services, via valetkey-broker routes install) and org.json exist.
 systemctl stop "relay-$name.service" 2>/dev/null || true
 
-# bw as the relay user, with its own data dir. runuser keeps the exported BW_* variables.
+# bw as the broker user, with its own data dir. runuser keeps the exported BW_* variables.
 bwu() { runuser -u "$user" -- env HOME="$home" BITWARDENCLI_APPDATA_DIR="$appdata" bw "$@"; }
 relock() { bwu lock >/dev/null 2>&1 || true; }
 
@@ -68,7 +68,7 @@ umask 077
 if ! runuser -u "$user" -- env HOME="$home" BITWARDENCLI_APPDATA_DIR="$appdata" \
       /usr/bin/python3 -I "$libexec/vault-info.py" org-json "$name" > "$tmp"; then
   rm -f "$tmp"
-  echo "FAIL  org.json not written; fix the access above, then re-run valetkey-relay login $name <email>" >&2
+  echo "FAIL  org.json not written; fix the access above, then re-run valetkey-broker login $name <email>" >&2
   exit 1
 fi
 chown "$user:$user" "$tmp"
@@ -91,4 +91,4 @@ if [ -f "/etc/systemd/system/relay-$name.service" ]; then
     "$(dirname "$0")/relay-routes" install "$name"
   fi
 fi
-echo "Next: sudo valetkey-relay check $name"
+echo "Next: sudo valetkey-broker check $name"

@@ -1,20 +1,20 @@
 #!/bin/bash
-# Run as root on the desk machine, from a copy of this repo. Installs the bellhop desk behind
+# Run as root on the bellhop machine, from a copy of this repo. Installs the bellhop behind
 # valetkey's TLS front door (same front door and certificate renewal as the broker). Safe to
 # re-run. It installs no tool and no login: the owner adds those afterwards.
-# Override with env vars: DESK_HOSTNAME (default desk), DESK_TAGS (default tag:desk).
+# Override with env vars: BELLHOP_HOSTNAME (default desk), BELLHOP_TAGS (default tag:desk).
 set -euo pipefail
 repo=$(cd "$(dirname "$0")/.." && pwd)
 lib=/usr/local/libexec/relay
-DESK_HOSTNAME=${DESK_HOSTNAME:-desk}
-DESK_TAGS=${DESK_TAGS:-tag:desk}
+BELLHOP_HOSTNAME=${BELLHOP_HOSTNAME:-desk}
+BELLHOP_TAGS=${BELLHOP_TAGS:-tag:desk}
 ok() { echo "ok    $*"; }
 fail() { echo "FAIL  $*" >&2; exit 1; }
 
 [ "$(id -u)" = 0 ] || fail "run with sudo"
 command -v systemctl >/dev/null || fail "Linux with systemd only"
 if command -v claude >/dev/null || command -v codex >/dev/null; then
-  fail "an agent is installed on this machine; the desk must not share a machine with one"
+  fail "an agent is installed on this machine; the bellhop must not share a machine with one"
 fi
 
 export DEBIAN_FRONTEND=noninteractive
@@ -28,8 +28,8 @@ command -v tailscale >/dev/null || curl -fsSL https://tailscale.com/install.sh |
 systemctl enable --now tailscaled >/dev/null
 if ! tailscale status >/dev/null 2>&1; then
   echo
-  echo ">>> Open the login URL below in your browser to add the desk to the tailnet."
-  tailscale up --hostname="$DESK_HOSTNAME" --advertise-tags="$DESK_TAGS"
+  echo ">>> Open the login URL below in your browser to add the bellhop to the tailnet."
+  tailscale up --hostname="$BELLHOP_HOSTNAME" --advertise-tags="$BELLHOP_TAGS"
 fi
 dns=$(tailscale status --json | jq -r '.Self.DNSName // empty' | sed 's/\.$//')
 [ -n "$dns" ] || fail "no tailnet name for this machine"
@@ -46,13 +46,14 @@ install -d "$lib/relaylib" /etc/bellhop
 install -m 644 "$repo"/relay/relaylib/*.py "$lib/relaylib/"
 install -m 755 "$repo/relay/relay_front.py" "$repo/bellhop/desk.py" "$repo/broker/bin/relay-cert" "$lib/"
 install -m 644 "$repo/bellhop/desk.example.toml" /etc/bellhop/desk.example.toml
-# valetkey-desk: the desk's own commands (--requests, --done ID) without the long path.
-printf '#!/bin/sh\nexec /usr/bin/python3 -I %s/desk.py --config /etc/bellhop/desk.toml "$@"\n' "$lib" > /usr/local/sbin/valetkey-desk
-chmod 755 /usr/local/sbin/valetkey-desk
+# valetkey-bellhop: the bellhop's own commands (--requests, --done ID) without the long path.
+printf '#!/bin/sh\nexec /usr/bin/python3 -I %s/desk.py --config /etc/bellhop/desk.toml "$@"\n' "$lib" > /usr/local/sbin/valetkey-bellhop
+chmod 755 /usr/local/sbin/valetkey-bellhop
+rm -f /usr/local/sbin/valetkey-desk  # this command's name before 0.4
 install -d -o desk -g desk -m 700 /var/lib/bellhop /etc/bellhop/keys
 if [ ! -f /etc/bellhop/desk.toml ]; then
   cat > /etc/bellhop/desk.toml <<'EOF'
-# bellhop desk. Nothing is listed yet, so nothing can be run. Copy entries from desk.example.toml,
+# bellhop. Nothing is listed yet, so nothing can be run. Copy entries from desk.example.toml,
 # then: systemctl restart bellhop-desk
 [desk]
 listen = "127.0.0.1:8460"
@@ -61,13 +62,13 @@ spool = "/var/lib/bellhop"
 EOF
 fi
 python3 -I "$lib/desk.py" --config /etc/bellhop/desk.toml --requests >/dev/null || fail "/etc/bellhop/desk.toml does not load"
-ok "desk code and configuration"
+ok "bellhop code and configuration"
 
 install -m 644 "$repo"/broker/systemd/relay-front.service "$repo"/broker/systemd/relay-cert.service \
   "$repo"/broker/systemd/relay-cert.timer /etc/systemd/system/
 install -d /etc/systemd/system/relay-front.service.d
 cat > /etc/systemd/system/relay-front.service.d/desk.conf <<EOF
-# This front door has one backend: the bellhop desk. Callers use https://$dns/desk/...
+# This front door has one backend: the bellhop. Callers use https://$dns/desk/...
 [Unit]
 After=bellhop-desk.service
 [Service]
@@ -75,9 +76,9 @@ ExecStart=
 ExecStart=/usr/bin/python3 -I $lib/relay_front.py --backend desk=127.0.0.1:8460 --tls-dir /var/lib/relay/tls
 EOF
 cat > /etc/systemd/system/bellhop-desk.service <<EOF
-# Installed by bellhop/install-desk.sh. Runs listed tools as the desk user, with that user's logins.
+# Installed by bellhop/install-bellhop.sh. Runs listed tools as the desk user, with that user's logins.
 [Unit]
-Description=bellhop desk: runs listed tools and forwards listed MCP servers
+Description=bellhop: runs listed tools and forwards listed MCP servers
 After=network-online.target tailscaled.service
 Wants=network-online.target
 
@@ -110,7 +111,7 @@ for u in bellhop-desk relay-front; do
 done
 code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "https://$dns/desk/tools" || true)
 [ "$code" = 200 ] || fail "https://$dns/desk/tools answered ${code:-nothing}"
-ok "desk is up at https://$dns/desk (nothing listed yet)"
+ok "bellhop is up at https://$dns/desk (nothing listed yet)"
 
 cat <<EOF
 
@@ -121,5 +122,5 @@ Next, on this machine:
   2. List each tool and MCP server in /etc/bellhop/desk.toml (see desk.example.toml), naming the
      agent machines that may use it, then: systemctl restart bellhop-desk
   3. In the tailnet policy, let agent machines reach this machine on tcp:443 and nothing else.
-Requests from agents:  valetkey-desk --requests
+Requests from agents:  valetkey-bellhop --requests
 EOF

@@ -87,7 +87,7 @@ def keyhole(d, cx, cy, size, color, hole, outline=None):
 
 # keyhole: the agent's request, no key in it. master key: the real credential (vault, broker, service).
 # valet key: which routes a machine may use, kept on the broker; it decides whose keyhole gets a key.
-# login: a tool's own sign-in (desk, tool's service).
+# login: a tool's own sign-in (bellhop, tool's service).
 ICONS = {"master": lambda d, x, y, bg, a=1: key(d, x, y, 24, mix(bg, GOLD, a), bg),
          "valet": lambda d, x, y, bg, a=1: key(d, x, y, 24, mix(bg, SILVER, a), bg, teeth=1),
          "login": lambda d, x, y, bg, a=1: login(d, x, y, 22, mix(bg, TEXT, a), bg),
@@ -97,15 +97,15 @@ ICONS = {"master": lambda d, x, y, bg, a=1: key(d, x, y, 24, mix(bg, GOLD, a), b
 
 BOXES = {  # name: (left, top, right, bottom, title, subtitle)
     "agent": (40, 282, 270, 482, "Agent machine", "runs your AI agents"),
-    "broker": (365, 172, 595, 332, "Broker", "relay checks the caller\nfnox adds the key"),
-    "desk": (365, 402, 595, 562, "Desk (bellhop)", "runs MCPs & other tools\nthat require sign in"),
+    "broker": (365, 172, 595, 332, "Broker", "checks the caller\nfnox adds the key"),
+    "bellhop": (365, 402, 595, 562, "Bellhop", "runs MCPs & other tools\nthat require sign in"),
     "vault": (700, 142, 920, 222, "Vaultwarden", "every key, encrypted"),
     "api": (684, 262, 920, 342, "Service API or MCP", ""),
     "svc": (700, 442, 920, 522, "Service tool", ""),
 }
 # Connections, with what the far end does. Requests and answers travel both ways.
-EDGES = (("agent", "broker", ""), ("agent", "desk", ""), ("broker", "vault", "reads"),
-         ("broker", "api", "calls"), ("desk", "svc", "runs"))
+EDGES = (("agent", "broker", ""), ("agent", "bellhop", ""), ("broker", "vault", "reads"),
+         ("broker", "api", "calls"), ("bellhop", "svc", "runs"))
 
 
 def centre(name):
@@ -120,8 +120,8 @@ def edge(a, b):
     (ax, ay), (bx, by) = centre(a), centre(b)
     if a == "agent":
         ay = ay - 40 if by < ay else ay + 40
-    if a == "agent" and b == "desk":
-        by += 18  # leave room for the returning label beneath the desk subtitle
+    if a == "agent" and b == "bellhop":
+        by += 18  # leave room for the returning label beneath the bellhop subtitle
     if a == "broker" and b in ("vault", "api"):
         ay = ay - 30 if b == "vault" else ay + 30
     return (ar, ay), (bl, by)
@@ -157,8 +157,8 @@ def base(focus):
     left, top, right, bottom = BOXES["vault"][:4]
     for i in range(3):
         key(d, right - 92 + i * 30, top + 64, 26, c(GOLD, "vault"), c(PANEL, "vault"))
-    left, top, right, bottom = BOXES["desk"][:4]                        # the tool's login lives on the desk
-    d.text(sc(left + 16, bottom - 39), "the tool's login", font=font(13), fill=c(MUTED, "desk"))
+    left, top, right, bottom = BOXES["bellhop"][:4]                        # the tool's login lives on the bellhop
+    d.text(sc(left + 16, bottom - 39), "the tool's login", font=font(13), fill=c(MUTED, "bellhop"))
     d.rectangle(sc(0, 0, W, TOP), fill=PANEL)
     d.line(sc(0, TOP, W, TOP), fill=EDGE, width=S)
     d.text(sc(40, 15), "valetkey", font=font(20, True), fill=TEXT)
@@ -249,7 +249,7 @@ PHASES = [
     (1.6, None, "The agent's machine holds no keys and no logins.", {"agent"}, lambda d, t: None),
     (1.6, 1, "An agent calls the broker. Its request is an empty keyhole: no key.", {"agent", "broker"},
      lambda d, t: travel(d, "agent", "broker", t, "request", icon="keyhole")),
-    (1.6, 2, "relay checks who is calling, and that its valet key fits this route.", {"broker"},
+    (1.6, 2, "The broker checks who is calling, and that its valet key fits this route.", {"broker"},
      lambda d, t: note(d, "broker", CHECK[:1 + (t > 0.45)])),
     (1.5, 3, "It takes that route's master key from Vaultwarden.", {"broker", "vault"},
      lambda d, t: (note(d, "broker", CHECK), travel(d, "broker", "vault", t, "", back=True, color=GOLD,
@@ -259,15 +259,15 @@ PHASES = [
     (1.8, 5, "The answer comes back without the master key. The agent never sees it.", {"agent", "broker", "api"},
      lambda d, t: (broker_key(d), travel(d, "broker", "api", t * 2, "answer", back=True) if t < 0.5
                    else travel(d, "agent", "broker", t * 2 - 1, "answer", back=True))),
-    (1.6, 6, "For a tool with its own login, the agent calls the desk instead.", {"agent", "desk"},
-     lambda d, t: travel(d, "agent", "desk", t, "tool upload a.png", icon="keyhole")),
-    (1.8, 7, "The desk runs the real tool with its login, within a list you wrote.", {"desk", "svc"},
-     lambda d, t: (note(d, "desk", [("on the list  ✓", TEAL)]), travel(d, "desk", "svc", t, "upload", icon="login"))),
-    (1.6, 8, "The output comes back. The login stays on the desk.", {"agent", "desk"},
-     lambda d, t: travel(d, "agent", "desk", t, "output", back=True)),
-    (2.0, 9, "A command that would print the login is refused.", {"agent", "desk"},
-     lambda d, t: (travel(d, "agent", "desk", min(t * 1.5, 0.62), "tool auth token", color=RED),
-                   note(d, "desk", [("not on the list  ✗", RED)]) if t > 0.45 else None)),
+    (1.6, 6, "For a tool with its own login, the agent calls the bellhop instead.", {"agent", "bellhop"},
+     lambda d, t: travel(d, "agent", "bellhop", t, "tool upload a.png", icon="keyhole")),
+    (1.8, 7, "The bellhop runs the real tool with its login, within a list you wrote.", {"bellhop", "svc"},
+     lambda d, t: (note(d, "bellhop", [("on the list  ✓", TEAL)]), travel(d, "bellhop", "svc", t, "upload", icon="login"))),
+    (1.6, 8, "The output comes back. The login stays on the bellhop.", {"agent", "bellhop"},
+     lambda d, t: travel(d, "agent", "bellhop", t, "output", back=True)),
+    (2.0, 9, "A command that would print the login is refused.", {"agent", "bellhop"},
+     lambda d, t: (travel(d, "agent", "bellhop", min(t * 1.5, 0.62), "tool auth token", color=RED),
+                   note(d, "bellhop", [("not on the list  ✗", RED)]) if t > 0.45 else None)),
     (2.6, None, "Master keys and logins stay where no agent runs. Agents only send keyholes.", None,
      lambda d, t: d.rounded_rectangle(sc(*[v + o for v, o in zip(BOXES["agent"][:4], (-5, -5, 5, 5))]),
                                       radius=18 * S, outline=mix(EDGE, TEAL, 0.45 + 0.55 * ease(t)), width=3 * S)),

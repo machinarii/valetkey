@@ -1,6 +1,6 @@
 #!/bin/bash
-# Rehearse bellhop/install-desk.sh on a throwaway OrbStack machine, with a fake `tailscale`
-# command standing in for the tailnet, then call the desk over HTTPS from bellhop-agent.
+# Rehearse bellhop/install-bellhop.sh on a throwaway OrbStack machine, with a fake `tailscale`
+# command standing in for the tailnet, then call the bellhop over HTTPS from bellhop-agent.
 # Proves the installer, the TLS front door and callers-by-machine-name without a tailnet.
 # Needs testvm/setup.sh to have run. The drill machine is deleted at the end (KEEP=1 keeps it).
 set -euo pipefail
@@ -30,7 +30,7 @@ printf 'NAME=$NAME\nIP=$drill_ip\nPEERS="$drill_ip=desk $agent_ip=$AGENT"\n' > /
 install -m 755 /tmp/valetkey/bellhop/fakes/tailscale-drill /usr/local/bin/tailscale
 printf '[Service]\nExecStart=/bin/sleep infinity\n[Install]\nWantedBy=multi-user.target\n' > /etc/systemd/system/tailscaled.service
 grep -q "$NAME" /etc/hosts || echo "$drill_ip $NAME" >> /etc/hosts
-bash /tmp/valetkey/bellhop/install-desk.sh | sed 's/^/  /'
+bash /tmp/valetkey/bellhop/install-bellhop.sh | sed 's/^/  /'
 # A fake tool with a synthetic login, listed for the agent machine by its machine name.
 install -m 755 /tmp/valetkey/bellhop/fakes/fakefield /usr/local/bin/fakefield
 deskhome=\$(getent passwd desk | cut -d: -f6)
@@ -66,7 +66,7 @@ show "tool over HTTPS, caller named by machine:"  "\$(bellhop fakefield whoami 2
 show "file sent over HTTPS:"                      "\$(bellhop fakefield upload scene.png 2>&1 | cut -c1-40)"
 show "subcommand not on the list:"                "\$(bellhop fakefield auth token 2>&1 | cut -c1-60)"
 show "allowed here:"                              "\$(valetkey-bellhop --list 2>&1 | tr '\n' ' ')"
-show "plain HTTP straight to the desk port:"      "\$(BELLHOP_URL=http://$drill_ip:8460 bellhop fakefield whoami 2>&1 | cut -c1-60)"
+show "plain HTTP straight to the bellhop port:"      "\$(BELLHOP_URL=http://$drill_ip:8460 bellhop fakefield whoami 2>&1 | cut -c1-60)"
 EOF
 
 echo "== clean up"

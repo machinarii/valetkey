@@ -6,7 +6,7 @@ import tomllib
 import unittest
 from pathlib import Path
 
-TOOL = Path(__file__).resolve().parent.parent / "tools" / "fnox-to-relay.py"
+TOOL = Path(__file__).resolve().parent.parent / "tools" / "fnox-to-broker.py"
 
 SAMPLE = """\
 ┏━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━┓
@@ -31,7 +31,7 @@ def load():
 
 
 def run(args, stdin):
-    env = {k: v for k, v in os.environ.items() if k != "RELAY_URL"}
+    env = {k: v for k, v in os.environ.items() if k != "BROKER_URL"}
     return subprocess.run([sys.executable, str(TOOL), *args], input=stdin,
                           capture_output=True, text=True, env=env)
 
@@ -71,7 +71,7 @@ class FnoxToRelayTest(unittest.TestCase):
         self.assertNotIn("KEY", t["secrets"])
 
     def test_no_values_in_output(self):
-        r = run(ARGS + ["--relay-url", "https://b.example"], SAMPLE)
+        r = run(ARGS + ["--broker-url", "https://b.example"], SAMPLE)
         for v in ("SUPERSECRETVALUE111", "HUNTER2", "PRODVALUE999", "PRODVALUE888", "postgres://"):
             self.assertNotIn(v, r.stdout)
         self.assertIn("names only", r.stdout.lower())

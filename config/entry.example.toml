@@ -1,5 +1,5 @@
 # valetkey entry service settings. Installed to /etc/relay/entry.toml by `install.sh broker`
-# (only if absent). After editing: sudo valetkey-relay routes check && sudo systemctl restart relay-entry
+# (only if absent). After editing: sudo valetkey-broker routes check && sudo systemctl restart relay-entry
 #
 # owner_nodes  Tailscale machine names of the owner's own devices; only these may submit values
 #              (terminal `valetkey-entry` or the web page). Any other device gets "not allowed".

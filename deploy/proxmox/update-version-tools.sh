@@ -3,7 +3,7 @@
 set -euo pipefail
 if [[ $# != 3 || $1 != +([0-9]) || $2 != +([0-9]) || $3 != +([0-9]) ||
       $1 = "$2" || $2 = "$3" || $1 = "$3" ]]; then
-  echo "Usage: update-version-tools.sh VAULT_CT_ID BROKER_VM_ID DESK_VM_ID" >&2
+  echo "Usage: update-version-tools.sh VAULT_CT_ID BROKER_VM_ID BELLHOP_VM_ID" >&2
   exit 2
 fi
 vault=$1 broker=$2 desk=$3
@@ -24,14 +24,14 @@ pct exec "$vault" -- test -f /opt/vaultwarden/compose.yaml </dev/null
 guest "$broker" -- /bin/sh -c 'test -x /usr/local/libexec/relay/bin/relay-check || test -x /usr/local/sbin/relay-check'
 guest "$desk" -- /usr/bin/test -f /usr/local/libexec/relay/desk.py
 
-payload=$(tar -czf - -C "$repo/client" relay install-version-tools | base64 -w0)
+payload=$(tar -czf - -C "$repo/client" broker install-version-tools | base64 -w0)
 apply=$(cat <<'INSTALL'
 set -euo pipefail
 work=$(mktemp -d)
 trap 'rm -rf -- "$work"' EXIT
 printf '%s' "$1" | base64 -d | tar -xzf - -C "$work"
 bash "$work/install-version-tools"
-test "$(/usr/local/bin/valetkey-relay version)" = "$2"
+test "$(/usr/local/bin/valetkey-broker version)" = "$2"
 INSTALL
 )
 bash -c "$apply" _ "$payload" "$version"

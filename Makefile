@@ -9,7 +9,7 @@ SHELL_SCRIPTS := install.sh client/install-version-tools relay/run-tests relay/r
 help:
 	@echo "make test             run the unit and policy tests (stdlib only, fakes for bw/tailscale/fnox)"
 	@echo "make lint             bash -n on every script, shellcheck if installed, Python compile check, no real names"
-	@echo "make install-client   ./install.sh client --prefix \$$PREFIX [RELAY_URL=https://broker.<tailnet>.ts.net]"
+	@echo "make install-client   ./install.sh client --prefix \$$PREFIX [BROKER_URL=https://broker.<tailnet>.ts.net]"
 	@echo "make dist             dist/valetkey-$(VERSION).tar.gz from HEAD (git archive)"
 
 test:
@@ -32,7 +32,7 @@ lint:
 	 else echo "ok    no real tailnet names or home paths"; fi
 
 install-client:
-	./install.sh client --prefix $(PREFIX) $(if $(RELAY_URL),--relay-url $(RELAY_URL))
+	./install.sh client --prefix $(PREFIX) $(if $(BROKER_URL),--broker-url $(BROKER_URL))
 
 dist:
 	@mkdir -p dist

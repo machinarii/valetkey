@@ -1,14 +1,14 @@
 #!/usr/bin/python3 -I
-"""bellhop: run a tool that lives on the desk machine as if it were installed here.
+"""bellhop: run a tool that lives on the bellhop machine as if it were installed here.
 
   bellhop <tool> [args...]    run it (or link this file under the tool's name and call that)
-  valetkey-bellhop --list              what the desk lets this machine use
+  valetkey-bellhop --list              what the bellhop lets this machine use
   valetkey-bellhop --request mcp|cli NAME [SOURCE] [WHY...]
-                              ask the owner to install a tool or MCP server on the desk
+                              ask the owner to install a tool or MCP server on the bellhop
 
-An argument that names an existing local file is uploaded and swapped for the desk's copy.
+An argument that names an existing local file is uploaded and swapped for the bellhop's copy.
 Files the tool writes come back into the current folder. No key or login is kept here.
-The desk's address comes from $BELLHOP_URL, ~/.config/bellhop/url or /etc/bellhop/url.
+The bellhop's address comes from $BELLHOP_URL, ~/.config/bellhop/url or /etc/bellhop/url.
 """
 import json
 import os
@@ -33,24 +33,24 @@ def die(text, code=125):
     sys.exit(code)
 
 
-def desk_url():
+def bellhop_url():
     places = (os.path.expanduser("~/.config/bellhop/url"), "/etc/bellhop/url")
     url = os.environ.get("BELLHOP_URL") or next(
         (open(p).readline().strip() for p in places if os.path.isfile(p)), "")
     if not re.match(r"https?://", url):
-        die("no desk address: set BELLHOP_URL or write it to ~/.config/bellhop/url")
+        die("no bellhop address: set BELLHOP_URL or write it to ~/.config/bellhop/url")
     return url.rstrip("/")
 
 
 def call(method, path, data=None, headers=None):
     """(status, open response). Refusals come back as a status, not an exception."""
-    req = urllib.request.Request(desk_url() + path, data=data, method=method, headers=headers or {})
+    req = urllib.request.Request(bellhop_url() + path, data=data, method=method, headers=headers or {})
     try:
         return 200, OPEN(req, timeout=900)
     except urllib.error.HTTPError as e:
         return e.code, e
     except (urllib.error.URLError, OSError) as e:
-        die(f"cannot reach the desk ({getattr(e, 'reason', e)})")
+        die(f"cannot reach the bellhop ({getattr(e, 'reason', e)})")
 
 
 def text(resp):
@@ -86,7 +86,7 @@ def main():
             status, resp = call("POST", "/request", json.dumps(ask).encode(), {"Content-Type": "application/json"})
             if status != 200:
                 die(f"request refused: {text(resp)} ({status})", 126)
-            print(f"request {text(resp)} filed. The owner installs it on the desk; "
+            print(f"request {text(resp)} filed. The owner installs it on the bellhop; "
                   "it appears in `valetkey-bellhop --list` when it is ready.")
             return 0
         me, args = args[0], args[1:]
@@ -112,7 +112,7 @@ def main():
     for made in result["files"]:
         name = names.get(made["name"]) or os.path.basename(made["name"]) or "bellhop-output"
         target, n = name, 0
-        while os.path.lexists(target):  # never overwrite: the name was chosen on the desk
+        while os.path.lexists(target):  # never overwrite: the name was chosen on the bellhop
             n += 1
             target = f"{name}.{n}"
         status, body = call("GET", "/file/" + made["id"])

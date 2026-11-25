@@ -9,25 +9,25 @@ if [ "$#" -ne 0 ]; then
   fi
   bin=$2
 fi
-src=$(cd "$(dirname "$0")" && pwd)/relay
+src=$(cd "$(dirname "$0")" && pwd)/broker
 python3 -I -c 'import sys; sys.exit(sys.version_info < (3, 9))' || {
   echo "Valetkey needs Python 3.9 or later." >&2; exit 1;
 }
 mkdir -p -- "$bin"
-target=$bin/valetkey-relay-version
-link=$bin/valetkey-relay
+target=$bin/valetkey-broker-version
+link=$bin/valetkey-broker
 is_client() {
   [ -f "$1" ] && [ ! -L "$1" ] &&
-    sed -n '2{p;q;}' "$1" | grep -Fq '"""relay: ask the credential relay about names'
+    sed -n '2{p;q;}' "$1" | grep -Eq '^"""(valetkey-broker|relay): ask the credential (broker|relay) about names'
 }
 ours() {  # our client, or one of our links to it
   is_client "$1" && return 0
   [ -L "$1" ] || return 1
-  case $(readlink "$1") in relay|relay-version|valetkey-relay-version) return 0 ;; esac
+  case $(readlink "$1") in relay|relay-version|valetkey-relay-version|valetkey-broker-version) return 0 ;; esac
   return 1
 }
-# A full client, under this name or the one before it, keeps all its commands.
-if is_client "$link" || is_client "$bin/relay"; then
+# A full client, under this name or an earlier one, keeps all its commands.
+if is_client "$link" || is_client "$bin/valetkey-relay" || is_client "$bin/relay"; then
   target=$link
 fi
 for existing in "$link" "$target"; do
@@ -41,10 +41,10 @@ install -m 755 "$src" "$tmp"
 if [ -L "$target" ]; then rm -f -- "${target:?}"; fi
 mv -f -- "$tmp" "$target"
 if [ "$target" != "$link" ]; then
-  ln -sfn valetkey-relay-version "$link"
+  ln -sfn valetkey-broker-version "$link"
 fi
-# The names before valetkey-relay: remove ours, leave anything else of that name alone.
-for old in "$bin/relay" "$bin/relay-version"; do
+# The earlier names: remove ours, leave anything else of that name alone.
+for old in "$bin/relay" "$bin/relay-version" "$bin/valetkey-relay" "$bin/valetkey-relay-version"; do
   if ours "$old"; then rm -f -- "${old:?}"; fi
 done
 echo "Installed Valetkey version commands in $bin."

@@ -28,7 +28,7 @@ class ProxmoxInstallTests(unittest.TestCase):
             path.chmod(0o755)
         for path, value in [("deploy/proxmox/vaultwarden-ct.sh", "vault:$CTID"),
                             ("deploy/proxmox/broker-vm.sh", "$ROLE:$VMID"),
-                            ("bellhop/proxmox-desk-vm.sh", "desk:$VMID")]:
+                            ("bellhop/proxmox-bellhop-vm.sh", "desk:$VMID")]:
             child = self.root / path
             child.parent.mkdir(parents=True, exist_ok=True)
             child.write_text(f'echo "{value}" >> "$LOG"\n')
@@ -45,13 +45,13 @@ class ProxmoxInstallTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.log.read_text().splitlines(), ["vault:210", "broker:211", "desk:212"])
         self.log.unlink()
-        result = self.install("--no-desk", CTID="310", BROKER_VMID="311",
+        result = self.install("--no-bellhop", CTID="310", BROKER_VMID="311",
                               INVENTORY='[{"vmid":212}]')
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.log.read_text().splitlines(), ["vault:310", "broker:311"])
 
     def test_preflight_fails_before_any_guest(self):
-        for args, env in [((), {"INVENTORY": '[{"vmid":212}]'}), ((), {"DESK_VMID": "211"}),
+        for args, env in [((), {"INVENTORY": '[{"vmid":212}]'}), ((), {"BELLHOP_VMID": "211"}),
                           ((), {"CTID": "invalid"}), ((), {"INVENTORY": ""}),
                           (("--typo",), {})]:
             with self.subTest(args=args, env=env):

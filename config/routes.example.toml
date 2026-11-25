@@ -1,6 +1,6 @@
 # valetkey routes: which machine may use which credential. Names only; every value lives in
 # Vaultwarden. Installed to /etc/relay/routes.toml by `install.sh broker` (only if absent).
-# After editing /etc/relay/routes.toml run `sudo valetkey-relay routes install`.
+# After editing /etc/relay/routes.toml run `sudo valetkey-broker routes install`.
 #
 # Every entry has `org` ("local" or "infra") and `nodes`: the Tailscale machine names allowed to
 # call it (checked with `tailscale whois`, so nothing is stored on the client).
@@ -9,7 +9,7 @@
 #   infra  credentials of deployed projects, one nested collection per project
 #
 # [api.<route>]   https://<broker>/<org>/<route>/<path>  ->  <upstream>/<path>
-#   The relay drops the caller's Authorization/Cookie headers and sends `auth` with a placeholder;
+#   The broker drops the caller's Authorization/Cookie headers and sends `auth` with a placeholder;
 #   fnox proxy swaps in the real value only for this upstream host, these methods and paths.
 #   item     Vaultwarden item name (add "/notes" for a value stored in Notes)
 #   paths    path prefixes allowed under the route, e.g. "/v1/" (fnox gets "/v1/**")

@@ -1,4 +1,4 @@
-# /etc/bellhop/desk.toml on the desk machine. Names only: keys and logins stay in their own files.
+# /etc/bellhop/desk.toml on the bellhop machine. Names only: keys and logins stay in their own files.
 
 [desk]
 listen = "127.0.0.1:8460"   # plain HTTP; relay_front adds TLS and reports the real caller
@@ -17,7 +17,7 @@ deny = ["--debug", "--verbose"]   # options refused wherever they appear
 timeout = 600
 
 # An MCP server that runs on this machine and holds its own login. The agent machine connects to
-# https://<desk>/desk/mcp/local-tool with no key. Add header and value_file (a one-line file,
+# https://<bellhop address>/desk/mcp/local-tool with no key. Add header and value_file (a one-line file,
 # owner desk, mode 600) if the local server wants a key on each request.
 #
 # An MCP server with a fixed key that lives elsewhere does not belong here: give it a broker

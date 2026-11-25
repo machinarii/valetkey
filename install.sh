@@ -3,20 +3,20 @@
 #
 #   sudo ./install.sh vaultwarden       (Debian/Ubuntu: Docker, Tailscale, Vaultwarden on the tailnet only)
 #   sudo ./install.sh broker [--with-deps]
-#   sudo ./install.sh desk              (bellhop desk: runs login-holding tools for agent machines; no agent here)
-#   sudo ./install.sh agent [--relay-url URL] [--desk-url URL] [--tools a,b] [--user NAME] [--no-policy]
+#   sudo ./install.sh bellhop           (runs login-holding tools for agent machines; no agent here)
+#   sudo ./install.sh agent [--broker-url URL] [--bellhop-url URL] [--tools a,b] [--user NAME] [--no-policy]
 #                           [--t3-url http://127.0.0.1:PORT | --no-t3]
 #                                       (an agent machine in one command: clients, sweep, MCP policy; no keys)
 #   ./install.sh claude [--yes] [--dry-run]
 #                                       (agent machine: asks what to block, then updates CLAUDE.md and settings.json)
-#   ./install.sh client --relay-url https://broker.<tailnet>.ts.net [--prefix DIR] [--agent|--owner] [--with-deps]
+#   ./install.sh client --broker-url https://broker.<tailnet>.ts.net [--prefix DIR] [--agent|--owner] [--with-deps]
 #   ./install.sh uninstall-client [--prefix DIR]
 #   ./install.sh doctor
 #   ./install.sh guidance   (offline rules for agent memory; never reads credentials)
 #   ./install.sh version
 #   sudo ./install.sh update [--prefix BIN_DIR]  (updates the version commands only)
-#   sudo ./install.sh proxmox [--no-desk]
-#                                       (Proxmox host: creates the vault, broker and desk guests)
+#   sudo ./install.sh proxmox [--no-bellhop]
+#                                       (Proxmox host: creates the vault, broker and bellhop guests)
 #   ./install.sh                        (on a terminal: asks which machine this is, then runs the above)
 #
 # Run from a checkout, or straight from GitHub (it fetches the repo into a temp dir first):
@@ -73,13 +73,15 @@ need_python() {  # min-minor
 config_dir() { echo "${XDG_CONFIG_HOME:-$HOME/.config}/valetkey"; }
 
 # --- client ---
-# The command names before valetkey-*: remove our own scripts and links, nothing else of that name.
+# The earlier command names: remove our own scripts and links, nothing else of that name.
 remove_old_names() {
   local dir=${1:?} t
-  for t in relay relay-version valetkey-relay-version vault-entry fnox-to-relay; do
+  for t in relay relay-version valetkey-relay valetkey-relay-version valetkey-broker-version vault-entry \
+           fnox-to-relay valetkey-fnox-to-relay; do
     if [ -L "$dir/$t" ]; then
       case $(readlink "$dir/$t") in
-        relay|relay-version|valetkey-relay-version|vault-entry|fnox-to-relay) rm -f "${dir:?}/${t:?}" ;;
+        relay|relay-version|valetkey-relay|valetkey-relay-version|valetkey-broker-version|vault-entry|fnox-to-relay|valetkey-fnox-to-relay)
+          rm -f "${dir:?}/${t:?}" ;;
       esac
     elif [ -f "$dir/$t" ] && head -n 3 "$dir/$t" | grep -q 'python3'; then
       rm -f "${dir:?}/${t:?}"
@@ -92,7 +94,7 @@ cmd_client() {
   while [ $# -gt 0 ]; do
     case $1 in
       --prefix) prefix=${2:?--prefix needs a directory}; shift 2 ;;
-      --relay-url) url=${2:?--relay-url needs a URL}; shift 2 ;;
+      --broker-url) url=${2:?--broker-url needs a URL}; shift 2 ;;
       --owner) owner=yes; shift ;;
       --agent) agent=yes; shift ;;
       --with-deps) deps=yes; shift ;;
@@ -115,20 +117,20 @@ try:
 except ValueError:
     good = False
 sys.exit(0 if good else 1)
-' || die "--relay-url must be an https:// origin on port 443 with no credentials, path or query"
+' || die "--broker-url must be an https:// origin on port 443 with no credentials, path or query"
   fi
-  tools="valetkey-relay vault"  # vault keeps its name: fnox calls it by that name
+  tools="valetkey-broker vault"  # vault keeps its name: fnox calls it by that name
   [ "$owner" = yes ] && tools="$tools valetkey-entry"
-  [ "$agent" = no ] || tools="valetkey-relay"
+  [ "$agent" = no ] || tools="valetkey-broker"
   install -d -m 755 "$prefix"
   for t in $tools; do
-    case $t in valetkey-relay) src=relay ;; valetkey-entry) src=vault-entry ;; *) src=$t ;; esac
+    case $t in valetkey-broker) src=broker ;; valetkey-entry) src=vault-entry ;; *) src=$t ;; esac
     # A server's link to the version tool must go first, or install would write through it.
     if [ -L "$prefix/$t" ]; then rm -f "${prefix:?}/${t:?}"; fi
     install -m 755 "$repo/client/$src" "$prefix/$t"
   done
   if [ "$agent" = no ]; then
-    install -m 755 "$repo/relay/tools/fnox-to-relay.py" "$prefix/valetkey-fnox-to-relay"
+    install -m 755 "$repo/relay/tools/fnox-to-broker.py" "$prefix/valetkey-fnox-to-broker"
   fi
   remove_old_names "$prefix"
   install -d -m 755 "$prefix/../share/valetkey"
@@ -136,13 +138,19 @@ sys.exit(0 if good else 1)
   ok "valetkey $version client tools in $prefix: $tools"
   [ "$deps" = no ] || client_deps "$prefix" "$agent"
 
+  local cfg
+  cfg=$(config_dir)
+  if [ -f "$cfg/relay-url" ]; then  # the file's name before 0.4
+    [ -e "$cfg/broker-url" ] || cp "$cfg/relay-url" "$cfg/broker-url"
+    rm -f "${cfg:?}/relay-url"
+  fi
   if [ -n "$url" ]; then
-    case $url in https://*) ;; *) die "--relay-url must start with https://" ;; esac
+    case $url in https://*) ;; *) die "--broker-url must start with https://" ;; esac
     install -d -m 755 "$(config_dir)"
-    printf '%s\n' "${url%/}" > "$(config_dir)/relay-url"
-    ok "broker URL ${url%/} saved in $(config_dir)/relay-url"
-  elif [ -z "${RELAY_URL:-}" ] && [ ! -f "$(config_dir)/relay-url" ]; then
-    warn "no broker URL yet: re-run with --relay-url https://broker.<tailnet>.ts.net (or set RELAY_URL)"
+    printf '%s\n' "${url%/}" > "$(config_dir)/broker-url"
+    ok "broker URL ${url%/} saved in $(config_dir)/broker-url"
+  elif [ -z "${BROKER_URL:-}" ] && [ ! -f "$(config_dir)/broker-url" ]; then
+    warn "no broker URL yet: re-run with --broker-url https://broker.<tailnet>.ts.net (or set BROKER_URL)"
   fi
 
   case ":$PATH:" in *":$prefix:"*) ;; *) warn "$prefix is not on PATH; add it before any HashiCorp vault binary" ;; esac
@@ -154,13 +162,13 @@ sys.exit(0 if good else 1)
   fi
   command -v tailscale >/dev/null || warn "tailscale not found: the broker only answers tailnet machines (re-run with --with-deps, or https://tailscale.com/download)"
   [ "$agent" = yes ] || command -v fnox >/dev/null || [ -x "$prefix/fnox" ] \
-    || warn "fnox not found: re-run with --with-deps (or https://fnox.jdx.dev) to pull project secrets; relay and vault work without it"
+    || warn "fnox not found: re-run with --with-deps (or https://fnox.jdx.dev) to pull project secrets; valetkey-broker and vault work without it"
   echo
-  echo "Check it: valetkey-relay check local <item-name>     (ok / missing / not-allowed, never values)"
-  echo "Safety rules: valetkey-relay guide     (offline; reference these in agent instructions)"
+  echo "Check it: valetkey-broker check local <item-name>     (ok / missing / not-allowed, never values)"
+  echo "Safety rules: valetkey-broker guide     (offline; reference these in agent instructions)"
   if [ "$agent" = yes ]; then
-    echo "Claude subscription: valetkey-relay guide claude shows setup-token and web login options."
-    echo "Valetkey works with or without claude-mem. For memory capture setup, run valetkey-relay guide claude-mem."
+    echo "Claude subscription: valetkey-broker guide claude shows setup-token and web login options."
+    echo "Valetkey works with or without claude-mem. For memory capture setup, run valetkey-broker guide claude-mem."
     echo "Broker must list this machine in [security].agent_nodes; never trusted_value_nodes or owner_nodes."
     echo "--agent does not remove existing tools or credentials and is not an access-control boundary."
   fi
@@ -196,7 +204,7 @@ cmd_uninstall_client() {
   local prefix="$HOME/.local/bin"
   [ "${1:-}" = --prefix ] && prefix=${2:?--prefix needs a directory}
   remove_old_names "$prefix"
-  for t in valetkey-relay valetkey-entry valetkey-fnox-to-relay vault; do
+  for t in valetkey-broker valetkey-entry valetkey-fnox-to-broker vault; do
     # Only our Python scripts: never a real HashiCorp vault binary of the same name.
     if [ -f "$prefix/$t" ] && head -n 3 "$prefix/$t" | grep -q 'python3'; then rm -f "${prefix:?}/${t:?}"; ok "removed $prefix/$t"; fi
   done
@@ -211,7 +219,7 @@ cmd_vaultwarden() {
   install -d -m 755 /opt/vaultwarden
   install -m 755 "$repo"/deploy/vaultwarden/*.sh /opt/vaultwarden/
   install -d -m 755 /opt/vaultwarden/client
-  install -m 755 "$repo/client/relay" "$repo/client/install-version-tools" /opt/vaultwarden/client/
+  install -m 755 "$repo/client/broker" "$repo/client/install-version-tools" /opt/vaultwarden/client/
   bash /opt/vaultwarden/vaultwarden-setup.sh
 }
 
@@ -249,11 +257,11 @@ loopback_origin() {
 }
 
 cmd_agent() {
-  local relay_url='' desk_url='' tools='' user=${SUDO_USER:-} policy=yes home t existing t3=auto
+  local broker_url='' bellhop_url='' tools='' user=${SUDO_USER:-} policy=yes home t existing t3=auto
   while [ $# -gt 0 ]; do
     case $1 in
-      --relay-url) relay_url=${2:?--relay-url needs a URL}; shift 2 ;;
-      --desk-url) desk_url=${2:?--desk-url needs a URL}; shift 2 ;;
+      --broker-url) broker_url=${2:?--broker-url needs a URL}; shift 2 ;;
+      --bellhop-url) bellhop_url=${2:?--bellhop-url needs a URL}; shift 2 ;;
       --tools) tools=${2:?--tools needs a comma-separated list}; shift 2 ;;
       --user) user=${2:?--user needs a name}; shift 2 ;;
       --no-policy) policy=no; shift ;;
@@ -264,8 +272,8 @@ cmd_agent() {
     esac
   done
   [ "$(id -u)" = 0 ] || die "agent: run with sudo (it writes root-owned files the agent's user cannot change)"
-  [ "$(uname -s)" = Linux ] || die "agent: Linux only. On macOS use: ./install.sh client --agent --relay-url ..."
-  [ -n "$relay_url$desk_url" ] || die "agent: give --relay-url, --desk-url or both"
+  [ "$(uname -s)" = Linux ] || die "agent: Linux only. On macOS use: ./install.sh client --agent --broker-url ..."
+  [ -n "$broker_url$bellhop_url" ] || die "agent: give --broker-url, --bellhop-url or both"
   [ -n "$user" ] && [ "$user" != root ] && id "$user" >/dev/null 2>&1 \
     || die "agent: say which user the agent runs as: --user NAME"
   home=$(getent passwd "$user" | cut -d: -f6)
@@ -277,25 +285,25 @@ cmd_agent() {
     warn "the Bitwarden CLI (bw) is installed here; an agent machine should not have a vault client"
   fi
 
-  if [ -n "$relay_url" ]; then  # the broker client, agent mode, with the URL saved for that user
-    HOME=$home XDG_CONFIG_HOME='' VALETKEY_AGENT_SETUP=1 cmd_client --agent --prefix /usr/local/bin --relay-url "$relay_url" >/dev/null
+  if [ -n "$broker_url" ]; then  # the broker client, agent mode, with the URL saved for that user
+    HOME=$home XDG_CONFIG_HOME='' VALETKEY_AGENT_SETUP=1 cmd_client --agent --prefix /usr/local/bin --broker-url "$broker_url" >/dev/null
     chown -R "$user": "$home/.config/valetkey"
-    ok "relay (agent mode) in /usr/local/bin, broker $relay_url"
+    ok "valetkey-broker (agent mode) in /usr/local/bin, broker $broker_url"
   else
     bash "$repo/client/install-version-tools"
   fi
 
-  if [ -n "$desk_url" ]; then  # the stand-in for tools that live on the desk
-    case $desk_url in https://*) ;; http://*) warn "desk URL is plain http: test networks only" ;; *) die "--desk-url must be a URL" ;; esac
+  if [ -n "$bellhop_url" ]; then  # the stand-in for tools that live on the bellhop
+    case $bellhop_url in https://*) ;; http://*) warn "bellhop URL is plain http: test networks only" ;; *) die "--bellhop-url must be a URL" ;; esac
     rm -f /usr/local/bin/valetkey-bellhop  # a link from the short time both names existed
     install -m 755 "$repo/bellhop/bellhop" /usr/local/bin/valetkey-bellhop
     install -d -m 755 /etc/bellhop
-    printf '%s\n' "${desk_url%/}" > /etc/bellhop/url
+    printf '%s\n' "${bellhop_url%/}" > /etc/bellhop/url
     for t in ${tools//,/ }; do
       [[ $t =~ ^[a-z0-9][a-z0-9._-]*$ ]] || die "agent: bad tool name: $t"
       existing=$(command -v "$t" 2>/dev/null || true)
       if [ -n "$existing" ] && case $(readlink -f "$existing") in /usr/local/bin/valetkey-bellhop|/usr/local/bin/bellhop) false ;; *) true ;; esac; then
-        warn "$t is already installed at $existing and was left alone; remove it and its login to use the desk's"
+        warn "$t is already installed at $existing and was left alone; remove it and its login to use the bellhop's copy"
         continue
       fi
       ln -sf valetkey-bellhop "/usr/local/bin/$t"
@@ -304,13 +312,13 @@ cmd_agent() {
       if [ -L "$existing" ] && [ "$(readlink "$existing")" = bellhop ]; then ln -sfn valetkey-bellhop "$existing"; fi
     done
     rm -f /usr/local/bin/bellhop
-    ok "valetkey-bellhop in /usr/local/bin, desk ${desk_url%/}${tools:+, stand-ins: $tools}"
+    ok "valetkey-bellhop in /usr/local/bin, bellhop at ${bellhop_url%/}${tools:+, stand-ins: $tools}"
   fi
 
   # Where MCP servers may live, for the sweep and for the policy below.
   install -d -m 755 /etc/bellhop
   : > /etc/bellhop/mcp-prefixes
-  [ -z "$relay_url" ] || printf '%s\n' "${relay_url%/}" >> /etc/bellhop/mcp-prefixes
+  [ -z "$broker_url" ] || printf '%s\n' "${broker_url%/}" >> /etc/bellhop/mcp-prefixes
 
   rm -f /usr/local/sbin/valetkey-sweep /usr/local/sbin/bellhop-sweep
   install -m 755 "$repo/bellhop/sweep.py" /usr/local/sbin/valetkey-sweep
@@ -346,7 +354,7 @@ UNIT
 
 Claude Code policy: /etc/claude-code/managed-settings.json, owned by root.
   Intent: give every Claude Code session on this machine valetkey's rules, and let it use MCP
-  servers only at the broker and desk, in a file the agent's user cannot change.
+  servers only at the broker and bellhop, in a file the agent's user cannot change.
   It also turns off every other MCP server here, including local and account-synced ones.
 ASK
     [ -z "$t3" ] || echo "  T3 Code's own tools at $t3/mcp stay allowed (--no-t3 to leave them out)." >&2
@@ -362,25 +370,25 @@ ASK
       esac
     done
   fi
-  if [ "$policy" = yes ]; then  # Claude Code: MCP servers only at the broker and the desk; rules as standing instructions
+  if [ "$policy" = yes ]; then  # Claude Code: MCP servers only at the broker and the bellhop; rules as standing instructions
     if [ -e /etc/claude-code/managed-settings.json ]; then
       warn "/etc/claude-code/managed-settings.json exists and was left alone; to rewrite it (for example to allow T3 Code's tools), remove it and run again"
     else
       install -d -m 755 /etc/claude-code
-      python3 -I - "$repo" "${relay_url%/}" "${desk_url%/}" "$t3" <<'PY'
+      python3 -I - "$repo" "${broker_url%/}" "${bellhop_url%/}" "$t3" <<'PY'
 import json, sys
-repo, relay, desk, t3 = sys.argv[1:5]
-allowed = [{"serverUrl": relay + "/*"}] if relay else []
+repo, broker, bellhop, t3 = sys.argv[1:5]
+allowed = [{"serverUrl": broker + "/*"}] if broker else []
 if t3:  # T3 Code gives each Claude session its own tools at <origin>/mcp, with a per-session token
     allowed.append({"serverUrl": t3 + "/mcp"})
 rules = open(repo + "/agents/credential-rules.md").read()
-if desk:
-    allowed.append({"serverUrl": desk + "/mcp/*"})
+if bellhop:
+    allowed.append({"serverUrl": bellhop + "/mcp/*"})
     rules += "\n" + open(repo + "/bellhop/agent-rules.md").read()
 json.dump({"allowManagedMcpServersOnly": True, "allowedMcpServers": allowed, "claudeMd": rules},
           open("/etc/claude-code/managed-settings.json", "w"), indent=2)
 PY
-      ok "Claude Code policy: MCP servers only at the broker and desk${t3:+ and T3 Code ($t3/mcp)} (this also blocks local and account-synced ones; --no-policy to skip)"
+      ok "Claude Code policy: MCP servers only at the broker and bellhop${t3:+ and T3 Code ($t3/mcp)} (this also blocks local and account-synced ones; --no-policy to skip)"
     fi
   fi
 
@@ -389,19 +397,19 @@ PY
   if id -nG "$user" | tr ' ' '\n' | grep -qxE 'sudo|wheel|admin' || [ -n "$(ls /etc/sudoers.d 2>/dev/null)" ]; then
     echo "  - $user may be able to use sudo. An agent that can become root can undo everything above."
   fi
-  echo "  - Join the tailnet as its own tagged machine, with grants to the broker and desk on 443 only."
+  echo "  - Join the tailnet as its own tagged machine, with grants to the broker and bellhop on 443 only."
   echo "  - Keep logins off this machine: no signed-in cloud tools, no .env files with real keys, no SSH keys."
 }
 
 # --- doctor: what is installed here, without touching any secret ---
 cmd_doctor() {
   echo "valetkey $version ($repo)"
-  for c in python3 tailscale fnox valetkey-relay vault valetkey-entry bw jq docker; do
+  for c in python3 tailscale fnox valetkey-broker vault valetkey-entry bw jq docker; do
     p=$(command -v "$c" 2>/dev/null || true)
     printf '%-12s %s\n' "$c" "${p:-not found}"
   done
-  local url=${RELAY_URL:-}
-  [ -n "$url" ] || url=$(head -1 "$(config_dir)/relay-url" 2>/dev/null || true)
+  local url=${BROKER_URL:-}
+  [ -n "$url" ] || url=$(head -1 "$(config_dir)/broker-url" 2>/dev/null || true)
   printf '%-12s %s\n' "broker URL" "${url:-not set}"
   if command -v tailscale >/dev/null; then
     printf '%-12s %s\n' "tailnet" "$(tailscale status --json 2>/dev/null | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("Self",{}).get("DNSName","?").rstrip("."))' 2>/dev/null || echo 'not connected')"
@@ -430,12 +438,12 @@ is_proxmox_host() {
 }
 
 cmd_proxmox() {
-  local vault=${CTID:-210} broker=${BROKER_VMID:-${VMID:-211}} desk=${DESK_VMID:-212}
+  local vault=${CTID:-210} broker=${BROKER_VMID:-${VMID:-211}} bellhop=${BELLHOP_VMID:-212}
   local ids=("$vault" "$broker")
   case "$#:${1:-}" in
-    0:) ids+=("$desk") ;;
-    1:--no-desk) ;;
-    *) die "usage: install.sh proxmox [--no-desk]" ;;
+    0:) ids+=("$bellhop") ;;
+    1:--no-bellhop) ;;
+    *) die "usage: install.sh proxmox [--no-bellhop]" ;;
   esac
   is_proxmox_host || die "proxmox: run on a Proxmox VE host with qm, pct and pvesh"
   [ "$(id -u)" = 0 ] || die "proxmox: run as root on the Proxmox host"
@@ -453,7 +461,7 @@ if overlap:
   CTID="$vault" bash "$repo/deploy/proxmox/vaultwarden-ct.sh"
   ROLE=broker VMID="$broker" bash "$repo/deploy/proxmox/broker-vm.sh"
   if [ "${#ids[@]}" -eq 3 ]; then
-    VMID="$desk" bash "$repo/bellhop/proxmox-desk-vm.sh"
+    VMID="$bellhop" bash "$repo/bellhop/proxmox-bellhop-vm.sh"
   fi
 }
 
@@ -500,19 +508,19 @@ as_root() {
 }
 
 cmd_menu() {
-  local n role relay='' desk='' tools='' suffix default='' i args=() roles=() labels=()
+  local n role broker='' bellhop='' tools='' suffix default='' i args=() roles=() labels=()
   exec 3<"$tty"
   suffix=$(tailnet_suffix)
   if [ "$(uname -s)" = Darwin ]; then  # a Mac is only ever a client
     roles=(agent owner consumer)
   else
-    roles=(proxmox vault broker desk agent owner consumer)
+    roles=(proxmox vault broker bellhop agent owner consumer)
   fi
   labels=(
-    "proxmox|Proxmox host: creates the vault, broker and desk as separate guests"
+    "proxmox|Proxmox host: creates the vault, broker and bellhop as separate guests"
     "vault|Vault host (Vaultwarden)"
-    "broker|Broker (the relay services)"
-    "desk|Desk (optional: runs tools that keep their own login)"
+    "broker|Broker (answers agents' calls and adds the keys)"
+    "bellhop|Bellhop (optional: runs tools that keep their own login)"
     "agent|Agent machine (where Claude Code, Codex or other agents run)"
     "owner|Approver device (where you enter keys and approve routes; never runs agents)"
     "consumer|Trusted server (runs an application that reads the key itself; never runs agents)")
@@ -532,21 +540,21 @@ cmd_menu() {
   done
   role=${roles[$((n - 1))]}
   case $role in
-    agent|owner|consumer) ask_url relay "Broker URL" "${suffix:+https://broker.$suffix}" ;;
+    agent|owner|consumer) ask_url broker "Broker URL" "${suffix:+https://broker.$suffix}" ;;
   esac
   case $role in
     proxmox) as_root proxmox ;;
     vault) as_root vaultwarden ;;
     broker) as_root broker --with-deps ;;
-    desk) as_root desk ;;
+    bellhop) as_root bellhop ;;
     agent)
       if [ "$(uname -s)" = Darwin ]; then
-        cmd_client --agent --relay-url "$relay"
+        cmd_client --agent --broker-url "$broker"
       else
-        ask_url desk "Desk URL (if you have a desk)" "${suffix:+https://desk.$suffix/desk}" optional
-        [ -z "$desk" ] || ask tools "Desk tools to link here, comma-separated" "" optional
-        args=(--user "${SUDO_USER:-$(id -un)}" --relay-url "$relay")
-        [ -z "$desk" ] || args+=(--desk-url "$desk")
+        ask_url bellhop "Bellhop URL (if you have a bellhop)" "${suffix:+https://desk.$suffix/desk}" optional
+        [ -z "$bellhop" ] || ask tools "Bellhop tools to link here, comma-separated" "" optional
+        args=(--user "${SUDO_USER:-$(id -un)}" --broker-url "$broker")
+        [ -z "$bellhop" ] || args+=(--bellhop-url "$bellhop")
         [ -z "$tools" ] || args+=(--tools "$tools")
         as_root agent "${args[@]}"
       fi
@@ -556,8 +564,8 @@ cmd_menu() {
       else
         echo "Then, as the agent's user: ./install.sh claude" >&2
       fi ;;
-    owner) cmd_client --owner --relay-url "$relay" ;;
-    consumer) cmd_client --relay-url "$relay" --with-deps ;;
+    owner) cmd_client --owner --broker-url "$broker" ;;
+    consumer) cmd_client --broker-url "$broker" --with-deps ;;
   esac
 }
 
@@ -565,7 +573,7 @@ case ${1:-} in
   client) shift; cmd_client "$@" ;;
   broker) shift; cmd_broker "$@" ;;
   vaultwarden) cmd_vaultwarden ;;
-  desk) exec bash "$repo/bellhop/install-desk.sh" ;;
+  bellhop) exec bash "$repo/bellhop/install-bellhop.sh" ;;
   agent) shift; cmd_agent "$@" ;;
   claude) shift; need_python 9; exec python3 -I "$repo/agents/claude-setup.py" --repo "$repo" "$@" ;;
   uninstall-client) shift; cmd_uninstall_client "$@" ;;

@@ -6,7 +6,7 @@
 
 - a value at rest on any client machine: in files, `.env`, Keychain, shell history or logs;
 - a client token leaking: there is none;
-- a machine reading outside its routes, or one org's relay reading the other org;
+- a machine reading outside its routes, or one org's broker reading the other org;
 - raw reads by an agent machine are denied by default, including direct HTTP requests. An owner-approved Claude setup-token route grants one machine its own model credential;
 - typos and naming drift when keys are added: the agent names, you type only the value;
 - losing the old key on a replace: a dated backup is always kept;
@@ -16,8 +16,8 @@
 
 - **Code on an allowed machine.** Every process shares its Tailscale identity. If trusted server `app-shop` may pull `*-shop-qa`, anything on `app-shop` can. Keep routes narrow and agents on separate machines or VMs.
 - **A process that already holds a value** (`[project]` and `[value]` routes). It can leak that value. `[api]` routes avoid this.
-- **Use of what is allowed.** A listed machine can call every operation its routes and desk entries permit, as often as it likes. Hiding a key stops copying, not misuse: narrow the lists, the key's own scope and its spending limits.
-- **A desk tool's own behaviour.** The desk refuses subcommands that are not listed, but a listed subcommand does whatever the tool does. Do not list one whose purpose is to print the login or read a file you name.
+- **Use of what is allowed.** A listed machine can call every operation its routes and bellhop entries permit, as often as it likes. Hiding a key stops copying, not misuse: narrow the lists, the key's own scope and its spending limits.
+- **A bellhop tool's own behaviour.** The bellhop refuses subcommands that are not listed, but a listed subcommand does whatever the tool does. Do not list one whose purpose is to print the login or read a file you name.
 - **Root on the broker**, which can unlock everything. Run nothing else on it, manage it only from its console or LAN SSH, keep it updated and back it up.
 - **An agent on an approver device.** It could submit values, capture input or browser state, or read process memory. Keep approver devices separate.
 - **Upstream key disclosure or misuse.** Echo/debug and secret-export APIs can return credentials. A route also permits the upstream actions it exposes. Narrow paths, methods and provider permissions; Valet is not a general response redactor.
@@ -44,14 +44,14 @@ valetkey is a personal project shared in the hope that it is useful. Read the fo
 - **You are responsible for your own setup.** You decide where it runs, which machines and agents may use which keys and tools, and how narrow those keys are. Read the code and [secure setup](secure-setup.md) before you trust it with a real credential, start with test-mode or low-value keys, and keep your own backups of the vault.
 - **Private use on a tailnet only.** It is meant for one person or a small trusted group running agents on their own machines. It is not designed, tested or supported for a public-facing service, for several tenants who do not trust each other, or for regulated, safety-critical or high-value uses. Never expose it to the internet.
 - **It reduces risk; it does not remove it.** Nothing here guarantees that an agent cannot obtain, leak or misuse a credential. Do not make it your only control.
-- **Other people's services and software.** You are responsible for following the terms of every service whose key or login you put behind the broker or the desk; some services restrict shared or automated use of an account. Vaultwarden, fnox, Tailscale, Claude Code and the other tools named here belong to their owners, come under their own licenses and terms, and are not covered by this notice. valetkey is not affiliated with or endorsed by any of them.
+- **Other people's services and software.** You are responsible for following the terms of every service whose key or login you put behind the broker or the bellhop; some services restrict shared or automated use of an account. Vaultwarden, fnox, Tailscale, Claude Code and the other tools named here belong to their owners, come under their own licenses and terms, and are not covered by this notice. valetkey is not affiliated with or endorsed by any of them.
 - **Not professional advice.** Nothing in this repository is security, legal or compliance advice.
 
 The [MIT license](../LICENSE) is the governing text; this section explains it and does not replace it.
 
 ## Status and license
 
-Version 0.3.0. In daily use on a small fleet of Proxmox, macOS and Linux machines with AI agents; the Proxmox scripts are the most tested path. bellhop is newer than the broker: it has run on one Proxmox desk with three tools, and its keyless tool standard is a draft that nothing enforces yet.
+Version 0.4.0. In daily use on a small fleet of Proxmox, macOS and Linux machines with AI agents; the Proxmox scripts are the most tested path. bellhop is newer than the broker: it has run on one Proxmox VM with three tools, and its keyless tool standard is a draft that nothing enforces yet.
 
 It is not a bulletproof solution for protecting keys from agents. It is a practical way to reduce risk in a home agentic setup, built by one person, without an independent security audit. Treat it as a reasonable set of precautions, not a guarantee.
 

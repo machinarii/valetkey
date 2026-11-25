@@ -1,12 +1,12 @@
-# Installed by valetkey (install.sh broker). Read relay for local-org on 127.0.0.1:8441 (behind relay-front).
+# Installed by valetkey (install.sh broker). Read service for local-org on 127.0.0.1:8441 (behind relay-front).
 # with-bw-session unlocks bw as relay-local and writes /run/relay-local/bw.env (BW_SESSION) for the
-# relay's --bw-env-file; fnox proxy run gets BW_SESSION for its bitwarden provider ([api.*]
-# routes in api.toml), and env -u keeps it out of the relay process's environment.
+# broker's --bw-env-file; fnox proxy run gets BW_SESSION for its bitwarden provider ([api.*]
+# routes in api.toml), and env -u keeps it out of the broker process's environment.
 [Unit]
-Description=Credential relay, local-org (read)
+Description=Credential broker, local-org (read)
 After=network-online.target tailscaled.service
 Wants=network-online.target
-# Not configured yet (valetkey-relay login local, valetkey-relay routes install): stay inactive, don't crash-loop.
+# Not configured yet (valetkey-broker login local, valetkey-broker routes install): stay inactive, don't crash-loop.
 ConditionPathExists=/etc/credstore.encrypted/bw-unlock-local
 ConditionPathExists=/var/lib/relay-local/api.toml
 ConditionPathExists=/var/lib/relay-local/org.json

@@ -4,7 +4,7 @@
 # runs `install.sh broker --with-deps` there over SSH.
 # SSH access: the keys in /root/.ssh/authorized_keys plus this host's root key.
 # Override defaults with env vars: VMID, STORAGE, BRIDGE, BROKER_HOSTNAME, IMG_URL, CORES, MEMORY, DISK.
-# ROLE=desk builds a bellhop desk VM with the same steps (see bellhop/proxmox-desk-vm.sh).
+# ROLE=bellhop builds a bellhop VM with the same steps (see bellhop/proxmox-bellhop-vm.sh).
 set -euo pipefail
 
 VMID=${VMID:-211}
@@ -75,8 +75,8 @@ echo "$ROLE VM LAN address: $IP"
 # Copy the repo (without .git) and install the broker with its dependencies.
 tar -C "$REPO" --exclude .git -czf - . \
   | ssh -o StrictHostKeyChecking=accept-new "admin@$IP" 'rm -rf /tmp/valetkey && mkdir -p /tmp/valetkey && tar -C /tmp/valetkey -xzf -'
-if [ "$ROLE" = desk ]; then
-  ssh -t "admin@$IP" sudo env DESK_HOSTNAME="$BROKER_HOSTNAME" bash /tmp/valetkey/install.sh desk
+if [ "$ROLE" = bellhop ]; then
+  ssh -t "admin@$IP" sudo env BELLHOP_HOSTNAME="$BROKER_HOSTNAME" bash /tmp/valetkey/install.sh bellhop
 else
   ssh -t "admin@$IP" sudo env BROKER_HOSTNAME="$BROKER_HOSTNAME" bash /tmp/valetkey/install.sh broker --with-deps
 fi

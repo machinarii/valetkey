@@ -2,7 +2,7 @@
 
 Use this when you want agents to use a new service, command-line tool or MCP server that needs
 a credential. It applies the [keyless tool standard](keyless-tool-standard.md): the agent's
-machine never holds the key, and the broker or the desk does.
+machine never holds the key, and the broker or the bellhop does.
 
 If the tool needs no key or login, stop here and install it on the agent's machine as usual.
 
@@ -13,7 +13,7 @@ If the tool needs no key or login, stop here and install it on the agent's machi
 | Choose the path, write the manifest, draft the settings | Yes | Reviews |
 | File the request for the key, by name | Yes | |
 | Enter the key or sign the tool in | Never | Yes |
-| Install settings on the broker or desk | Never | Yes, at the console |
+| Install settings on the broker or bellhop | Never | Yes, at the console |
 | Point the agent's side at it, then test | Yes | |
 | Remove old copies of the key | Never | Yes |
 
@@ -22,7 +22,7 @@ If the tool needs no key or login, stop here and install it on the agent's machi
 | The service gives you | Path | Where the key lives |
 |---|---|---|
 | An HTTP API or a remote MCP server, with a fixed key | **A: broker route** | In the vault |
-| Only a program or SDK, or a login that renews itself | **B: desk entry** | In the desk user's home folder |
+| Only a program or SDK, or a login that renews itself | **B: bellhop entry** | In the desk user's home folder |
 | An MCP server with native OAuth sign-in | Provider’s MCP endpoint and native sign-in | OAuth tokens stay with an approved client outside the agent VM |
 
 For native OAuth, stop the Valetkey setup here. Skip the manifest, key request, broker route
@@ -50,7 +50,7 @@ scope = "what this key can reach; ask for the narrowest one"
 modes = ["test", "live"]
 
 [trusted]
-place = "broker"              # or desk
+place = "broker"              # or bellhop
 upstream = "https://api.acme.example"
 inject = "Authorization: Bearer {}"
 paths = ["/v1/reports"]
@@ -69,7 +69,7 @@ For path B, replace `[trusted]` with the program and the subcommands that hold t
 
 ```toml
 [trusted]
-place = "desk"
+place = "bellhop"
 command = "/usr/local/bin/acme"
 credential_prefix = ["auth", "config"]
 deny_options = ["--debug", "--token"]
@@ -79,7 +79,7 @@ deny_options = ["--debug", "--token"]
 
 1. **Agent files the request for the key.** A name and a purpose, no value:
    ```sh
-   valetkey-relay request acme-api-key --org local --purpose "Acme reports through a broker route"
+   valetkey-broker request acme-api-key --org local --purpose "Acme reports through a broker route"
    ```
    It prints a request id.
 2. **Owner enters the key**, on their own device: the broker's entry page at
@@ -88,7 +88,7 @@ deny_options = ["--debug", "--token"]
 3. **Agent requests the route** from the machine that will use it.
 
    ```sh
-   valetkey-relay request-route acme --org local --item acme-api-key \
+   valetkey-broker request-route acme --org local --item acme-api-key \
      --upstream https://api.acme.example --method GET --path /v1/reports
    ```
 
@@ -99,19 +99,19 @@ deny_options = ["--debug", "--token"]
    `https://broker.<tailnet>.ts.net/local/acme/...`, with no key. For an MCP server, that is the
    URL in the client's settings, with no headers.
 
-## Path B: a desk entry
+## Path B: a bellhop entry
 
 1. **Agent files the request**, so the owner sees what is wanted:
    ```sh
    valetkey-bellhop --request cli acme https://acme.example/cli "what it is for"
    ```
-2. **Owner installs the program on the desk** and signs it in as the desk user:
+2. **Owner installs the program on the bellhop** and signs it in as the desk user:
    ```sh
    sudo -u desk -H acme auth login
    ```
    If the sign-in wants a browser on the same machine, start it in the background and paste the
-   failed `localhost` address at a prompt, as `bellhop/desk-tools.sh` prints for Higgsfield.
-3. **Owner lists it** in `/etc/bellhop/desk.toml` and restarts the desk:
+   failed `localhost` address at a prompt, as `bellhop/bellhop-tools.sh` prints for Higgsfield.
+3. **Owner lists it** in `/etc/bellhop/desk.toml` and restarts the bellhop:
    ```toml
    [tool.acme]
    command = "/usr/local/bin/acme"
@@ -136,7 +136,7 @@ These decide whether a tool can be used this way at all. Check them before doing
 
 | Rule | If the tool breaks it |
 |---|---|
-| Runs without a local key or login | It cannot go through the broker; try the desk |
+| Runs without a local key or login | It cannot go through the broker; try the bellhop |
 | Its service address can be changed | Same |
 | Login commands sit under one prefix | List allowed subcommands one by one, with care |
 | No option prints the key | Put that option on the deny list |

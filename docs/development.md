@@ -8,30 +8,30 @@ valetkey/
 ├── VERSION, Makefile
 ├── relay/                      broker services (Python stdlib)
 │   ├── relay_front.py          TLS front door, routes by path prefix
-│   ├── relay_read.py           read relay (one per org): values, checks, backups, API forwarding
+│   ├── relay_read.py           read service (one per org): values, checks, backups, API forwarding
 │   ├── relay_entry.py          entry service: requests, owner writes, web page
 │   ├── entry-page.html
 │   ├── relaylib/               bw client and cache, routes, whois identity, request store
-│   ├── tools/                  gen-fnox-config, vault-info, valetkey-fnox-to-relay, vault-stub
+│   ├── tools/                  gen-fnox-config, vault-info, valetkey-fnox-to-broker, vault-stub
 │   └── tests/                  unit and policy tests with fake bw / tailscale / fnox
 ├── broker/
 │   ├── deps.sh                 apt packages, Tailscale, bw, fnox
 │   ├── setup.sh                users, code, configs, credentials, units
-│   ├── bin/                    valetkey-relay login, valetkey-relay check, valetkey-relay routes, valetkey-relay update, relay-cert, with-bw-session
+│   ├── bin/                    relay-login, relay-check, relay-routes, relay-update (run as valetkey-broker <word>), relay-cert, with-bw-session
 │   └── systemd/                relay-{front,local,infra,entry}.service, relay-cert.{service,timer}
-├── client/                     relay, vault (fnox shim), valetkey-entry
-├── bellhop/                    the desk: tools with their own login
-│   ├── desk.py                 desk service: listed tools, install requests
+├── client/                     broker (valetkey-broker), vault (fnox shim), vault-entry (valetkey-entry)
+├── bellhop/                    the bellhop: tools with their own login
+│   ├── desk.py                 the bellhop's service: listed tools, install requests
 │   ├── bellhop                 stand-in command for agent machines
-│   ├── install-desk.sh         installs the desk behind relay_front
-│   ├── desk-tools.sh           example tools with cautious allow lists
+│   ├── install-bellhop.sh      installs the bellhop behind relay_front
+│   ├── bellhop-tools.sh        example tools with cautious allow lists
 │   ├── sweep.py                agent-machine check for logins and new tools
 │   ├── agent-rules.md          instruction section for AI agents
-│   ├── proxmox-desk-*.sh       create the desk VM; run a script or open a shell in it
+│   ├── proxmox-bellhop-*.sh    create the bellhop VM; run a script or open a shell in it
 │   └── testvm/, fakes/         test machines and fixtures, synthetic logins only
 ├── config/                     routes / entry / vault.env examples
 ├── deploy/
-│   ├── proxmox/                vaultwarden-ct.sh, broker-vm.sh (also builds the desk VM)
+│   ├── proxmox/                vaultwarden-ct.sh, broker-vm.sh (also builds the bellhop VM)
 │   ├── vaultwarden/            in-container setup, admin token, close sign-ups
 │   └── tailscale/              example ACL
 ├── agents/
@@ -46,7 +46,7 @@ valetkey/
 ## Development
 
 ```sh
-make test     # 230+ unit and policy tests (relay and bellhop); stdlib only, fakes for bw, tailscale and fnox
+make test     # 230+ unit and policy tests (broker and bellhop); stdlib only, fakes for bw, tailscale and fnox
 make lint     # bash -n on every script, shellcheck if installed, py_compile, no real tailnet names or home paths
 make dist     # dist/valetkey-<version>.tar.gz
 ```
@@ -74,7 +74,7 @@ and exports an 860 px-wide GIF at 25 fps with a 256-entry palette and light orde
 
 ## Releasing
 
-1. Set the new version in `VERSION`, `CLIENT_VERSION` in `client/relay`, the `tag:` line of the three
+1. Set the new version in `VERSION`, `CLIENT_VERSION` in `client/broker`, the `tag:` line of the three
    files in `Formula/`, the README status badge and the version line in `docs/security-boundaries.md`.
 2. Run `make lint` and `make test`, commit, then tag and push: `git tag v<version> && git push origin main v<version>`.
 3. **Homebrew** reads `Formula/` from `main`, so `brew upgrade` picks the release up once the tag exists.

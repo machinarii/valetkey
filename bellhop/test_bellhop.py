@@ -172,7 +172,7 @@ callers = ["someone-else"]
         self.assertEqual(status, 200)
         self.assertIn("synthetic test account", body.decode())
         self.assertNotIn("synthetic-mcp-key", body.decode())
-        # A key the caller sends is dropped, not passed on: the desk's own key still decides.
+        # A key the caller sends is dropped, not passed on: the bellhop's own key still decides.
         status, _ = self.http("POST", "/mcp/fakemcp", ask, {"Authorization": "Bearer wrong"})
         self.assertEqual(status, 200)
         self.assertEqual(self.http("POST", "/mcp/private", ask)[0], 403)
@@ -325,7 +325,7 @@ class Sweep(unittest.TestCase):
         self.assertNotIn("catalogue", text)
         for expected in (".config/higgsfield: a tool's login", "projects/app/.env: holds what looks like a key",
                          ".ssh/id_ed25519: private key", "mcp holdskey", "holds a key in headers",
-                         "mcp direct", "does not go through the broker or the desk", "mcp local", "runs on this machine"):
+                         "mcp direct", "does not go through the broker or the bellhop", "mcp local", "runs on this machine"):
             self.assertIn(expected, text)
         for fine in (".env.example", ".npmrc", ".claude/.credentials.json", "viadesk", "viabroker", "byreference"):
             self.assertNotIn(fine, text)

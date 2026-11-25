@@ -9,7 +9,7 @@
 <p align="center">
   <b>A self-hosted credential broker for AI agents.</b><br>
   Give an AI agent access to a tool while the credentials stay on a separate machine:<br>
-  a credential broker and a tool desk on their own machines, joined over your private Tailscale network.
+  a credential broker and a tool bellhop on their own machines, joined over your private Tailscale network.
 </p>
 
 <p align="center">
@@ -17,7 +17,7 @@
   <img alt="Self-hosted with Proxmox, Tailscale and Vaultwarden" src="https://img.shields.io/badge/self--hosted-Proxmox%20%C2%B7%20Tailscale%20%C2%B7%20Vaultwarden-1d4e6e?style=flat-square">
   <img alt="Clients: Linux and macOS" src="https://img.shields.io/badge/clients-Linux%20%C2%B7%20macOS-2d81ff?style=flat-square">
   <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-3a3a3a?style=flat-square">
-  <img alt="Status: 0.3.0, for personal use" src="https://img.shields.io/badge/status-0.3.0%20%C2%B7%20for%20personal%20use-d69e2e?style=flat-square">
+  <img alt="Status: 0.4.0, for personal use" src="https://img.shields.io/badge/status-0.4.0%20%C2%B7%20for%20personal%20use-d69e2e?style=flat-square">
 </p>
 
 <p align="center">
@@ -29,13 +29,13 @@
 <br>
 
 <p align="center">
-  <img src="docs/images/how-it-works.gif" width="860" alt="Animation in eleven steps, with a legend: a keyhole is a request with no key in it, a gold key is a master key (the real credential), a silver key with one tooth is a valet key (which routes a machine may use, kept on the broker), a white card is a tool's own login. An agent machine that holds no keys sends the broker a request with an empty keyhole. The broker's relay checks which machine is calling and whether its valet key fits the route. fnox puts the route's master key from Vaultwarden into the request and forwards it to a service API or MCP server. The answer comes back without the master key. For a tool with its own login, the agent calls the desk (bellhop), which runs the tool with that login. A command that would print the login is refused.">
+  <img src="docs/images/how-it-works.gif" width="860" alt="Animation in eleven steps, with a legend: a keyhole is a request with no key in it, a gold key is a master key (the real credential), a silver key with one tooth is a valet key (which routes a machine may use, kept on the broker), a white card is a tool's own login. An agent machine that holds no keys sends the broker a request with an empty keyhole. The broker checks which machine is calling and whether its valet key fits the route. fnox puts the route's master key from Vaultwarden into the request and forwards it to a service API or MCP server. The answer comes back without the master key. For a tool with its own login, the agent calls the bellhop, which runs the tool with that login. A command that would print the login is refused.">
   <br>
-  <sub>Agents send keyholes, never keys. The broker puts the master key in a request on its way out; the desk runs tools that keep their own login.</sub>
+  <sub>Agents send keyholes, never keys. The broker puts the master key in a request on its way out; the bellhop runs tools that keep their own login.</sub>
 </p>
 
 > [!WARNING]
-> **For a private tailnet only, and at your own risk.** Never expose the broker, desk or vault to
+> **For a private tailnet only, and at your own risk.** Never expose the broker, bellhop or vault to
 > the internet. valetkey reduces the risk of agents reading your keys; it does not stop an agent
 > misusing an operation you approved, and it has had no independent security audit.
 > [Security limits](docs/security-boundaries.md) · [Use at your own risk](docs/security-boundaries.md#use-at-your-own-risk)
@@ -59,12 +59,12 @@
       An agent calls a broker route with no key. The broker checks the calling machine, method and path, adds the key from Vaultwarden and forwards the request.
     </td>
     <td width="25%" valign="top">
-      <h3>🛎️ A desk for tools that sign in</h3>
-      Command-line tools that keep their own login run on a separate desk machine. Agents use them by name and get the output, never the login.
+      <h3>🛎️ A bellhop for tools that sign in</h3>
+      Command-line tools that keep their own login run on a separate bellhop machine. Agents use them by name and get the output, never the login.
     </td>
     <td width="25%" valign="top">
       <h3>🧱 Containment first</h3>
-      Every part has its own machine and one installer. Agents run apart from the broker, vault, desk and the devices where you enter keys.
+      Every part has its own machine and one installer. Agents run apart from the broker, vault, bellhop and the devices where you enter keys.
     </td>
     <td width="25%" valign="top">
       <h3>🙋 You stay in charge</h3>
@@ -83,18 +83,18 @@ replace it.
 
 | Part | Role | What it does |
 |---|---|---|
-| Broker (relay) | Credential-injecting proxy, "secretless" access | Agents call a service through it with no key; it checks the calling machine and adds the key on the way out. It also serves the key entry page and route approvals. On agent machines, the `valetkey-relay` command calls it, requests keys and reports their status. |
+| Broker | Credential-injecting proxy, "secretless" access | Agents call a service through it with no key; it checks the calling machine and adds the key on the way out. It also serves the key entry page and route approvals. On agent machines, the `valetkey-broker` command calls it, requests keys and reports their status. |
 | fnox | Secret injector | Runs inside the broker and puts the key into each outgoing request. |
 | Vaultwarden | Secrets manager (vault) | Keeps every key, encrypted, on its own machine. Agents never reach it; the broker reads from it. |
+| Bellhop | Remote tool runner | Runs command-line tools and MCP servers that keep their own login, on a separate machine. |
 | MCP routes | MCP gateway | Broker routes to MCP servers that need a fixed key: agents connect with no key, and you see which tools the key opens. |
-| Desk (`bellhop`) | Remote tool runner | Runs command-line tools and MCP servers that keep their own login, on a separate machine. |
 | Rules, policy & sweep | Agent guardrails | Teach agents the workflow, limit MCP servers and report logins that appear on agent machines. |
 
 ## How it works
 
 1. **APIs:** the agent calls a route on the broker. The broker checks the calling machine, HTTP
    method and path, then adds the key from Vaultwarden and forwards the request.
-2. **Tools with their own login:** the optional desk runs approved commands and returns their
+2. **Tools with their own login:** the optional bellhop runs approved commands and returns their
    results.
 3. **New keys:** an agent requests the item by name, and you enter the key on your **approver
    device**, a phone or computer where you can also approve requested routes. Keep agents off this
@@ -112,7 +112,7 @@ its own ChatGPT sign-in and has no corresponding valetkey grant.
 ## Get started
 
 Use a private Tailscale network. Run agents on dedicated machines. Keep them separate from the
-broker, vault, desk, any machine where you enter keys or a service reads them, and the host that
+broker, vault, bellhop, any machine where you enter keys or a service reads them, and the host that
 administers those machines. An optional **trusted server** runs an application that needs a key
 directly, such as a web app that reads its database password. Skip this role if all your tools use
 brokered API routes. [Secure setup](docs/secure-setup.md)
@@ -124,10 +124,10 @@ brokered API routes. [Secure setup](docs/secure-setup.md)
    brew trust machinarii/valetkey
    brew install valetkey-agent      # machine where AI agents run; then: valetkey-agent-setup
    brew install valetkey-approver   # where you type keys
-   valetkey-relay set-url https://broker.<tailnet>.ts.net
+   valetkey-broker set-url https://broker.<tailnet>.ts.net
    ```
 
-2. **The servers** (vault, broker, optional desk; Linux): on a Proxmox VE host,
+2. **The servers** (vault, broker, optional bellhop; Linux): on a Proxmox VE host,
    `sudo ./install.sh proxmox` creates and installs all three. Otherwise run the installer on each
    server and choose its role:
 
@@ -145,20 +145,20 @@ brokered API routes. [Secure setup](docs/secure-setup.md)
 
 ## Updating valetkey
 
-Run `valetkey-relay version` for the installed CLI version and `valetkey-relay update` for the latest public release.
-On the broker, `sudo valetkey-relay update` installs the broker's own update.
-The broker, vault, desk and clients have different update procedures.
+Run `valetkey-broker version` for the installed CLI version and `valetkey-broker update` for the latest public release.
+On the broker, `sudo valetkey-broker update` installs the broker's own update.
+The broker, vault, bellhop and clients have different update procedures.
 [Update by role](docs/updating-valetkey.md)
 
 ## Guides
 
 | I want to… | Read |
 |---|---|
-| Understand the broker, desk and network layout | [System design and containment](docs/system-design.md) |
+| Understand the broker, bellhop and network layout | [System design and containment](docs/system-design.md) |
 | Add a credential, update a route or diagnose a failure | [Operations and command reference](docs/operations.md) · [Troubleshooting](docs/operations.md#troubleshooting) |
 | Approve an API route with an authenticator | [Route approval](docs/route-approval.md) |
 | Use API credits with Claude Code or Codex | [Model API accounts and OpenRouter](docs/model-api-accounts.md) |
-| Configure Claude Code, Codex or optional claude-mem capture | [Agent setup](docs/agent-setup.md) · Run `valetkey-relay guide claude-mem` for offline guidance |
+| Configure Claude Code, Codex or optional claude-mem capture | [Agent setup](docs/agent-setup.md) · Run `valetkey-broker guide claude-mem` for offline guidance |
 | Run your agents from T3 Code | [T3 Code](docs/t3-code.md) |
 | Add a tool, MCP server or Git remote | [New tool recipe](docs/recipe-new-tool-with-credential.md) · [Git through the broker](docs/git-through-the-broker.md) · [Several keys for one service](docs/several-keys-per-service.md) |
 | Review the threat model or report a security issue | [Security model](docs/security-boundaries.md#security-model) · [Security policy](SECURITY.md) |

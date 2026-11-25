@@ -3,9 +3,9 @@
 #                                  brew install valetkey-agent
 # Release: bump the tag in all three formulas to the new VERSION and push the tag.
 class ValetkeyAgent < Formula
-  desc "valetkey client for an agent machine: relay only, never a key"
+  desc "valetkey client for an agent machine: broker only, never a key"
   homepage "https://github.com/machinarii/valetkey"
-  url "https://github.com/machinarii/valetkey.git", tag: "v0.3.0"
+  url "https://github.com/machinarii/valetkey.git", tag: "v0.4.0"
   license "MIT"
   head "https://github.com/machinarii/valetkey.git", branch: "main"
 
@@ -13,10 +13,10 @@ class ValetkeyAgent < Formula
   conflicts_with "valetkey-trusted-server", because: "one machine has one valetkey role"
 
   def install
-    bin.install "client/relay" => "valetkey-relay"
+    bin.install "client/broker" => "valetkey-broker"
     # Claude Code and Codex rules and settings; the same step as `./install.sh claude`.
     (libexec/"agents").install "agents/claude-setup.py", "agents/credential-rules.md"
-    (share/"valetkey").install_symlink libexec/"agents/credential-rules.md"  # `valetkey-relay guide` reads it here
+    (share/"valetkey").install_symlink libexec/"agents/credential-rules.md"  # `valetkey-broker guide` reads it here
     (libexec/"bellhop").install "bellhop/agent-rules.md"
     (bin/"valetkey-agent-setup").write <<~SH
       #!/bin/sh
@@ -29,17 +29,17 @@ class ValetkeyAgent < Formula
     <<~EOS
       Needs python3 3.9 or newer on PATH (macOS and most Linux systems have it).
       Point it at your broker once (names only, never a key):
-        valetkey-relay set-url https://broker.<tailnet>.ts.net
+        valetkey-broker set-url https://broker.<tailnet>.ts.net
       This is an agent machine: list it in the broker's [security].agent_nodes,
-      never in trusted_value_nodes or owner_nodes. Agent rules: valetkey-relay guide
+      never in trusted_value_nodes or owner_nodes. Agent rules: valetkey-broker guide
       Then set up Claude Code and Codex (it asks before each change):
         valetkey-agent-setup
     EOS
   end
 
   test do
-    assert_equal version.to_s, shell_output("#{bin}/valetkey-relay version").strip unless build.head?
-    assert_match "Machine boundaries", shell_output("#{bin}/valetkey-relay guide")
+    assert_equal version.to_s, shell_output("#{bin}/valetkey-broker version").strip unless build.head?
+    assert_match "Machine boundaries", shell_output("#{bin}/valetkey-broker guide")
     assert_match "install.sh claude", shell_output("#{bin}/valetkey-agent-setup --help")
   end
 end

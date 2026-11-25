@@ -1,9 +1,9 @@
 #!/bin/bash
-# Run as root on the desk machine, after install-desk.sh. Installs a starter set of tools that
+# Run as root on the bellhop machine, after install-bellhop.sh. Installs a starter set of tools that
 # hold a login and lists them in /etc/bellhop/desk.toml for the named agent machines. Safe to
 # re-run. It signs nothing in: the sign-in steps are printed at the end, for the owner.
 #
-#   desk-tools.sh CALLERS [TOOL ...]
+#   bellhop-tools.sh CALLERS [TOOL ...]
 #     CALLERS  comma-separated Tailscale machine names of the agent machines, e.g. agent-dev,agent-ci
 #     TOOL     higgsfield vercel stripe (default: all three)
 #
@@ -19,9 +19,9 @@ ok() { echo "ok    $*"; }
 fail() { echo "FAIL  $*" >&2; exit 1; }
 
 [ "$(id -u)" = 0 ] || fail "run with sudo"
-[ -f "$conf" ] || fail "no $conf: run install-desk.sh first"
+[ -f "$conf" ] || fail "no $conf: run install-bellhop.sh first"
 callers=${1:-}
-[[ $callers =~ ^[a-z0-9-]+(,[a-z0-9-]+)*$ ]] || fail "usage: desk-tools.sh CALLERS [TOOL ...]   CALLERS like agent-dev,agent-ci"
+[[ $callers =~ ^[a-z0-9-]+(,[a-z0-9-]+)*$ ]] || fail "usage: bellhop-tools.sh CALLERS [TOOL ...]   CALLERS like agent-dev,agent-ci"
 shift
 list="[\"${callers//,/\", \"}\"]"
 tools=("$@")
@@ -110,7 +110,7 @@ fi
 systemctl restart bellhop-desk
 sleep 1
 [ "$(systemctl is-active bellhop-desk)" = active ] || fail "bellhop-desk is not running: journalctl -u bellhop-desk -n 20"
-ok "desk restarted; $conf.before-tools holds the previous configuration"
+ok "bellhop restarted; $conf.before-tools holds the previous configuration"
 
 echo
 echo "Nothing is signed in yet. On this machine, as the owner:"

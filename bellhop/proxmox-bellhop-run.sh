@@ -1,13 +1,13 @@
 #!/bin/bash
-# Run on the Proxmox host as root, from a copy of this repo: copies the repo into the desk VM and
+# Run on the Proxmox host as root, from a copy of this repo: copies the repo into the bellhop VM and
 # runs one of its scripts there with sudo. VMID defaults to 212.
-#   bellhop/proxmox-desk-run.sh bellhop/desk-tools.sh agent-dev       install and list the starter tools
-#   bellhop/proxmox-desk-run.sh bellhop/install-desk.sh            update the desk's own code
-#   bellhop/proxmox-desk-run.sh shell                              open a shell in the desk VM (for sign-ins)
+#   bellhop/proxmox-bellhop-run.sh bellhop/bellhop-tools.sh agent-dev       install and list the starter tools
+#   bellhop/proxmox-bellhop-run.sh bellhop/install-bellhop.sh            update the bellhop's own code
+#   bellhop/proxmox-bellhop-run.sh shell                              open a shell in the bellhop VM (for sign-ins)
 set -euo pipefail
 VMID=${VMID:-212}
 repo=$(cd "$(dirname "$0")/.." && pwd)
-script=${1:?usage: proxmox-desk-run.sh SCRIPT [ARGS...]}
+script=${1:?usage: proxmox-bellhop-run.sh SCRIPT [ARGS...]}
 shift
 [ "$script" = shell ] || [ -f "$repo/$script" ] || { echo "no such script in this repo: $script" >&2; exit 1; }
 # The VM's LAN address: the tailnet address is closed to SSH on purpose.

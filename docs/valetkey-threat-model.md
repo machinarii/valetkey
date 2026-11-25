@@ -34,7 +34,7 @@ whether the remaining high-priority assumptions hold.
 Python stdlib services provide TLS routing (`relay_front.py`), per-org reads/API forwarding
 (`relay_read.py`) and owner entry (`relay_entry.py`). `relaylib/bwclient.py` wraps `bw` with values
 on stdin rather than argv; it caches decrypted items in broker memory. Bash tools provision
-systemd services and generate fnox policies. The `valetkey-relay` client handles metadata, `vault` is a
+systemd services and generate fnox policies. The `valetkey-broker` client handles metadata, `vault` is a
 raw-value shim for trusted servers, and `valetkey-entry` reads owner input. The entry page has
 bundled JS/CSS and escaped server-rendered request descriptions.
 
@@ -44,9 +44,9 @@ bundled JS/CSS and escaped server-rendered request descriptions.
   token. The front overwrites peer headers and blocks internal endpoints (`relay_front.Handler`).
 - Front → loopback services: HTTP with peer IP; service trust in the front and broker host.
   Duplicate lengths/transfer encoding are rejected (`relaylib/httpbase.py:61`).
-- Read relay → vault subprocess/cache: per-org account, values in broker memory; errors exclude
+- Read service → vault subprocess/cache: per-org account, values in broker memory; errors exclude
   subprocess output (`relaylib/bwclient.py`, `broker/systemd/relay-{local,infra}.service`).
-- API relay → fnox proxy → upstream: fixed HTTPS origin and permitted method/path; proxy injects
+- API forwarding → fnox proxy → upstream: fixed HTTPS origin and permitted method/path; proxy injects
   the key. Responses stream back and remain a trusted confidentiality boundary
   (`relay_read.py:287`, `relay/tools/gen-fnox-config.py:generate`).
 - Trusted server → raw endpoint: explicit trusted-node policy **and** route permission;
@@ -59,7 +59,7 @@ bundled JS/CSS and escaped server-rendered request descriptions.
   route names and counts only, and an echoed key is replaced (`relaylib/access_check.py`).
 - Owner → approval worker: authenticator pairing at the console; route approvals with a code
   through the entry service's bounded operations (`approval_worker.py`).
-- Agent → desk: listed commands only, run with the desk's own logins; the agent gets output, never
+- Agent → bellhop: listed commands only, run with the bellhop's own logins; the agent gets output, never
   the login (`bellhop/desk.py`).
 - Operator → deployment: reviewed source and metadata policy; administration is trusted.
   CI/tests use synthetic secrets and do not prove production isolation (`.github/workflows/test.yml`).
@@ -68,18 +68,18 @@ bundled JS/CSS and escaped server-rendered request descriptions.
 
 ```mermaid
 flowchart LR
-  A["Untrusted agent VM"] -->|HTTPS metadata, API and MCP routes| F["Broker front (relay)"]
+  A["Untrusted agent VM"] -->|HTTPS metadata, API and MCP routes| F["Broker front door"]
   C["Trusted server VM"] -->|HTTPS raw route| F
   O["Separate approver device"] -->|HTTPS private entry and approvals| F
-  F --> R["Read relay"]
-  F --> E["Entry relay"]
+  F --> R["Read service"]
+  F --> E["Entry service"]
   E --> W["Approval worker"]
   R --> V["Vaultwarden"]
   E --> V
   R --> P["Broker fnox proxy"]
   P --> U["Trusted upstream API or MCP server"]
   E -->|access check after a store| U
-  A -->|HTTPS listed commands| D["Desk (bellhop)"]
+  A -->|HTTPS listed commands| D["Bellhop"]
   D --> S["Tool's own service"]
 ```
 
@@ -125,8 +125,8 @@ Tailnet administration and upstream APIs are trusted; their compromise breaks th
 1. Agent on a raw-authorized machine → direct `/value/` or project/notes/backup GET → key returned.
    **Confirmed original behavior; fixed for the selected model** with default-deny trusted-consumer
    gating and explicit agent-role exclusions. Removing the shim alone would not fix it.
-2. Allowed API caller → percent-encoded dot/separator or sibling prefix → relay forwards a path
-   outside the intended boundary. **Confirmed relay forwarding gap; fixed.** Pre-fix tests got
+2. Allowed API caller → percent-encoded dot/separator or sibling prefix → broker forwards a path
+   outside the intended boundary. **Confirmed broker forwarding gap; fixed.** Pre-fix tests got
    502 from the attempted fake upstream connection rather than 403. Actual secret injection or
    credential theft through fnox/upstream was not demonstrated.
 3. Tagged workload retains an owner-listed short name → owner entry accepted despite documented
@@ -152,7 +152,7 @@ that a deployed system is exploitable.
 | Threat ID | Threat source | Prerequisites | Threat action | Impact | Impacted assets | Existing controls (evidence) | Gaps | Recommended mitigations | Detection ideas | Likelihood | Impact severity | Priority |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | TM-001 | Agent code | Raw-authorized machine | Fetch raw/notes/backups directly | Scoped key theft | Provider keys | New `serve_value` policy | Trusted machine compromise remains | Separate consumers; no agent-controlled code there | Denied raw reads, role changes | High under old policy | High | high |
-| TM-002 | Allowed API caller | Upstream normalizes paths | Encode traversal or extend prefix | Bypass relay path restriction | API capability | New `canonical_api_path` | Full upstream semantics unverified | Narrow paths, key scopes; validate real proxy with dummy keys | Path denials | Medium | Medium demonstrated | medium |
+| TM-002 | Allowed API caller | Upstream normalizes paths | Encode traversal or extend prefix | Bypass broker path restriction | API capability | New `canonical_api_path` | Full upstream semantics unverified | Narrow paths, key scopes; validate real proxy with dummy keys | Path denials | Medium | Medium demonstrated | medium |
 | TM-003 | Tagged service / renamed node | Owner/stale name grant | Acquire owner role | Unauthorized credential writes | Vault integrity | New `owner_machine`, role checks | Short names, not stable IDs | Restrict enrollment/rename/share; remove stale grants | Owner grants and node changes | Medium conditional | High | high |
 | TM-004 | Network/local recorder | HTTP URL or echo failure | Observe submitted value | Scoped key disclosure | Owner-entered keys | URL validation, TTY and warning refusal | Compromised approver device still trusted | Separate private entry device | Failed entry transport/input | Medium conditional | High | high |
 | TM-005 | Repeated owner replacement | Existing dated backup | Replace twice in a day | Original backup loss | Credential backup | `_write` collision refusal | Backup naming/rotation needs operator care | Retain backup; resolve collision privately | Refused replacement status | Medium | Medium | medium |
@@ -166,7 +166,7 @@ that a deployed system is exploitable.
   was demonstrated. A compromised trusted broker/root is explicitly outside the tested boundary.
 - High: an agent reads its service key despite the unread-key requirement; a workload gains
   owner write privileges; co-located agents capture owner input.
-- Medium: relay path policy bypass without demonstrated proxy injection; deletion of a dated
+- Medium: broker path policy bypass without demonstrated proxy injection; deletion of a dated
   backup; bounded availability weaknesses with no proven remote service-wide stop.
 - Low: non-secret metadata disclosure or confusing status text without a demonstrated credential
   or authorization impact. Status language was clarified without claiming a key leak.
@@ -210,7 +210,7 @@ Changes since the first review, each with a regression test:
   shared in from another tailnet cannot borrow an owner's or trusted server's name
   (`relaylib/identity.py`). Renamed or newly enrolled devices in the same tailnet remain an
   administration matter. After updating valetkey, confirm that known machines are still recognised
-  (`valetkey-relay check` from one of them).
+  (`valetkey-broker check` from one of them).
 - TM-008: one machine may hold at most 20 pending entry requests (429 beyond); the owner's
   listing and page name the machine that asked (`relay_entry.py`, `relaylib/requests_store.py`).
   API forwarding and connection counts are still unlimited.
@@ -222,13 +222,13 @@ Changes since the first review, each with a regression test:
   directives.
 
 Left as is: any process on the broker host can name a caller to a loopback backend through
-`X-Relay-Peer`, including one relay user towards the other org's relay. That stays inside the
+`X-Relay-Peer`, including one service user towards the other org's read service. That stays inside the
 "nothing else runs on the broker" assumption; closing it needs per-backend authentication of
 the front door.
 
 ### Broker updates
 
-`valetkey-relay update` fetches the repository on the broker and runs its installer as root. The
+`valetkey-broker update` fetches the repository on the broker and runs its installer as root. The
 boundary is the owner's `y` at the broker console after reviewing the shown commit: nothing
 fetched is executed before it, and no network caller can start an install. Approval from the
 entry page is deliberately not offered, because a compromised entry service combined with push

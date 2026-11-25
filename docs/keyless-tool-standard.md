@@ -3,7 +3,7 @@
 A tool meets this standard when the machine an agent runs on never holds the tool's key or
 login, and a second machine with no agent decides what the agent may do with it.
 
-Status: a proposal, written from running valetkey (broker) and bellhop (desk). Nothing reads
+Status: a proposal, written from running valetkey's broker and bellhop. Nothing reads
 `tool.toml` yet; the mapping table below is applied by hand.
 
 To add a tool by following steps, use the [recipe](recipe-new-tool-with-credential.md).
@@ -16,7 +16,7 @@ such a service.
 
 A tool that needs no credential is out of scope. Compilers, linters, formatters, local file
 tools and anything that only reads public data are installed and run on the agent's machine in
-the ordinary way. They need no manifest, no broker route and no desk entry, and nothing here
+the ordinary way. They need no manifest, no broker route and no bellhop entry, and nothing here
 applies to them. A manifest without a `[credential]` table is not a valid manifest.
 
 If a tool has some operations that need a credential and some that do not, the standard covers
@@ -36,7 +36,7 @@ shows tools as files of code that the agent reads on demand and composes in a sa
 intermediate results out of the model's context. Cloudflare's Code Mode gives the sandbox no
 network and hands it bindings, so that "the AI cannot possibly write code that leaks any keys":
 a supervisor outside the sandbox adds them. This standard is the same idea with ordinary
-machines: the broker or desk is the supervisor, and the wrappers are the bindings.
+machines: the broker or bellhop is the supervisor, and the wrappers are the bindings.
 
 ## The two halves
 
@@ -51,7 +51,7 @@ Two kinds of trusted half exist today:
 
 - **Broker route.** For a service reached over HTTPS with a fixed key. The broker forwards the
   request and adds the key. The key lives in the vault.
-- **Desk entry.** For a tool that must run as a program with its own login. The desk runs listed
+- **Bellhop entry.** For a tool that must run as a program with its own login. The bellhop runs listed
   subcommands in an empty folder and returns the output.
 
 ## The manifest: `tool.toml`
@@ -68,7 +68,7 @@ scope = "one workspace, posting only"
 modes = ["live"]                # say so if test and live differ
 
 [trusted]
-place = "broker"                # broker | desk
+place = "broker"                # broker | bellhop
 upstream = "https://mcp.buffer.com"
 inject = "Authorization: Bearer {}"
 paths = ["/mcp"]
@@ -90,11 +90,11 @@ returns_sensitive = ["email"]   # fields a wrapper should not pass to the model 
 
 The operation names above are examples, not Buffer's real ones.
 
-For a desk tool, `[trusted]` names the program and the lists are subcommands:
+For a bellhop tool, `[trusted]` names the program and the lists are subcommands:
 
 ```toml
 [trusted]
-place = "desk"
+place = "bellhop"
 command = "/usr/local/bin/higgsfield"
 credential_prefix = ["auth", "workspace"]   # never listed for callers
 deny_options = ["--debug"]
@@ -110,7 +110,7 @@ allowed = ["read", "write", "spend"]
 
 ### Mapping to today's settings
 
-| Manifest | Broker `routes.toml` | Desk `desk.toml` |
+| Manifest | Broker `routes.toml` | Bellhop `desk.toml` |
 |---|---|---|
 | `tool.name` | `[api.NAME]` | `[tool.NAME]` |
 | `credential.item` | `item` | none; the login is in the desk user's home |

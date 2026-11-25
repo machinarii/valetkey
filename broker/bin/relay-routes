@@ -1,20 +1,20 @@
 #!/bin/bash
-# Usage: sudo valetkey-relay routes check
-#        sudo valetkey-relay routes install [local|infra]
+# Usage: sudo valetkey-broker routes check
+#        sudo valetkey-broker routes install [local|infra]
 # check    validates /etc/relay/routes.toml and /etc/relay/entry.toml (names, orgs, nodes, globs).
 # install  check, then regenerate /var/lib/relay-<org>/api.toml (fnox references only) from the
-#          routes and org.json, and restart relay-<org>. Without an org: both read relays.
-#          With [api.*] routes it first asks valetkey-relay check whether fnox can find each route's item,
-#          and changes nothing if not; after the restart it waits until the relay listens, and
+#          routes and org.json, and restart relay-<org>. Without an org: both read services.
+#          With [api.*] routes it first asks valetkey-broker check whether fnox can find each route's item,
+#          and changes nothing if not; after the restart it waits until the broker listens, and
 #          puts the previous api.toml back if it never does.
-# Edit /etc/relay/routes.toml, then run `sudo valetkey-relay routes install`. Prints names only.
-# After editing entry.toml: sudo valetkey-relay routes check && sudo systemctl restart relay-entry
+# Edit /etc/relay/routes.toml, then run `sudo valetkey-broker routes install`. Prints names only.
+# After editing entry.toml: sudo valetkey-broker routes check && sudo systemctl restart relay-entry
 set -euo pipefail
 [ "$(id -u)" = 0 ] || { echo "Run with sudo." >&2; exit 1; }
 libexec=/usr/local/libexec/relay
 routes=/etc/relay/routes.toml
 entry=/etc/relay/entry.toml
-usage="usage: valetkey-relay routes check | install [local|infra]"
+usage="usage: valetkey-broker routes check | install [local|infra]"
 
 check() {
   /usr/bin/python3 -I -c '
@@ -44,10 +44,10 @@ for kind, entries in (("value", r.values), ("project", r.projects)):
 ' "$libexec" "$routes" "$entry"
 }
 
-# With [api.*] routes a read relay starts under `fnox proxy run`, which resolves every proxy secret
+# With [api.*] routes a read service starts under `fnox proxy run`, which resolves every proxy secret
 # first and exits when one is missing or its name matches two items. The unit then restarts in a
 # loop, `systemctl is-active` says "active" for most of each round, and every route of the org is
-# down. So: the port, not the unit state, says whether the relay is up.
+# down. So: the port, not the unit state, says whether the broker is up.
 START_WAIT=${RELAY_START_WAIT:-90}
 
 listening() {  # relay-<org> has bound its loopback port
@@ -67,7 +67,7 @@ wait_listening() {  # true once relay-<org> listens and still does 3 s later
   return 1
 }
 
-api_item_problems() {  # valetkey-relay check's FAIL lines about [api.*] items of <org>; names only
+api_item_problems() {  # valetkey-broker check's FAIL lines about [api.*] items of <org>; names only
   "$(dirname "$0")/relay-check" "$1" 2>/dev/null | grep '^FAIL  \[api\.' || true
 }
 
@@ -75,7 +75,7 @@ install_org() {
   local org=$1 user=relay-$1 home=/var/lib/relay-$1 org_id tmp n bad
   if [ ! -f "$home/org.json" ]; then
     [ "${verified:-no}" = yes ] && return 1
-    echo "skip  relay-$org: no org.json yet; run valetkey-relay login $org <email> first"
+    echo "skip  relay-$org: no org.json yet; run valetkey-broker login $org <email> first"
     return 0
   fi
   org_id=$(runuser -u "$user" -- jq -er '.org_id' "$home/org.json") || { echo "FAIL  $home/org.json has no org_id" >&2; return 1; }
@@ -90,7 +90,7 @@ install_org() {
     if [ -n "$bad" ]; then
       rm -f "$tmp"
       printf '%s\n' "$bad" >&2
-      echo "FAIL  relay-$org not changed: fix the items above, then run valetkey-relay routes install again" >&2
+      echo "FAIL  relay-$org not changed: fix the items above, then run valetkey-broker routes install again" >&2
       return 1
     fi
   fi
@@ -108,7 +108,7 @@ install_org() {
   echo "ok    $home/api.toml: $n api routes"
   if [ ! -f "/etc/credstore.encrypted/bw-unlock-$org" ]; then
     [ "${verified:-no}" = yes ] && return 1
-    echo "skip  relay-$org: run valetkey-relay login $org <email> first"
+    echo "skip  relay-$org: run valetkey-broker login $org <email> first"
     return 0
   fi
   systemctl enable "relay-$org.service" >/dev/null 2>&1 || true

@@ -7,9 +7,9 @@ Run as root from a timer, so the agent's user cannot switch it off or edit its l
   sweep.py --accept    take the tools installed now as the known list
 
 Finds: well-known login files, key files, .env files and MCP settings that hold a literal key,
-MCP servers that do not go through the desk, and programs that appeared since the known list.
+MCP servers that do not go through the bellhop, and programs that appeared since the known list.
 Expected items go in /etc/bellhop/sweep-allow, one path pattern, mcp:NAME or tool:NAME per line.
-MCP servers may live at the desk (/etc/bellhop/url) and at the addresses in /etc/bellhop/mcp-prefixes
+MCP servers may live at the bellhop (/etc/bellhop/url) and at the addresses in /etc/bellhop/mcp-prefixes
 (one per line, for example the broker's).
 """
 import argparse
@@ -73,9 +73,9 @@ def mcp_findings(path, servers, prefixes, keys_only=False):
         elif keys_only:
             continue
         elif not url:
-            yield f"mcp:{name}", f"mcp {name} in {path}: runs on this machine, not through the broker or the desk"
+            yield f"mcp:{name}", f"mcp {name} in {path}: runs on this machine, not through the broker or the bellhop"
         elif not url.startswith(tuple(prefixes)):
-            yield f"mcp:{name}", f"mcp {name} in {path}: does not go through the broker or the desk"
+            yield f"mcp:{name}", f"mcp {name} in {path}: does not go through the broker or the bellhop"
 
 
 def scan_home(home, prefixes):
@@ -137,11 +137,11 @@ def tools(homes):
     return found
 
 
-def sweep(homes, desk="", allow=(), state="/var/lib/bellhop-sweep", accept=False, mcp_prefixes=()):
+def sweep(homes, bellhop="", allow=(), state="/var/lib/bellhop-sweep", accept=False, mcp_prefixes=()):
     """Lines to report. The known tool list lives in `state`; --accept rewrites it."""
     prefixes = [p.rstrip("/") + "/" for p in mcp_prefixes if p.strip()]
-    if desk:
-        prefixes.append(desk.rstrip("/") + "/mcp/")
+    if bellhop:
+        prefixes.append(bellhop.rstrip("/") + "/mcp/")
     def allowed(key):
         return any(fnmatch.fnmatch(key, pattern) for pattern in allow)
 
@@ -191,8 +191,8 @@ def main(argv=None):
     ap.add_argument("--homes", nargs="*", help="home folders to check (default: every folder in /home)")
     args = ap.parse_args(argv)
     homes = args.homes or [os.path.join("/home", n) for n in sorted(os.listdir("/home"))]
-    desk = (lines_of("/etc/bellhop/url") or [""])[0]
-    found = sweep(homes, desk, lines_of("/etc/bellhop/sweep-allow"), accept=args.accept,
+    bellhop = (lines_of("/etc/bellhop/url") or [""])[0]
+    found = sweep(homes, bellhop, lines_of("/etc/bellhop/sweep-allow"), accept=args.accept,
                   mcp_prefixes=lines_of("/etc/bellhop/mcp-prefixes"))
     for line in found:
         print(line)

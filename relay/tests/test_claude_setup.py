@@ -22,7 +22,7 @@ class ClaudeSetup(unittest.TestCase):
         return subprocess.run(
             [sys.executable, "-I", str(SCRIPT), "--settings", str(self.settings), "--claude-md", str(self.rules),
              "--codex-md", str(self.codex),
-             "--relay-url", "https://broker.example.ts.net", "--desk-url", "",
+             "--broker-url", "https://broker.example.ts.net", "--bellhop-url", "",
              "--policy", str(Path(self.tmp.name) / "no-policy.json"), *args],
             input=stdin, capture_output=True, text=True, timeout=30)
 
@@ -142,7 +142,7 @@ class ClaudeSetup(unittest.TestCase):
         self.settings.parent.mkdir()
         self.settings.write_text(json.dumps({"sandbox": {"network": {"allowedDomains": ["github.com"]}}}))
         self.assertEqual(self.run_setup("--yes").returncode, 0)
-        r = self.run_setup("--yes", "--relay-url", "https://broker2.example.ts.net")
+        r = self.run_setup("--yes", "--broker-url", "https://broker2.example.ts.net")
         self.assertEqual(r.returncode, 0, r.stderr)
         domains = json.loads(self.settings.read_text())["sandbox"]["network"]["allowedDomains"]
         self.assertEqual(domains, ["github.com", "broker2.example.ts.net"])

@@ -1,5 +1,5 @@
 #!/usr/bin/python3 -I
-"""Read relay: one instance per vault (`--org local|infra`), on loopback behind the front door.
+"""Read service: one instance per vault (`--org local|infra`), on loopback behind the front door.
 
 The front door strips the /local or /infra prefix and adds X-Relay-Peer. Callers are identified
 by Tailscale machine name. Endpoints (design §5.2):

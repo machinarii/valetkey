@@ -1,8 +1,8 @@
 #!/bin/bash
-# Usage: sudo valetkey-relay setup https://github.com/<owner>/<repo>.git [branch]   (public repository)
-#        sudo valetkey-relay setup git@github.com:<owner>/<repo>.git [branch]       (private repository)
-#        sudo valetkey-relay update
-#        sudo valetkey-relay rollback
+# Usage: sudo valetkey-broker setup https://github.com/<owner>/<repo>.git [branch]   (public repository)
+#        sudo valetkey-broker setup git@github.com:<owner>/<repo>.git [branch]       (private repository)
+#        sudo valetkey-broker update
+#        sudo valetkey-broker rollback
 # Updates the broker's valetkey code from its repository, from the broker's own console only.
 # Nothing on the network can start an install: anyone who can push to the repository would
 # otherwise run code as root here.
@@ -14,13 +14,13 @@
 #          /etc/relay/update.env (names only).
 # install  fetches the branch, shows what would change and waits for "y". Then: checks
 #          /etc/relay with the new parser, keeps a copy of the installed code, runs the new
-#          install.sh broker, waits until the relay ports that listened before listen again,
+#          install.sh broker, waits until the broker ports that listened before listen again,
 #          and puts the previous code back if they do not. Nothing from the repository is run
 #          before the "y".
 # rollback puts back the code the last install replaced, for an update that starts but misbehaves.
 set -euo pipefail
 umask 077
-usage="usage: valetkey-relay setup <https://github.com/|git@github.com:><owner>/<repo>.git [branch] | update | rollback"
+usage="usage: valetkey-broker setup <https://github.com/|git@github.com:><owner>/<repo>.git [branch] | update | rollback"
 
 # RELAY_UPDATE_ROOT (tests only): a directory used in place of /. sudo does not pass it on.
 root=${RELAY_UPDATE_ROOT:-}
@@ -94,7 +94,7 @@ cmd_setup() {
     printf 'UPDATE_REPO=%s\nUPDATE_BRANCH=%s\n' "$url" "$branch" > "$conf"
     chmod 644 "$conf"
     ok "$conf written (no deploy key: the repository is read over https)"
-    echo "Then: sudo valetkey-relay update"
+    echo "Then: sudo valetkey-broker update"
     return 0
   fi
   for c in git ssh ssh-keygen ssh-keyscan systemd-creds; do
@@ -131,12 +131,12 @@ cmd_setup() {
   echo
   ssh-keygen -lf "$known"
   echo
-  echo "3. Then: sudo valetkey-relay update"
+  echo "3. Then: sudo valetkey-broker update"
 }
 
 cmd_install() {
   local url='' branch=main key val tmp new cur short answer='' staged before count epoch_new epoch_cur
-  [ -f "$conf" ] || fail "not set up: sudo valetkey-relay setup https://github.com/<owner>/<repo>.git"
+  [ -f "$conf" ] || fail "not set up: sudo valetkey-broker setup https://github.com/<owner>/<repo>.git"
   while IFS='=' read -r key val; do  # read, never sourced
     case $key in UPDATE_REPO) url=$val ;; UPDATE_BRANCH) branch=$val ;; esac
   done < "$conf"
@@ -242,18 +242,18 @@ except (OSError, ValueError, RoutesError) as err:
     echo "FAIL  ports$before did not all come back: putting the previous code back" >&2
     restore
     rm -rf "$staged"
-    fail "$short not installed; the previous code is running (check: sudo valetkey-relay check)"
+    fail "$short not installed; the previous code is running (check: sudo valetkey-broker check)"
   fi
   echo "$new" > "$libexec/COMMIT"
   chmod 644 "$libexec/COMMIT"
   rm -rf "$staged" "$marker"
   ok "installed $short; ports listening:${before:- none before, none checked}"
-  echo "Next: sudo valetkey-relay check"
+  echo "Next: sudo valetkey-broker check"
 }
 
 case ${1:-} in
   setup) shift; cmd_setup "$@" ;;
   install) cmd_install ;;
-  rollback) restore; ok "previous code restored (check: sudo valetkey-relay check)" ;;
+  rollback) restore; ok "previous code restored (check: sudo valetkey-broker check)" ;;
   *) echo "$usage" >&2; exit 2 ;;
 esac

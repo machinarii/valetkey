@@ -1,7 +1,7 @@
 # Installed by valetkey (install.sh broker). TLS front door on the Tailscale IPv4 :443; no vault access.
 # Certificate in /var/lib/relay/tls (root:relay-front 640), renewed by relay-cert.timer.
 [Unit]
-Description=Credential relay, TLS front door
+Description=Credential broker, TLS front door
 After=network-online.target tailscaled.service relay-local.service relay-infra.service relay-entry.service
 Wants=network-online.target
 

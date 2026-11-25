@@ -1,5 +1,5 @@
 #!/usr/bin/python3 -I
-"""TLS front door of the credential relay (design §4).
+"""TLS front door of the credential broker (design §4).
 
 The only listener on the broker VM's Tailscale address. Dispatches /local/..., /infra/... and
 /entry/... to the loopback services, stripping the prefix and replacing X-Relay-Peer with the

@@ -1,16 +1,16 @@
 #!/usr/bin/python3 -I
-"""bellhop desk: runs listed tools and forwards listed MCP servers for other machines.
+"""bellhop: runs listed tools and forwards listed MCP servers for other machines.
 
 Runs on a machine that holds logins and has no agent. A caller (an agent machine) may:
 
   PUT  /file?ext=png     upload one file, get an id back
   POST /run/<tool>       run a listed tool with checked arguments in an empty folder
   GET  /file/<id>        fetch a file the tool wrote (deleted once fetched)
-  ANY  /mcp/<name>/...   reach a listed MCP server; the desk adds its key
+  ANY  /mcp/<name>/...   reach a listed MCP server; the bellhop adds its key
   GET  /tools            what this caller may use
   POST /request          ask the owner to install a tool or MCP server here (names only)
 
-Owner, on the desk:  desk.py --requests   and   desk.py --done ID
+Owner, on the bellhop:  valetkey-bellhop --requests   and   valetkey-bellhop --done ID
 
 Callers are named by Tailscale machine name. Listens on plain HTTP: put valetkey's relay_front
 in front of it for TLS (it reports the real peer in X-Relay-Peer, trusted from loopback only).
@@ -54,7 +54,7 @@ DROP_OUT = HOP | {"server", "date", "set-cookie"}
 
 
 def load(path):
-    """Parsed and checked configuration. Anything unclear is an error: the desk must not start."""
+    """Parsed and checked configuration. Anything unclear is an error: the bellhop must not start."""
     with open(path, "rb") as f:
         raw = tomllib.load(f)
     desk = raw.get("desk", {})
@@ -317,7 +317,7 @@ class Handler(RelayHandler):
                 with open(m["value_file"]) as f:  # read per request: a rotated key needs no restart
                     headers[m["header"]] = f.read().strip()
             except OSError:
-                return self.reply(route, 502, "key not available on the desk")
+                return self.reply(route, 502, "key not available on the bellhop")
         target = (u.path.rstrip("/") + rest or "/") + ("?" + query if query else "")
         if u.scheme == "https":
             conn = http.client.HTTPSConnection(u.hostname, u.port or 443, timeout=600,
@@ -391,7 +391,7 @@ def main(argv=None):
         return
     srv = build_server(args.config, args.bind)
     cfg = srv.ctx["cfg"]
-    print(f"bellhop desk on {srv.server_address[0]}:{srv.server_address[1]}: tools "
+    print(f"bellhop on {srv.server_address[0]}:{srv.server_address[1]}: tools "
           f"{sorted(cfg['tools'])}, mcp {sorted(cfg['mcp'])}, callers by {cfg['identity']}", flush=True)
     try:
         srv.serve_forever()

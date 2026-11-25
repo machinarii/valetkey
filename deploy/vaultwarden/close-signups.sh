@@ -1,5 +1,5 @@
 #!/bin/bash
-# Run inside the Vaultwarden container as root once your account and the relay accounts exist.
+# Run inside the Vaultwarden container as root once your account and the broker accounts exist.
 set -euo pipefail
 cd /opt/vaultwarden
 sed -i 's/^SIGNUPS_ALLOWED=.*/SIGNUPS_ALLOWED=false/' vaultwarden.env

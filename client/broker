@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""relay: ask the credential relay about names and request new ones (no values ever pass through here)."""
+"""valetkey-broker: ask the credential broker about names and request new ones (no values ever pass through here)."""
 import argparse
 import json
 import os
@@ -13,32 +13,34 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-def _config_file():
+def _config_file(name="broker-url"):
     return os.path.join(os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config"),
-                        "valetkey", "relay-url")
+                        "valetkey", name)
 
 
-def _relay_url():
-    """Broker URL: $RELAY_URL, else the first line of ~/.config/valetkey/relay-url (written by
-    `install.sh client --relay-url ...`). Empty if neither is set."""
-    url = os.environ.get("RELAY_URL", "").strip()
-    if not url:
+def _broker_url():
+    """Broker URL: $BROKER_URL, else the first line of ~/.config/valetkey/broker-url (written by
+    `install.sh client --broker-url ...`). Empty if neither is set."""
+    url = os.environ.get("BROKER_URL", "").strip()
+    for name in ("broker-url", "relay-url"):  # relay-url: the file's name before 0.4
+        if url:
+            break
         try:
-            with open(_config_file(), encoding="utf-8") as f:
+            with open(_config_file(name), encoding="utf-8") as f:
                 url = f.readline().strip()
         except OSError:
-            url = ""
+            pass
     return url.rstrip("/")
 
 
 # Keep the version in the executable so copied clients and Homebrew symlinks identify themselves.
 # The install test checks it against the repository VERSION.
-CLIENT_VERSION = "0.3.0"
+CLIENT_VERSION = "0.4.0"
 TAGS_URL = "https://api.github.com/repos/machinarii/valetkey/tags"
 STABLE_TAG = re.compile(r"v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)")
 BASE = ""
-NO_URL = ("no broker URL: set RELAY_URL=https://broker.<tailnet>.ts.net or run "
-          "`valetkey-relay set-url https://broker.<tailnet>.ts.net`")
+NO_URL = ("no broker URL: set BROKER_URL=https://broker.<tailnet>.ts.net or run "
+          "`valetkey-broker set-url https://broker.<tailnet>.ts.net`")
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -63,7 +65,7 @@ def call(method, path, body=None, retry=False):
     never after an HTTP status.
     """
     if not good_addr(BASE):
-        sys.exit("valetkey-relay: bad RELAY_URL (https:// required; HTTP allowed only on loopback for tests)")
+        sys.exit("valetkey-broker: bad BROKER_URL (https:// required; HTTP allowed only on loopback for tests)")
     data = json.dumps(body).encode() if body is not None else None
     for attempt in (1, 2):
         req = urllib.request.Request(BASE + path, data=data, method=method)
@@ -78,9 +80,9 @@ def call(method, path, body=None, retry=False):
             if retry and attempt == 1:
                 time.sleep(RETRY_DELAY)
                 continue
-            sys.exit(f"valetkey-relay: cannot reach broker ({type(getattr(e, 'reason', e)).__name__})")
+            sys.exit(f"valetkey-broker: cannot reach broker ({type(getattr(e, 'reason', e)).__name__})")
         except Exception as e:
-            sys.exit(f"valetkey-relay: cannot reach broker ({type(getattr(e, 'reason', e)).__name__})")
+            sys.exit(f"valetkey-broker: cannot reach broker ({type(getattr(e, 'reason', e)).__name__})")
 
 
 def one_line(text):
@@ -107,18 +109,18 @@ BROKER_BIN = "/usr/local/libexec/relay/bin"  # the broker's own tools, off the P
 BROKER_UPDATE = BROKER_BIN + "/relay-update"
 
 
-# On the broker, `valetkey-relay <word> ...` (or `relay <word> ...`) runs the broker tool of that name.
+# On the broker, `valetkey-broker <word> ...` runs the broker tool of that name.
 BROKER_TOOLS = {"routes": ["relay-routes"], "login": ["relay-login"], "check": ["relay-check"],
                 "approval": ["relay-approval"], "rollback": ["relay-update", "rollback"],
                 "setup": ["relay-update", "setup"]}
 
 
 def broker_tool(argv):
-    """Hand over to a broker tool, which checks for root itself. Only where relay is the servers'
-    version tool and the tool is installed, so `valetkey-relay check` on a client stays the client's."""
+    """Hand over to a broker tool, which checks for root itself. Only where this file is the servers'
+    version tool and the tool is installed, so `valetkey-broker check` on a client stays the client's."""
     tool = BROKER_TOOLS.get(argv[0]) if argv else None
     path = tool and BROKER_BIN + "/" + tool[0]
-    if path and Path(__file__).resolve().name == "valetkey-relay-version" and os.access(path, os.X_OK):
+    if path and Path(__file__).resolve().name == "valetkey-broker-version" and os.access(path, os.X_OK):
         os.execv(path, [path, *tool[1:], *argv[1:]])
 
 
@@ -128,7 +130,7 @@ def cmd_update(a):
     if os.access(BROKER_UPDATE, os.X_OK):
         if os.geteuid() == 0:
             os.execv(BROKER_UPDATE, [BROKER_UPDATE, "install"])
-        print("valetkey-relay: this is the broker; `sudo valetkey-relay update` installs its update", file=sys.stderr)
+        print("valetkey-broker: this is the broker; `sudo valetkey-broker update` installs its update", file=sys.stderr)
     return cmd_latest_version(a)
 
 
@@ -153,16 +155,16 @@ def cmd_latest_version(a):
                     if latest is None or version > latest:
                         latest = version
         except urllib.error.HTTPError as error:
-            sys.exit(f"valetkey-relay: GitHub tag lookup failed (HTTP {error.code})")
+            sys.exit(f"valetkey-broker: GitHub tag lookup failed (HTTP {error.code})")
         except (OSError, HTTPException):
-            sys.exit("valetkey-relay: could not reach GitHub to check the latest version")
+            sys.exit("valetkey-broker: could not reach GitHub to check the latest version")
         except (ValueError, RecursionError):
-            sys.exit("valetkey-relay: invalid tag list from GitHub")
+            sys.exit("valetkey-broker: invalid tag list from GitHub")
         if len(tags) < 100:
             break
         page += 1
     if latest is None:
-        sys.exit("valetkey-relay: no stable Valetkey version tag found")
+        sys.exit("valetkey-broker: no stable Valetkey version tag found")
     print(".".join(map(str, latest)))
 
 
@@ -183,19 +185,19 @@ def cmd_guide(a):
                 heading = GUIDE_TOPICS[a.topic]
                 section = rules.partition(heading + "\n")
                 if not section[1]:
-                    sys.exit(f"valetkey-relay: {a.topic} guidance missing; update the installed client guidance")
+                    sys.exit(f"valetkey-broker: {a.topic} guidance missing; update the installed client guidance")
                 rules = heading + "\n" + section[2].split("\n## ", 1)[0].rstrip() + "\n"
             print(rules, end="")
             return 0
-    sys.exit("valetkey-relay: guidance missing; reinstall the client or read agents/credential-rules.md")
+    sys.exit("valetkey-broker: guidance missing; reinstall the client or read agents/credential-rules.md")
 
 
 def cmd_set_url(a):
-    """Save the broker URL for valetkey-relay and valetkey-entry (what `install.sh client --relay-url` does)."""
+    """Save the broker URL for valetkey-broker and valetkey-entry (what `install.sh client --broker-url` does)."""
     url = a.url.strip().rstrip("/")
     if not (good_addr(url) and urllib.parse.urlsplit(url).scheme == "https"
             and urllib.parse.urlsplit(url).path == ""):
-        sys.exit("valetkey-relay: the broker URL must be https://<host> with no path, e.g. https://broker.<tailnet>.ts.net")
+        sys.exit("valetkey-broker: the broker URL must be https://<host> with no path, e.g. https://broker.<tailnet>.ts.net")
     cfg = _config_file()
     os.makedirs(os.path.dirname(cfg), exist_ok=True)
     with open(cfg, "w", encoding="utf-8") as f:
@@ -208,13 +210,13 @@ def cmd_check(a):
     status, text = call("GET", f"/{a.org}/check?names=" + ",".join(urllib.parse.quote(n, safe="") for n in a.names),
                           retry=True)
     if status != 200:
-        sys.exit(f"valetkey-relay: check failed ({status})")
+        sys.exit(f"valetkey-broker: check failed ({status})")
     try:
         res = json.loads(text)
     except ValueError:
-        sys.exit("valetkey-relay: check failed (bad response)")
+        sys.exit("valetkey-broker: check failed (bad response)")
     if not isinstance(res, dict) or any(v not in ("ok", "missing", "not-allowed") for v in res.values()):
-        sys.exit("valetkey-relay: check failed (bad response)")
+        sys.exit("valetkey-broker: check failed (bad response)")
     bad = False
     for n in a.names:
         st = res.get(n, "missing")
@@ -227,13 +229,13 @@ def cmd_backups(a):
     """Dates of <name>'s backups, newest first; each is read like the item, as <name>-backup-<date>."""
     status, text = call("GET", f"/{a.org}/backups/{urllib.parse.quote(a.name, safe='')}", retry=True)
     if status in (403, 404):
-        sys.exit(f"valetkey-relay: {one_line(text)} ({status})")
+        sys.exit(f"valetkey-broker: {one_line(text)} ({status})")
     if status != 200:
-        sys.exit(f"valetkey-relay: backups failed ({status})")
+        sys.exit(f"valetkey-broker: backups failed ({status})")
     try:
         dates = json.loads(text)["backups"]
     except (ValueError, KeyError, TypeError):
-        sys.exit("valetkey-relay: backups failed (bad response)")
+        sys.exit("valetkey-broker: backups failed (bad response)")
     print("\n".join(str(d) for d in dates) if dates else "no backups")
     return 0
 
@@ -244,7 +246,7 @@ def cmd_request(a):
         "field": "notes" if a.notes else "password", "purpose": a.purpose, "replace": a.replace,
         **({"encode": a.encode} if a.encode else {})})
     if status != 201:
-        print(one_line(text) if status in (400, 409, 429) else f"valetkey-relay: request failed ({status})")
+        print(one_line(text) if status in (400, 409, 429) else f"valetkey-broker: request failed ({status})")
         return 1
     r = json.loads(text)
     print(f"request {r['id']} ({r['status']})")
@@ -257,15 +259,15 @@ def cmd_request_route(a):
         "name": a.name, "org": a.org, "item": a.item, "upstream": a.upstream,
         "methods": a.method, "paths": a.path, **({"auth": a.auth} if a.auth != "bearer" else {})})
     if status != 201:
-        errors = {400: "invalid route specification", 403: "device not authorized", 409: "route exists; to use it from this machine, run valetkey-relay join-route NAME",
+        errors = {400: "invalid route specification", 403: "device not authorized", 409: "route exists; to use it from this machine, run valetkey-broker join-route NAME",
                   429: "too many requests", 503: "check broker approval service and enrollment"}
-        sys.exit(f"valetkey-relay: route request failed ({status}): {errors.get(status, 'broker unavailable')}")
+        sys.exit(f"valetkey-broker: route request failed ({status}): {errors.get(status, 'broker unavailable')}")
     try:
         rid = json.loads(text)["id"]
         if not isinstance(rid, str) or not re.fullmatch("[0-9a-f]{40}", rid):
             raise ValueError
     except (ValueError, KeyError, TypeError):
-        sys.exit("valetkey-relay: invalid route request response")
+        sys.exit("valetkey-broker: invalid route request response")
     print(f"{BASE}/entry/approve/{rid}")
 
 
@@ -275,20 +277,20 @@ def cmd_join_route(a):
         errors = {400: "invalid request", 403: "device not authorized", 404: "no API route with that name",
                   409: "this machine already uses that route", 429: "too many requests",
                   503: "check broker approval service and enrollment"}
-        sys.exit(f"valetkey-relay: join request failed ({status}): {errors.get(status, 'broker unavailable')}")
+        sys.exit(f"valetkey-broker: join request failed ({status}): {errors.get(status, 'broker unavailable')}")
     try:
         rid = json.loads(text)["id"]
         if not isinstance(rid, str) or not re.fullmatch("[0-9a-f]{40}", rid):
             raise ValueError
     except (ValueError, KeyError, TypeError):
-        sys.exit("valetkey-relay: invalid route request response")
+        sys.exit("valetkey-broker: invalid route request response")
     print(f"{BASE}/entry/approve/{rid}")
 
 
 def cmd_status(a):
     status, text = call("GET", f"/entry/v1/requests/{urllib.parse.quote(a.id, safe='')}")
     if status != 200:
-        sys.exit(f"valetkey-relay: status failed ({status})")
+        sys.exit(f"valetkey-broker: status failed ({status})")
     r = json.loads(text)
     print(r["status"])
     if r.get("result"):
@@ -307,11 +309,11 @@ def cmd_status(a):
 
 def cmd_model(a):
     if not good_addr(BASE) or urllib.parse.urlsplit(BASE).path or "\\" in BASE:
-        sys.exit("valetkey-relay: model access needs the broker origin without a path")
+        sys.exit("valetkey-broker: model access needs the broker origin without a path")
     if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,62}", a.route):
-        sys.exit("valetkey-relay: invalid model route name")
+        sys.exit("valetkey-broker: invalid model route name")
     if not re.fullmatch(r"[a-zA-Z0-9~][a-zA-Z0-9._/:~+\[\]-]{0,199}", a.model):
-        sys.exit("valetkey-relay: invalid provider model ID")
+        sys.exit("valetkey-broker: invalid provider model ID")
     url = f"{BASE}/{a.org}/{a.route}"
     marker = "valetkey-broker-placeholder"
     env = os.environ.copy()
@@ -342,7 +344,7 @@ def cmd_model(a):
     try:
         os.execvpe(argv[0], argv + a.args, env)
     except OSError as exc:
-        sys.exit(f"valetkey-relay: could not start {a.client}: {exc.strerror}")
+        sys.exit(f"valetkey-broker: could not start {a.client}: {exc.strerror}")
 
 
 def add_client_commands(sub):
@@ -385,7 +387,7 @@ def add_client_commands(sub):
     route.add_argument("--method", action="append", required=True)
     route.add_argument("--path", action="append", required=True)
     route.add_argument("--auth", choices=["bearer", "basic"], default="bearer",
-                       help="basic: the item holds base64 of the key and a colon (see valetkey-relay request --encode basic)")
+                       help="basic: the item holds base64 of the key and a colon (see valetkey-broker request --encode basic)")
     route.set_defaults(fn=cmd_request_route)
     join = sub.add_parser("join-route", help="ask the owner to add this machine to an existing API route")
     join.add_argument("name")
@@ -398,7 +400,7 @@ def add_client_commands(sub):
 def main():
     global BASE
     broker_tool(sys.argv[1:])
-    p = argparse.ArgumentParser(prog="valetkey-relay")
+    p = argparse.ArgumentParser(prog="valetkey-broker")
     p.add_argument("--version", action="version", version=CLIENT_VERSION)
     sub = p.add_subparsers(dest="cmd", required=True)
     sub.add_parser("version", help="print the installed client version offline").set_defaults(fn=cmd_version)
@@ -406,14 +408,14 @@ def main():
                    "install the broker's update").set_defaults(fn=cmd_update)
     sub.add_parser("latest-version", help="print the latest stable public version").set_defaults(
         cmd="update", fn=cmd_latest_version)
-    # Infrastructure installs point valetkey-relay at the valetkey-relay-version executable.
-    if Path(__file__).resolve().name != "valetkey-relay-version":
+    # Infrastructure installs point valetkey-broker at the valetkey-broker-version executable.
+    if Path(__file__).resolve().name != "valetkey-broker-version":
         add_client_commands(sub)
     a = p.parse_args()
     if a.cmd not in ("guide", "version", "update", "set-url"):
-        BASE = _relay_url()
+        BASE = _broker_url()
         if not BASE:
-            sys.exit(f"valetkey-relay: {NO_URL}")
+            sys.exit(f"valetkey-broker: {NO_URL}")
     sys.exit(a.fn(a))
 
 

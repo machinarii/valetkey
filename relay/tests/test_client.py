@@ -1,4 +1,4 @@
-"""Client tools (client/relay, client/vault, client/vault-entry) against a fake broker."""
+"""Client tools (client/broker, client/vault, client/vault-entry) against a fake broker."""
 import contextlib
 import io
 import json
@@ -113,7 +113,7 @@ class ClientCase(unittest.TestCase):
         self.addCleanup(self.srv.shutdown)
 
     def run_tool(self, tool, *args, stdin="", py=PY, env=None, terminal=True):
-        e = dict(os.environ, RELAY_URL=self.base, VAULT_ADDR=self.base + "/infra",
+        e = dict(os.environ, BROKER_URL=self.base, VAULT_ADDR=self.base + "/infra",
                  VAULT_TOKEN="ignored")
         e.update(env or {})
         if tool == "vault-entry" and stdin and terminal:
@@ -161,12 +161,12 @@ class ClientCase(unittest.TestCase):
 
 class ModelLauncherTests(unittest.TestCase):
     def launch(self, *arguments):
-        environment = {"RELAY_URL": "https://broker.example.ts.net", "OPENAI_API_KEY": "fixture",
+        environment = {"BROKER_URL": "https://broker.example.ts.net", "OPENAI_API_KEY": "fixture",
                        "CLAUDE_CODE_OAUTH_TOKEN": "fixture", "OPENROUTER_API_KEY": "fixture"}
         with mock.patch.dict(os.environ, environment, clear=True), mock.patch("os.execvpe") as execute, \
-                mock.patch.object(sys, "argv", ["relay", "model", *arguments]):
+                mock.patch.object(sys, "argv", ["broker", "model", *arguments]):
             with self.assertRaises(SystemExit) as result:
-                runpy.run_path(os.path.join(CLIENT, "relay"), run_name="__main__")
+                runpy.run_path(os.path.join(CLIENT, "broker"), run_name="__main__")
             self.assertIsNone(result.exception.code)
             name, argv, env = execute.call_args.args
             for key in ("OPENAI_API_KEY", "OPENROUTER_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"):
@@ -196,12 +196,12 @@ class LatestVersionTests(unittest.TestCase):
     def lookup(self, pages, command="update"):
         output = io.StringIO()
         with mock.patch("urllib.request.build_opener") as opener, \
-                mock.patch.object(sys, "argv", ["relay", command]), \
+                mock.patch.object(sys, "argv", ["broker", command]), \
                 contextlib.redirect_stdout(output):
             responses = [io.BytesIO(json.dumps(page).encode()) for page in pages]
             opener.return_value.open.side_effect = responses
             with self.assertRaises(SystemExit) as result:
-                runpy.run_path(os.path.join(CLIENT, "relay"), run_name="__main__")
+                runpy.run_path(os.path.join(CLIENT, "broker"), run_name="__main__")
             for number, call in enumerate(opener.return_value.open.call_args_list, 1):
                 self.assertEqual(call.args, (f"https://api.github.com/repos/machinarii/valetkey/tags?per_page=100&page={number}",))
         return result.exception.code, output.getvalue()
@@ -223,15 +223,15 @@ class LatestVersionTests(unittest.TestCase):
 
 class RelayTests(ClientCase):
     def test_request_route_prints_owner_link(self):
-        p = self.run_tool("relay", "request-route", "reports", "--org", "local", "--item", "reports-api-key",
+        p = self.run_tool("broker", "request-route", "reports", "--org", "local", "--item", "reports-api-key",
                           "--upstream", "https://api.example.com", "--method", "GET", "--path", "/v1/reports")
         self.assertEqual((p.returncode, self.out(p)), (0, (self.base + "/entry/approve/" + "a" * 40 + "\n", "")))
         self.assertEqual(self.srv.log[0][2], dict(name="reports", org="local", item="reports-api-key",
                          upstream="https://api.example.com", methods=["GET"], paths=["/v1/reports"]))
 
     def test_basic_request_and_route_send_their_format(self):
-        self.run_tool("relay", "request", "motion-api-basic", "--org", "local", "--purpose", "p", "--encode", "basic")
-        self.run_tool("relay", "request-route", "motion", "--org", "local", "--item", "motion-api-basic",
+        self.run_tool("broker", "request", "motion-api-basic", "--org", "local", "--purpose", "p", "--encode", "basic")
+        self.run_tool("broker", "request-route", "motion", "--org", "local", "--item", "motion-api-basic",
                       "--upstream", "https://api.example.com", "--method", "POST", "--path", "/graphql",
                       "--auth", "basic")
         posts = [x[2] for x in self.srv.log if x[0] == "POST"]
@@ -240,7 +240,7 @@ class RelayTests(ClientCase):
     def test_update_installs_on_the_broker_only_with_root(self):
         from importlib.machinery import SourceFileLoader
         from unittest import mock
-        relay = SourceFileLoader("relay_client_under_test", os.path.join(CLIENT, "relay")).load_module()
+        relay = SourceFileLoader("relay_client_under_test", os.path.join(CLIENT, "broker")).load_module()
         with mock.patch.object(relay, "cmd_latest_version", return_value=0) as check, \
                 mock.patch.object(relay.os, "execv") as execv:
             for on_broker, uid, installs in ((True, 0, True), (True, 1000, False), (False, 0, False)):
@@ -262,11 +262,11 @@ class RelayTests(ClientCase):
     def test_broker_words_run_broker_tools_only_on_a_server_install(self):
         from importlib.machinery import SourceFileLoader
         from unittest import mock
-        relay = SourceFileLoader("relay_client_broker_words", os.path.join(CLIENT, "relay")).load_module()
+        relay = SourceFileLoader("relay_client_broker_words", os.path.join(CLIENT, "broker")).load_module()
         with mock.patch.object(relay.os, "execv") as execv, mock.patch.object(relay.os, "access", return_value=True):
             relay.broker_tool(["routes", "install", "local"])  # a full client: never handed over
             execv.assert_not_called()
-            with mock.patch.object(relay.Path, "resolve", return_value=relay.Path("/usr/local/bin/valetkey-relay-version")):
+            with mock.patch.object(relay.Path, "resolve", return_value=relay.Path("/usr/local/bin/valetkey-broker-version")):
                 relay.broker_tool(["routes", "install", "local"])
                 execv.assert_called_once_with("/usr/local/libexec/relay/bin/relay-routes",
                                               ["/usr/local/libexec/relay/bin/relay-routes", "install", "local"])
@@ -279,24 +279,24 @@ class RelayTests(ClientCase):
                 execv.assert_not_called()
 
     def test_join_route_sends_only_the_route_name(self):
-        p = self.run_tool("relay", "join-route", "reports")
+        p = self.run_tool("broker", "join-route", "reports")
         self.assertEqual((p.returncode, self.out(p)), (0, (self.base + "/entry/approve/" + "a" * 40 + "\n", "")))
         self.assertEqual(self.srv.log[0][1:3], ("/entry/v1/route-requests", {"join": "reports"}))
 
     def test_check_prints_per_name_and_exit_code(self):
-        p = self.run_tool("relay", "check", "infra", "a", "b", "c")
+        p = self.run_tool("broker", "check", "infra", "a", "b", "c")
         out, err = self.out(p)
         self.assertEqual(out, "ok  a\nmissing  b\nnot-allowed  c\n")
         self.assertEqual(p.returncode, 1)
         self.assertEqual(self.srv.log[0][1], "/infra/check?names=a,b,c")
 
     def test_check_all_ok_exits_0(self):
-        p = self.run_tool("relay", "check", "infra", "a")
+        p = self.run_tool("broker", "check", "infra", "a")
         self.assertEqual(p.returncode, 0)
         self.assertEqual(self.out(p)[0], "ok  a\n")
 
     def test_request_prints_both_entry_methods(self):
-        p = self.run_tool("relay", "request", "n", "--org", "infra", "--project", "pg",
+        p = self.run_tool("broker", "request", "n", "--org", "infra", "--project", "pg",
                           "--purpose", "for qa", "--replace")
         out, _ = self.out(p)
         self.assertEqual(p.returncode, 0)
@@ -309,39 +309,39 @@ class RelayTests(ClientCase):
                                 "purpose": "for qa", "replace": True})
 
     def test_request_notes_field_and_exists(self):
-        self.run_tool("relay", "request", "n", "--org", "local", "--purpose", "x", "--notes")
+        self.run_tool("broker", "request", "n", "--org", "local", "--purpose", "x", "--notes")
         self.assertEqual(self.srv.log[0][2]["field"], "notes")
         self.assertIsNone(self.srv.log[0][2]["project"])
-        p = self.run_tool("relay", "request", "dup", "--org", "local", "--purpose", "x")
+        p = self.run_tool("broker", "request", "dup", "--org", "local", "--purpose", "x")
         self.assertEqual(p.returncode, 1)
         self.assertIn("exists", self.out(p)[1] + self.out(p)[0])
 
     def test_backups_lists_dates_newest_first(self):
         pys = [PY] + ([OLD_PY] if os.path.exists(OLD_PY) else [])
         for py in pys:
-            p = self.run_tool("relay", "backups", "infra", "x", py=py)
+            p = self.run_tool("broker", "backups", "infra", "x", py=py)
             self.assertEqual((p.returncode, self.out(p)), (0, ("20261106\n20261030\n", "")), py)
         self.assertEqual(self.srv.log[0][1], "/infra/backups/x")
 
     def test_backups_empty(self):
-        p = self.run_tool("relay", "backups", "infra", "empty")
+        p = self.run_tool("broker", "backups", "infra", "empty")
         self.assertEqual((p.returncode, self.out(p)[0]), (0, "no backups\n"))
 
     def test_backups_errors_exit_1(self):
-        p = self.run_tool("relay", "backups", "infra", "forbidden")
-        self.assertEqual((p.returncode, self.out(p)), (1, ("", "valetkey-relay: not allowed (403)\n")))
-        p = self.run_tool("relay", "backups", "infra", "unknown")
-        self.assertEqual((p.returncode, self.out(p)), (1, ("", "valetkey-relay: not found (404)\n")))
-        p = self.run_tool("relay", "backups", "infra", "boom")
-        self.assertEqual((p.returncode, self.out(p)), (1, ("", "valetkey-relay: backups failed (503)\n")))
-        p = self.run_tool("relay", "backups", "moved", "x")
-        self.assertEqual((p.returncode, self.out(p)), (1, ("", "valetkey-relay: backups failed (302)\n")))
-        p = self.run_tool("relay", "backups", "infra", "x", env=STRAY_PROXY)
+        p = self.run_tool("broker", "backups", "infra", "forbidden")
+        self.assertEqual((p.returncode, self.out(p)), (1, ("", "valetkey-broker: not allowed (403)\n")))
+        p = self.run_tool("broker", "backups", "infra", "unknown")
+        self.assertEqual((p.returncode, self.out(p)), (1, ("", "valetkey-broker: not found (404)\n")))
+        p = self.run_tool("broker", "backups", "infra", "boom")
+        self.assertEqual((p.returncode, self.out(p)), (1, ("", "valetkey-broker: backups failed (503)\n")))
+        p = self.run_tool("broker", "backups", "moved", "x")
+        self.assertEqual((p.returncode, self.out(p)), (1, ("", "valetkey-broker: backups failed (302)\n")))
+        p = self.run_tool("broker", "backups", "infra", "x", env=STRAY_PROXY)
         self.assertEqual((p.returncode, self.out(p)[0]), (0, "20261106\n20261030\n"), p.stderr)
         self.assertEqual([x for x in self.srv.log if x[1] == "/infra/shop/value/x"], [])
 
     def test_status_prints_status_and_result(self):
-        p = self.run_tool("relay", "status", "r_1")
+        p = self.run_tool("broker", "status", "r_1")
         self.assertEqual(self.out(p)[0], "stored\nstored n in infra-org\n")
 
     def test_status_prints_what_the_key_opens_here(self):
@@ -350,7 +350,7 @@ class RelayTests(ClientCase):
              "tools": {"read": 3, "change": 2, "delete": 1}},
             {"route": "rest", "paths": ["/v1"], "check": "not-tested",
              "detail": "Not an MCP server, so the key was not tested here."}]
-        out = self.out(self.run_tool("relay", "status", "r_1"))[0]
+        out = self.out(self.run_tool("broker", "status", "r_1"))[0]
         self.assertIn("route dns: signed in, 6 MCP tools (3 read only, 2 write, 1 can change or delete)\n"
                       f"  MCP address: {self.base}/infra/dns/mcp\n", out)
         self.assertIn("route rest: not-tested. Not an MCP server, so the key was not tested here.\n", out)
@@ -383,7 +383,7 @@ class ShimTests(ClientCase):
     def test_vault_shim_other_error_never_shows_body(self):
         p = self.shim("kv", "get", "-field=value", "shop/boom")
         self.assertEqual((p.returncode, p.stdout), (2, b""))
-        self.assertEqual(p.stderr, b"relay error 503\n")
+        self.assertEqual(p.stderr, b"broker error 503\n")
         self.assertEqual(len(self.srv.log), 1)  # an HTTP status is never retried
 
     def test_vault_shim_rejects_other_commands(self):
@@ -507,15 +507,15 @@ class HardeningTests(ClientCase):
     def test_entry_and_relay_reject_non_tls_remote_urls_before_network(self):
         for addr in ("http://broker.example.ts.net", "file:///tmp/value", "https://user@broker.example",
                      "https://broker.example?x=1", "https://broker.example\n/path"):
-            for tool, args in (("relay", ("check", "local", "a")), ("vault-entry", ())):
-                p = self.run_tool(tool, *args, env={"RELAY_URL": addr})
+            for tool, args in (("broker", ("check", "local", "a")), ("vault-entry", ())):
+                p = self.run_tool(tool, *args, env={"BROKER_URL": addr})
                 self.assertNotEqual(p.returncode, 0)
-                self.assertIn(b"bad RELAY_URL", p.stderr)
+                self.assertIn(b"bad BROKER_URL", p.stderr)
         self.assertEqual(self.srv.log, [])
 
     def test_guide_is_offline_and_has_no_url_requirement(self):
         with tempfile.TemporaryDirectory() as cfg:
-            p = self.run_tool("relay", "guide", env={"RELAY_URL": "", "XDG_CONFIG_HOME": cfg})
+            p = self.run_tool("broker", "guide", env={"BROKER_URL": "", "XDG_CONFIG_HOME": cfg})
         self.assertEqual(p.returncode, 0, p.stderr)
         self.assertIn(b"trusted_value_nodes", p.stdout)
         self.assertIn(b"Never read a value", p.stdout)
@@ -523,20 +523,20 @@ class HardeningTests(ClientCase):
 
     def test_set_url_saves_a_valid_broker_url_only(self):
         with tempfile.TemporaryDirectory() as cfg:
-            env = {"RELAY_URL": "", "XDG_CONFIG_HOME": cfg}
+            env = {"BROKER_URL": "", "XDG_CONFIG_HOME": cfg}
             for bad in ("http://broker.example.ts.net", "https://broker.example.ts.net/x",
                         "https://user@broker.example.ts.net"):
-                self.assertNotEqual(self.run_tool("relay", "set-url", bad, env=env).returncode, 0, bad)
-            self.assertFalse(os.path.exists(os.path.join(cfg, "valetkey", "relay-url")))
-            p = self.run_tool("relay", "set-url", "https://broker.example.ts.net/", env=env)
+                self.assertNotEqual(self.run_tool("broker", "set-url", bad, env=env).returncode, 0, bad)
+            self.assertFalse(os.path.exists(os.path.join(cfg, "valetkey", "broker-url")))
+            p = self.run_tool("broker", "set-url", "https://broker.example.ts.net/", env=env)
             self.assertEqual(p.returncode, 0, p.stderr)
-            with open(os.path.join(cfg, "valetkey", "relay-url")) as f:
+            with open(os.path.join(cfg, "valetkey", "broker-url")) as f:
                 self.assertEqual(f.read(), "https://broker.example.ts.net\n")
         self.assertEqual(self.srv.log, [])
 
     def test_claude_guide_offers_both_methods_offline(self):
         with tempfile.TemporaryDirectory() as cfg:
-            p = self.run_tool("relay", "guide", "claude", env={"RELAY_URL": "", "XDG_CONFIG_HOME": cfg})
+            p = self.run_tool("broker", "guide", "claude", env={"BROKER_URL": "", "XDG_CONFIG_HOME": cfg})
             self.assertEqual(os.listdir(cfg), [])
         self.assertEqual(p.returncode, 0, p.stderr)
         self.assertIn(b"claude setup-token", p.stdout)
@@ -544,19 +544,19 @@ class HardeningTests(ClientCase):
         self.assertNotIn(b"## Allowed workflow", p.stdout)
         self.assertEqual(self.srv.log, [])
 
-    def test_relay_url_from_config_file(self):
+    def test_broker_url_from_config_file(self):
         with tempfile.TemporaryDirectory() as cfg:
             os.makedirs(os.path.join(cfg, "valetkey"))
-            with open(os.path.join(cfg, "valetkey", "relay-url"), "w") as f:
+            with open(os.path.join(cfg, "valetkey", "broker-url"), "w") as f:
                 f.write(self.base + "/\n")
-            p = self.run_tool("relay", "check", "infra", "a", env={"RELAY_URL": "", "XDG_CONFIG_HOME": cfg})
+            p = self.run_tool("broker", "check", "infra", "a", env={"BROKER_URL": "", "XDG_CONFIG_HOME": cfg})
         self.assertEqual(p.returncode, 0, p.stderr)
         self.assertIn("a", p.stdout.decode())
 
-    def test_no_relay_url_is_a_clear_error(self):
+    def test_no_broker_url_is_a_clear_error(self):
         with tempfile.TemporaryDirectory() as cfg:
-            for tool, args in (("relay", ("check", "infra", "a")), ("vault-entry", ())):
-                p = self.run_tool(tool, *args, env={"RELAY_URL": "", "XDG_CONFIG_HOME": cfg})
+            for tool, args in (("broker", ("check", "infra", "a")), ("vault-entry", ())):
+                p = self.run_tool(tool, *args, env={"BROKER_URL": "", "XDG_CONFIG_HOME": cfg})
                 self.assertNotEqual(p.returncode, 0)
                 self.assertIn("no broker URL", p.stderr.decode())
         self.assertEqual(self.srv.log, [])
@@ -564,7 +564,7 @@ class HardeningTests(ClientCase):
     def test_proxy_variables_are_ignored(self):
         p = self.run_tool("vault", "kv", "get", "-field=value", "shop/x", env=STRAY_PROXY)
         self.assertEqual((p.returncode, p.stdout), (0, SECRET.encode()), p.stderr)
-        p = self.run_tool("relay", "check", "infra", "a", env=STRAY_PROXY)
+        p = self.run_tool("broker", "check", "infra", "a", env=STRAY_PROXY)
         self.assertEqual((p.returncode, self.out(p)[0]), (0, "ok  a\n"), p.stderr)
         p = self.run_tool("vault-entry", env=STRAY_PROXY)
         self.assertEqual(p.returncode, 0, p.stderr)
@@ -572,11 +572,11 @@ class HardeningTests(ClientCase):
 
     def test_redirects_are_errors(self):
         p = self.run_tool("vault", "kv", "get", "-field=value", "moved/x")
-        self.assertEqual((p.returncode, p.stdout, p.stderr), (2, b"", b"relay error 302\n"))
-        p = self.run_tool("relay", "check", "moved", "a")
+        self.assertEqual((p.returncode, p.stdout, p.stderr), (2, b"", b"broker error 302\n"))
+        p = self.run_tool("broker", "check", "moved", "a")
         self.assertEqual(p.returncode, 1)
         self.assertIn("302", self.out(p)[1])
-        p = self.run_tool("vault-entry", env={"RELAY_URL": self.base + "/moved"})
+        p = self.run_tool("vault-entry", env={"BROKER_URL": self.base + "/moved"})
         self.assertEqual(p.returncode, 1)
         self.assertIn("302", self.out(p)[1])
         for proc in (p,):
@@ -588,7 +588,7 @@ class HardeningTests(ClientCase):
                      "http://127.0.0.1.evil.example/infra"):
             p = self.run_tool("vault", "kv", "get", "-field=value", "shop/x",
                               env={"VAULT_ADDR": addr})
-            self.assertEqual((p.returncode, p.stdout, p.stderr), (2, b"", b"relay error bad VAULT_ADDR\n"), addr)
+            self.assertEqual((p.returncode, p.stdout, p.stderr), (2, b"", b"broker error bad VAULT_ADDR\n"), addr)
         self.assertEqual(self.srv.log, [])
         p = self.run_tool("vault", "kv", "get", "-field=value", "shop/x",
                           env={"VAULT_ADDR": f"http://localhost:{self.srv.server_port}/infra"})
@@ -667,7 +667,7 @@ class RetryTests(unittest.TestCase):
 
     def run_tool(self, f, tool, *args, py=PY):
         base = f"http://127.0.0.1:{f.port}"
-        e = dict(os.environ, RELAY_URL=base, VAULT_ADDR=base + "/infra")
+        e = dict(os.environ, BROKER_URL=base, VAULT_ADDR=base + "/infra")
         return subprocess.run([py, os.path.join(CLIENT, tool), *args], capture_output=True, env=e, timeout=30)
 
     def pys(self):
@@ -687,28 +687,28 @@ class RetryTests(unittest.TestCase):
         f = self.flaky(["reset", "close", "ok"], SECRET.encode())
         p = self.run_tool(f, "vault", "kv", "get", "-field=value", "shop/x")
         self.assertEqual((p.returncode, p.stdout), (2, b""))
-        self.assertRegex(p.stderr.decode(), r"^relay error [A-Za-z]+\n$")
+        self.assertRegex(p.stderr.decode(), r"^broker error [A-Za-z]+\n$")
         self.assertEqual(len(f.paths), 2)
 
     def test_relay_check_and_backups_retry_once(self):
         for py in self.pys():
             f = self.flaky(["reset"], b'{"a": "ok"}')
-            p = self.run_tool(f, "relay", "check", "infra", "a", py=py)
+            p = self.run_tool(f, "broker", "check", "infra", "a", py=py)
             self.assertEqual((p.returncode, p.stdout), (0, b"ok  a\n"), (py, p.stderr))
             self.assertEqual(len(f.paths), 2)
             f = self.flaky(["close"], b'{"name": "x", "backups": ["20261106"]}')
-            p = self.run_tool(f, "relay", "backups", "infra", "x", py=py)
+            p = self.run_tool(f, "broker", "backups", "infra", "x", py=py)
             self.assertEqual((p.returncode, p.stdout), (0, b"20261106\n"), (py, p.stderr))
             self.assertEqual(len(f.paths), 2)
 
     def test_relay_gives_up_after_second_failure_and_never_retries_request(self):
         f = self.flaky(["reset", "close", "ok"], b'{"a": "ok"}')
-        p = self.run_tool(f, "relay", "check", "infra", "a")
+        p = self.run_tool(f, "broker", "check", "infra", "a")
         self.assertEqual(p.returncode, 1)
-        self.assertRegex(p.stderr.decode(), r"^valetkey-relay: cannot reach broker \([A-Za-z]+\)\n$")
+        self.assertRegex(p.stderr.decode(), r"^valetkey-broker: cannot reach broker \([A-Za-z]+\)\n$")
         self.assertEqual(len(f.paths), 2)
         f = self.flaky(["reset"], b'{"id": "r_1", "status": "pending"}')
-        p = self.run_tool(f, "relay", "request", "n", "--org", "infra", "--purpose", "x")
+        p = self.run_tool(f, "broker", "request", "n", "--org", "infra", "--purpose", "x")
         self.assertEqual(p.returncode, 1)
         self.assertEqual(f.paths, ["/entry/v1/requests"])
 

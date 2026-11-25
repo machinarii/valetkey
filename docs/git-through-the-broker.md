@@ -61,7 +61,7 @@ pbpaste | base64 -d | grep -q '^x-access-token:github_pat_' && echo "encoded" ||
 File the request and enter the encoded value:
 
 ```sh
-valetkey-relay request github-git-basic-acme --org local --purpose "git for acme's repositories from devbox"
+valetkey-broker request github-git-basic-acme --org local --purpose "git for acme's repositories from devbox"
 # then: valetkey-entry <request id>   or the entry page
 ```
 
@@ -85,8 +85,8 @@ nodes    = ["devbox"]
 ```
 
 ```sh
-sudo valetkey-relay check local             # the [api.git-acme] line must say ok
-sudo valetkey-relay routes install local    # refuses to change anything if the item is missing or ambiguous
+sudo valetkey-broker check local             # the [api.git-acme] line must say ok
+sudo valetkey-broker routes install local    # refuses to change anything if the item is missing or ambiguous
 ```
 
 `paths` limits the route to one account. The repository list on the token is the real limit; adding
@@ -111,33 +111,33 @@ To go back to a direct login on a client, remove the rewrite with
 
 ## Rotating the token
 
-1. `valetkey-relay request github-git-basic-acme --org local --replace --purpose "…"` and enter the new
+1. `valetkey-broker request github-git-basic-acme --org local --replace --purpose "…"` and enter the new
    value, encoded as above.
 2. **Delete the backup item** (`github-git-basic-acme-backup-YYYYMMDD`) in Vaultwarden. fnox finds an
    `[api.*]` item by name, the backup's name contains that name, and with two matches fnox does not
    start, which stops every route of the org.
-3. `sudo valetkey-relay routes install local`, so fnox reads the new value. It checks step 2 for you and
+3. `sudo valetkey-broker routes install local`, so fnox reads the new value. It checks step 2 for you and
    changes nothing if a backup is still there.
 
-A restart or a reboot of the broker while such a backup exists still stops that org's relay. Until
+A restart or a reboot of the broker while such a backup exists still stops that org's read service. Until
 fnox can look items up by id, do not leave backups of `[api.*]` items in the vault.
 
 ## What the client can and cannot do
 
 - It cannot read the token: the value exists only in Vaultwarden and in the fnox proxy's memory on
-  the broker. The relay and the audit log see a placeholder.
+  the broker. The broker and the audit log see a placeholder.
 - It can use the route for everything the token allows. The broker limits host, methods and the
   path prefix, but it cannot see inside a push, so it cannot tell one branch from another. If a
   branch deploys to production, protect it on the git host or keep pushes behind a human decision.
-- Revoke a machine by removing it from `nodes` and running `valetkey-relay routes install`. Revoke the token
+- Revoke a machine by removing it from `nodes` and running `valetkey-broker routes install`. Revoke the token
   on the git host.
 
 ## Troubleshooting
 
 | Symptom on the client | Cause and fix |
 |---|---|
-| `502 backend unavailable` on every route of the org, and `valetkey-relay check` fails too | The read relay is not running: fnox could not resolve one `[api.*]` item (missing, or its name is contained in another item's name). `sudo valetkey-relay check <org>` names it; fix the item, then `sudo valetkey-relay routes install <org>`. |
-| `502 upstream error: SSLCertVerificationError` | A relay from before the Python 3.13 fix: fnox's proxy certificates have no Authority Key Identifier and the strict default check rejects them. Update the broker. |
+| `502 backend unavailable` on every route of the org, and `valetkey-broker check` fails too | The read service is not running: fnox could not resolve one `[api.*]` item (missing, or its name is contained in another item's name). `sudo valetkey-broker check <org>` names it; fix the item, then `sudo valetkey-broker routes install <org>`. |
+| `502 upstream error: SSLCertVerificationError` | A broker from before the Python 3.13 fix: fnox's proxy certificates have no Authority Key Identifier and the strict default check rejects them. Update the broker. |
 | `400` with no message | The item holds the raw token, not the encoded form (section 1). |
 | `401` | The token expired, was revoked or regenerated, or does not cover that repository. The entry page marks the item *may be expired*. |
 | `403 not allowed` | The calling machine is not in the route's `nodes`. |

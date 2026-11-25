@@ -17,7 +17,7 @@ route and membership in `trusted_value_nodes`. An explicit `claude_setup_token =
 route lets every process on the named agent VM read its current Claude subscription token.
 See [Claude Code subscription sign-in](docs/secure-setup.md#claude-code-subscription-sign-in).
 
-**Assets:** credential values in Vaultwarden; the three relay unlock passwords on the broker.
+**Assets:** credential values in Vaultwarden; the three broker unlock passwords on the broker.
 
 **Trusted:** the broker's root user and hypervisor; Tailscale identity, enrollment/renaming administrators and certificates; Vaultwarden; separate approver devices; separate credential-bearing consumers and their reviewed code; authorized upstream APIs that do not return credentials.
 
@@ -52,11 +52,11 @@ See [Claude Code subscription sign-in](docs/secure-setup.md#claude-code-subscrip
 
 ## Operational rules
 
-- Values are entered only at hidden prompts (`valetkey-relay login`, `valetkey-entry`) or in Vaultwarden or the entry page. They never go in command arguments, files in this repo, chat, or cloud documents.
+- Values are entered only at hidden prompts (`valetkey-broker login`, `valetkey-entry`) or in Vaultwarden or the entry page. They never go in command arguments, files in this repo, chat, or cloud documents.
 - Read accounts are *Can view*, never *Admin* or *Owner*. Collection access must not be *hide passwords*, or every item reports `FAIL`.
 - Back up Vaultwarden's data directory and the broker VM. The vault items are encrypted, but the backups still need protecting.
 - Old backups (`<name>-backup-YYYYMMDD`) are never deleted automatically. Remove them yourself after rotating.
-- `valetkey-relay guide` and `./install.sh guidance` provide offline memory rules. `--agent` installs only
+- `valetkey-broker guide` and `./install.sh guidance` provide offline memory rules. `--agent` installs only
   metadata tools; server policy supplies enforcement. Existing tools or secrets are not removed.
-- Report storage/access (`valetkey-relay check`) separately from upstream authentication. Test denied raw
+- Report storage/access (`valetkey-broker check`) separately from upstream authentication. Test denied raw
   endpoints only with synthetic credentials; a live misconfiguration could return a real key.

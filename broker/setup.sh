@@ -11,7 +11,7 @@
 #   /usr/local/libexec/relay/   relaylib/, relay_{read,entry,front}.py, entry-page.html,
 #                               gen-fnox-config.py, vault-info.py, with-bw-session, relay-cert
 #   /usr/local/libexec/relay/bin/  relay-login, relay-check, relay-routes, relay-update, relay-approval
-#                                  (run as: valetkey-relay login|check|routes|update|approval)
+#                                  (run as: valetkey-broker login|check|routes|update|approval)
 #   /etc/relay/{routes,entry}.toml and vault.env (only if absent)
 #   /etc/credstore.encrypted/relay-loopback (generated once)
 #   relay-{local,infra,entry,front}.service, relay-cert.{service,timer}
@@ -66,7 +66,7 @@ install_code() {
   install -m 644 "$src/relay_read.py" "$src/relay_entry.py" "$src/relay_front.py" "$src/approval_worker.py" \
     "$src/entry-page.html" "$src/tools/gen-fnox-config.py" "$src/tools/vault-info.py" "$libexec/"
   install -m 755 "$here/bin/with-bw-session" "$here/bin/relay-cert" "$libexec/"
-  # Run through `valetkey-relay <word>`; they are not on the PATH.
+  # Run through `valetkey-broker <word>`; they are not on the PATH.
   install -m 755 "$here/bin/relay-login" "$here/bin/relay-check" "$here/bin/relay-routes" \
     "$here/bin/relay-update" "$here/bin/relay-approval" "$libexec/bin/"
   for old in relay-login relay-check relay-routes relay-update relay-approval; do  # their place before
@@ -80,7 +80,7 @@ install_code() {
   # The units call /usr/local/bin/fnox; point it at FNOX_BIN when fnox lives elsewhere.
   [ "$fnox" = /usr/local/bin/fnox ] || ln -sf "$fnox" /usr/local/bin/fnox
 }
-step "valetkey $(cat "$repo/VERSION") in $libexec; valetkey-relay update|routes|login|check|approval" install_code
+step "valetkey $(cat "$repo/VERSION") in $libexec; valetkey-broker update|routes|login|check|approval" install_code
 
 # --- configuration (the owner's edits are never overwritten) ---
 install -d -m 755 /etc/relay /etc/relay/approved-routes.d
@@ -146,7 +146,7 @@ if [ -f "$credstore/bw-unlock-entry" ] && [ -f /var/lib/relay-entry/org.json ]; 
   if systemctl is-active --quiet relay-entry.service; then ok "relay-entry running"
   else echo "FAIL  relay-entry not running; see: journalctl -u relay-entry -n 30" >&2; rc=1; fi
 else
-  skip "relay-entry: run valetkey-relay login entry <email> first"
+  skip "relay-entry: run valetkey-broker login entry <email> first"
 fi
 if [ "$cert_ok" = yes ]; then
   systemctl restart relay-front.service
@@ -159,6 +159,6 @@ fi
 
 echo
 echo "Next: edit /etc/relay/routes.toml, entry.toml and vault.env for your machines, then"
-echo "      sudo valetkey-relay login local <email>; sudo valetkey-relay login infra <email>; sudo valetkey-relay login entry <email>"
-echo "      sudo valetkey-relay check"
+echo "      sudo valetkey-broker login local <email>; sudo valetkey-broker login infra <email>; sudo valetkey-broker login entry <email>"
+echo "      sudo valetkey-broker check"
 exit $rc

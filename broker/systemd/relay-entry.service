@@ -2,10 +2,10 @@
 # No with-bw-session: it unlocks bw for each write with %d/bw-unlock-entry and locks again.
 # /run/relay-entry/bw.env holds only BITWARDENCLI_APPDATA_DIR.
 [Unit]
-Description=Credential relay, entry (owner writes)
+Description=Credential broker, entry (owner writes)
 After=network-online.target tailscaled.service
 Wants=network-online.target
-# Not configured yet (valetkey-relay login entry): stay inactive, don't crash-loop.
+# Not configured yet (valetkey-broker login entry): stay inactive, don't crash-loop.
 ConditionPathExists=/etc/credstore.encrypted/bw-unlock-entry
 ConditionPathExists=/var/lib/relay-entry/org.json
 

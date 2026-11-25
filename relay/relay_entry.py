@@ -1,5 +1,5 @@
 #!/usr/bin/python3 -I
-"""Entry relay: agents request credentials by name, the owner enters values (design §6).
+"""Entry service: agents request credentials by name, the owner enters values (design §6).
 
 Runs as relay-entry on loopback behind the front door, which strips /entry and adds
 X-Relay-Peer. Endpoints:
@@ -9,7 +9,7 @@ X-Relay-Peer. Endpoints:
   GET  /v1/requests?status=pending                approver devices (entry.toml owner_nodes)
   POST /v1/requests/<id>/value, POST /v1/replace  approver devices
   GET  /, POST /submit, POST /replace             approver devices, the web page
-  POST /v1/suspect, POST /v1/unsuspect            loopback secret (read relays)
+  POST /v1/suspect, POST /v1/unsuspect            loopback secret (read services)
 
 The vault is unlocked only for one write and locked again on every path. Values never reach
 the state file, a response, an exception or an audit line.
@@ -149,7 +149,7 @@ class Entry:
             return r.read()
 
     def names(self, org):
-        """Item names the read relay of org serves, or None if it cannot be asked."""
+        """Item names the read service of org serves, or None if it cannot be asked."""
         try:
             names = json.loads(self._loopback(org, "/names", "GET"))["names"]
             return [n for n in names if isinstance(n, str)]
@@ -194,7 +194,7 @@ class Entry:
             if r.name == name and r.org == org and r.replace:
                 return 200, r
         suspect = (name, org) in self.store.suspects()
-        purpose = "replace: relay saw 401/403 upstream" if suspect else "replace: requested by owner"
+        purpose = "replace: broker saw 401/403 upstream" if suspect else "replace: requested by owner"
         return 201, self.store.create(name, org, None, "password", purpose, True)
 
     def collection(self, req):

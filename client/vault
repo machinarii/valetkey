@@ -77,19 +77,19 @@ def main(argv):
         fail("unsupported")
     base = os.environ.get("VAULT_ADDR", "").rstrip("/")
     if not base:
-        fail("relay error no VAULT_ADDR")
+        fail("broker error no VAULT_ADDR")
     if not good_addr(base):
-        fail("relay error bad VAULT_ADDR")
+        fail("broker error bad VAULT_ADDR")
     url = f"{base}/{project}/value/{name}" + ("" if field == "value" else f"/{field}")
     try:
         body = fetch(url)
     except urllib.error.HTTPError as e:
         if e.code in (403, 404):
             fail(f"No value found at {project}/{name}")
-        fail(f"relay error {e.code}")
+        fail(f"broker error {e.code}")
     except Exception as e:  # timeouts, DNS, TLS: reason class only
         reason = getattr(e, "reason", e)
-        fail(f"relay error {type(reason).__name__}")
+        fail(f"broker error {type(reason).__name__}")
     sys.stdout.buffer.write(body)
     sys.stdout.buffer.flush()
 

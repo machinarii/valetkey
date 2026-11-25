@@ -164,7 +164,7 @@ def plan_settings(settings, answers, hosts, env_names, state):
         if n:
             lines.append("+ let sandboxed commands reach " + ", ".join(hosts))
         if r:
-            lines.append(f"- remove {r} old broker or desk address(es)")
+            lines.append(f"- remove {r} old broker or bellhop address(es)")
     if env_names is not None:
         entries = table(table(sandbox, "credentials", dict), "envVars", list)
         names = [e.get("name") for e in entries if isinstance(e, dict)]
@@ -250,13 +250,13 @@ def main(argv=None):
                     help="Codex's rules file; offered only when its folder exists (Codex is installed)")
     ap.add_argument("--policy", default="/etc/claude-code/managed-settings.json",
                     help="the root-owned policy file; rules it already holds are not added a second time")
-    ap.add_argument("--relay-url", default=None, help="the broker's address (default: what the client saved)")
-    ap.add_argument("--desk-url", default=None, help="the desk's address (default: /etc/bellhop/url)")
+    ap.add_argument("--broker-url", default=None, help="the broker's address (default: what the client saved)")
+    ap.add_argument("--bellhop-url", default=None, help="the bellhop's address (default: /etc/bellhop/url)")
     ap.add_argument("--hide-env", default=None, help="comma-separated variable names to remove from the agent's commands")
     args = ap.parse_args(argv)
     print("Claude subscription login options: claude setup-token or native web login with claude auth login.\n"
-          "Run valetkey-relay guide claude for steps. This installer preserves your current login method.\n"
-          "Valetkey works with or without claude-mem. Run valetkey-relay guide claude-mem for memory capture setup.")
+          "Run valetkey-broker guide claude for steps. This installer preserves your current login method.\n"
+          "Valetkey works with or without claude-mem. Run valetkey-broker guide claude-mem for memory capture setup.")
     settings_path, rules_path = os.path.expanduser(args.settings), os.path.expanduser(args.claude_md)
     codex_path = os.path.expanduser(args.codex_md)
     state_path = os.path.join(os.path.dirname(settings_path), "valetkey-setup.json")
@@ -285,17 +285,17 @@ def main(argv=None):
     except (OSError, ValueError):
         pass
 
-    relay = args.relay_url if args.relay_url is not None else (
-        os.environ.get("RELAY_URL") or first_line("~/.config/valetkey/relay-url"))
-    desk = args.desk_url if args.desk_url is not None else first_line("/etc/bellhop/url")
-    hosts = [h for h in dict.fromkeys(host_of(u) for u in (relay, desk)) if h]
+    broker = args.broker_url if args.broker_url is not None else (
+        os.environ.get("BROKER_URL") or first_line("~/.config/valetkey/broker-url") or first_line("~/.config/valetkey/relay-url"))
+    bellhop = args.bellhop_url if args.bellhop_url is not None else first_line("/etc/bellhop/url")
+    hosts = [h for h in dict.fromkeys(host_of(u) for u in (broker, bellhop)) if h]
     env_names = None if args.hide_env is None else [n for n in (x.strip() for x in args.hide_env.split(",")) if n]
     if env_names and any(not re.fullmatch(NAME_RE, n) for n in env_names):
         sys.exit("claude-setup: --hide-env takes variable names only, never values")
 
     block = open(os.path.join(args.repo, "agents", "credential-rules.md")).read()
     in_policy = block.strip() in policy_rules(args.policy)  # `install.sh agent` put them there: twice costs tokens
-    if desk:
+    if bellhop:
         block += "\n" + open(os.path.join(args.repo, "bellhop", "agent-rules.md")).read()
     claude_md, codex_md = read_text(rules_path), read_text(codex_path)
     if in_policy:
@@ -336,7 +336,7 @@ def main(argv=None):
     print(f"\n{settings_path}:")
     print("\n".join("  " + c for c in changes) or "  nothing to change")
     print(f"{rules_path}:")
-    print(what(new_rules, claude_md, "valetkey's rules for agents" + (" and the desk's" if desk else "")))
+    print(what(new_rules, claude_md, "valetkey's rules for agents" + (" and the bellhop's" if bellhop else "")))
     if codex:
         print(f"{codex_path}:")
         print(what(new_codex, codex_md, "the same rules, for Codex"))

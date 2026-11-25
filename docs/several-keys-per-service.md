@@ -69,7 +69,7 @@ Why these lines are drawn where they are:
   for example DNS edit on one zone, rather than a global key.
 
 When a service offers only one all-powerful key, the route is the only limit. Keep its methods
-and paths as narrow as the job allows, or use the [desk](recipe-new-tool-with-credential.md#path-b-a-desk-entry)
+and paths as narrow as the job allows, or use the [desk](recipe-new-tool-with-credential.md#path-b-a-bellhop-entry)
 with an allow list of subcommands.
 
 ## Naming the items
@@ -77,12 +77,12 @@ with an allow list of subcommands.
 - Use `<service>-<form or rights>-<account>`, for example `github-api-read-acme`.
 - **No item name may contain another `[api.*]` item's name.** fnox looks items up by name; if
   `github-api-acme` and `github-api-acme-pr` both exist, the first name matches two items and
-  that org's relay does not start. Put the distinguishing word in the middle, as in the table.
+  that org's read service does not start. Put the distinguishing word in the middle, as in the table.
 - Write the job and the permissions in the request's `--purpose`, so the entry page tells the
   owner which token to create:
 
   ```sh
-  valetkey-relay request github-api-read-acme --org local \
+  valetkey-broker request github-api-read-acme --org local \
     --purpose "GitHub API, read-only: fine-grained token for acme, Contents/Issues/Pull requests: read"
   ```
 
@@ -90,4 +90,4 @@ with an allow list of subcommands.
 
 More keys means more to create, renew and rotate. Set an expiry on each token. When one
 expires, the service answers `401` and the entry page marks the item as possibly expired; replace
-it with `valetkey-relay request <item> --replace`. This is cheaper than a broad key leaking.
+it with `valetkey-broker request <item> --replace`. This is cheaper than a broad key leaking.

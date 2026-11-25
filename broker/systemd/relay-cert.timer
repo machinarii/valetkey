@@ -1,6 +1,6 @@
 # Installed by valetkey (install.sh broker).
 [Unit]
-Description=Renew the credential relay's Tailscale certificate weekly
+Description=Renew the credential broker's Tailscale certificate weekly
 
 [Timer]
 OnCalendar=weekly

@@ -10,7 +10,7 @@ Unix user or an ordinary Docker container on the agent's host does not provide t
 |---|---|---|---|
 | Agent VM | Owner-approved Claude subscription credential (setup token or native web session) | Yes | Broker HTTPS API routes, checks, named requests and the optional setup-token route |
 | Broker VM | Unlock material, vault sessions and injected keys | No | Agent-facing HTTPS 443; backend ports on loopback only |
-| Desk VM (optional) | The logins of command-line tools it runs for agents | No | Agent-facing HTTPS 443; the desk service on loopback only |
+| Bellhop VM (optional) | The logins of command-line tools it runs for agents | No | Agent-facing HTTPS 443; the bellhop service on loopback only |
 | Vault server | Encrypted vault database and server secrets | No | HTTPS from broker and separate approver devices |
 | Approver device | Owner-entered values during private entry | No | Vault UI, broker entry UI or `valetkey-entry` |
 | Trusted server | Only the keys its service requires | No | Narrow application interface; raw-value routes if unavoidable |
@@ -37,7 +37,7 @@ Choose this per launcher and keep the provider key in Vaultwarden. [Configure an
 
 ## Claude Code subscription sign-in
 
-Choose a method per machine. `valetkey-relay guide claude` shows both choices offline.
+Choose a method per machine. `valetkey-broker guide claude` shows both choices offline.
 
 ### Web login
 
@@ -77,8 +77,8 @@ notes, other nodes and the infra organization are outside this grant.
 The broker updater validates the complete routes file before installing. Resolve any other
 agent/value or agent/project conflicts through the existing consumer migration procedure
 before rollout. Once the updated broker is installed, apply a route edit with
-`sudo valetkey-relay routes check && sudo valetkey-relay routes install local`. On the agent VM,
-`valetkey-relay check local claude-code-oauth-agent-dev` should return `ok`. That verifies storage
+`sudo valetkey-broker routes check && sudo valetkey-broker routes install local`. On the agent VM,
+`valetkey-broker check local claude-code-oauth-agent-dev` should return `ok`. That verifies storage
 and permission. Verify subscription authentication separately with a short T3 model turn.
 
 ## Network and identity
@@ -153,7 +153,7 @@ give an agent the key because an API proxy is inconvenient.
 ## Install without widening roles
 
 Use reviewed source pinned to a release or commit. Avoid piping a moving remote script into a
-privileged shell. `sudo valetkey-relay update` on the broker console fetches the repository (over
+privileged shell. `sudo valetkey-broker update` on the broker console fetches the repository (over
 https when it is public, with a read-only deploy key when it is private) and installs only after
 you type `y` to the commit it shows; review the linked diff first, because everyone who can
 push chooses what that commit contains. Do not wrap it in a timer, a webhook or anything an agent
@@ -164,8 +164,8 @@ access, and a separate write account. Keep the owner account protected with MFA.
 On an agent machine, the client command is:
 
 ```sh
-./install.sh client --agent --relay-url https://broker.<tailnet>.ts.net
-valetkey-relay guide
+./install.sh client --agent --broker-url https://broker.<tailnet>.ts.net
+valetkey-broker guide
 ```
 
 `--agent` installs the metadata CLI and its guidance; it does not install the raw-value shim or
@@ -178,7 +178,7 @@ that device's private terminal using `valetkey-entry <request-id>` or in the enc
 entry page. Both options remain available; never ask the owner to paste a value into chat.
 Piped owner input is refused, and failure to disable echo aborts password entry.
 
-`valetkey-relay guide` works offline. The installed file is
+`valetkey-broker guide` works offline. The installed file is
 `~/.local/share/valetkey/credential-rules.md` with the default prefix. Put a reference to it in
 each agent's persistent instructions. `./install.sh guidance` prints the same file from a
 checkout. Neither command reads a credential or installs instructions into unrelated projects.
@@ -198,8 +198,8 @@ deploy the new broker code blindly onto a running raw-value setup.
 4. Test the new consumers and route behavior with synthetic credentials first. The operator then
    verifies the actual service's storage and authentication status without disclosing values.
 5. In the operator's change window, install the reviewed broker code and policy. Run
-   `sudo valetkey-relay routes check`, `sudo valetkey-relay routes install`, and restart `relay-entry` so it loads
-   the new policy. Both read relays and the entry service must use the same policy revision.
+   `sudo valetkey-broker routes check`, `sudo valetkey-broker routes install`, and restart `relay-entry` so it loads
+   the new policy. Both read services and the entry service must use the same policy revision.
 6. Remove obsolete access only after the replacement works. Do not temporarily add an agent
    machine to `trusted_value_nodes` as a workaround. Maintain a recovery path through the
    trusted management console, with encrypted backups and credentials kept outside agent reach.
@@ -211,8 +211,8 @@ this repository do not establish that a live broker has been updated or correctl
 
 | Check | Expected result | What it proves |
 |---|---|---|
-| `valetkey-relay check infra payments-api-key-shop-prod` on an authorized agent | `ok` or `missing` | API item is authorized and present/absent; not upstream authentication |
-| `valetkey-relay check infra database-url-shop-prod` on that agent | `not-allowed` | Raw-only reference is not usable by the agent |
+| `valetkey-broker check infra payments-api-key-shop-prod` on an authorized agent | `ok` or `missing` | API item is authorized and present/absent; not upstream authentication |
+| `valetkey-broker check infra database-url-shop-prod` on that agent | `not-allowed` | Raw-only reference is not usable by the agent |
 | Harmless approved API operation | Expected provider status, no credentials in output | Authentication and narrowly allowed behavior work |
 | Broker policy validation | No role conflicts; only intended trusted servers | Names and roles are coherent |
 | Synthetic direct raw/notes/backup requests | 403, no fixture value | HTTP callers cannot bypass the broker policy |

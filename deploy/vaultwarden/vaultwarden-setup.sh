@@ -1,6 +1,6 @@
 #!/bin/bash
 # Runs inside the Vaultwarden container or VM as root (called by deploy/proxmox/vaultwarden-ct.sh,
-# or by hand on any Debian/Ubuntu host: copy deploy/vaultwarden/ to /opt/vaultwarden and client/{relay,install-version-tools} to /opt/vaultwarden/client first).
+# or by hand on any Debian/Ubuntu host: copy deploy/vaultwarden/ to /opt/vaultwarden and client/{broker,install-version-tools} to /opt/vaultwarden/client first).
 # Installs Docker and Tailscale, starts Vaultwarden on 127.0.0.1:8080 and publishes it
 # on the tailnet only, over HTTPS, with `tailscale serve`.
 set -euo pipefail

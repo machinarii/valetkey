@@ -1,12 +1,12 @@
-# Installed by valetkey (install.sh broker). Read relay for infra-org on 127.0.0.1:8442 (behind relay-front).
+# Installed by valetkey (install.sh broker). Read service for infra-org on 127.0.0.1:8442 (behind relay-front).
 # with-bw-session unlocks bw as relay-infra and writes /run/relay-infra/bw.env (BW_SESSION) for the
-# relay's --bw-env-file; fnox proxy run gets BW_SESSION for its bitwarden provider ([api.*]
-# routes in api.toml), and env -u keeps it out of the relay process's environment.
+# broker's --bw-env-file; fnox proxy run gets BW_SESSION for its bitwarden provider ([api.*]
+# routes in api.toml), and env -u keeps it out of the broker process's environment.
 [Unit]
-Description=Credential relay, infra-org (read)
+Description=Credential broker, infra-org (read)
 After=network-online.target tailscaled.service
 Wants=network-online.target
-# Not configured yet (valetkey-relay login infra, valetkey-relay routes install): stay inactive, don't crash-loop.
+# Not configured yet (valetkey-broker login infra, valetkey-broker routes install): stay inactive, don't crash-loop.
 ConditionPathExists=/etc/credstore.encrypted/bw-unlock-infra
 ConditionPathExists=/var/lib/relay-infra/api.toml
 ConditionPathExists=/var/lib/relay-infra/org.json

@@ -1,4 +1,4 @@
-"""Shared HTTP plumbing for the relay services: plain responses and one audit line per request."""
+"""Shared HTTP plumbing for the broker services: plain responses and one audit line per request."""
 import http.server
 import json
 import re
@@ -8,7 +8,7 @@ import urllib.parse
 
 class RelayHandler(http.server.BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
-    server_version = "relay"
+    server_version = "broker"
     sys_version = ""
     timeout = 600  # idle client sockets
 
@@ -96,4 +96,4 @@ class RelayServer(http.server.ThreadingHTTPServer):
 
     def handle_error(self, request, client_address):
         # One line, exception type only: a message or traceback could carry request data.
-        print(f"relay: request error {sys.exc_info()[0].__name__}", file=sys.stderr, flush=True)
+        print(f"broker: request error {sys.exc_info()[0].__name__}", file=sys.stderr, flush=True)

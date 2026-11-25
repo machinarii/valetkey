@@ -3,7 +3,7 @@
 [T3 Code](https://github.com/pingdotgg/t3code) is an app that runs Claude Code and Codex sessions
 for you, in a desktop window or a browser. It has two parts: a **server** that starts the agents,
 and a **client** you look at. valetkey treats the machine where the T3 server runs as an **agent
-machine**: it holds no keys, and agents reach services through the broker and the desk.
+machine**: it holds no keys, and agents reach services through the broker and the bellhop.
 
 ## Where each part runs
 
@@ -15,7 +15,7 @@ machine**: it holds no keys, and agents reach services through the broker and th
 
 Install the agent role on the T3 server machine:
 
-- **Linux:** `sudo ./install.sh agent --relay-url https://broker.<tailnet>.ts.net --user <you>`, or
+- **Linux:** `sudo ./install.sh agent --broker-url https://broker.<tailnet>.ts.net --user <you>`, or
   pick *Agent machine* in the installer menu.
 - **macOS:** `brew install valetkey-agent`, then `valetkey-agent-setup`.
 
@@ -29,7 +29,7 @@ T3 gives each Claude session it starts an MCP server named `t3-code`, at its own
 They run inside T3 on the same machine and hold no provider keys.
 
 On Linux the agent role writes a Claude Code policy, `/etc/claude-code/managed-settings.json`,
-that allows MCP servers only at the broker and the desk. If T3 Code is installed for the agent's
+that allows MCP servers only at the broker and the bellhop. If T3 Code is installed for the agent's
 user, the installer also allows T3's address, so T3's tools keep working:
 
 - It reads T3's address from that user's `~/.t3/userdata/server-runtime.json` and falls back to
@@ -47,7 +47,7 @@ curl -fsSL https://raw.githubusercontent.com/machinarii/valetkey/main/install.sh
 ```
 
 Start a new T3 session afterwards and run `/mcp` in it: `t3-code` should be connected. Every other
-MCP server is still blocked unless it is on the broker or the desk.
+MCP server is still blocked unless it is on the broker or the bellhop.
 
 The policy covers Claude Code only. Codex reads its own settings, and T3's tools work there
 without a change. valetkey's macOS agent package writes no policy.
@@ -74,7 +74,7 @@ T3 asks which Claude program to run. That choice decides how Claude signs in; se
 
   Any process on the machine can run this launcher and so use the subscription; that is the
   trade-off the setup-token route accepts. Agents must not run it or print what it fetches.
-- **API credits:** point T3 at a wrapper that runs `valetkey-relay model`, as in
+- **API credits:** point T3 at a wrapper that runs `valetkey-broker model`, as in
   [Model API accounts](model-api-accounts.md). Don't put provider API keys in T3's own settings:
   they would sit on the agent machine.
 
@@ -100,6 +100,6 @@ devices, as you would the broker. Anyone who can use T3 can start agents on that
 ## Checklist
 
 - [ ] The T3 server machine is an agent machine in the broker's `[security].agent_nodes`.
-- [ ] `/mcp` in a T3 Claude session shows `t3-code` connected; other MCP servers go through the broker or desk.
+- [ ] `/mcp` in a T3 Claude session shows `t3-code` connected; other MCP servers go through the broker or bellhop.
 - [ ] Claude signs in the way you chose, verified with one model turn.
 - [ ] No provider keys in T3's settings, and keys are entered only on your approver device.

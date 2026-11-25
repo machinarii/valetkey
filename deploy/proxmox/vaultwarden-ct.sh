@@ -48,7 +48,7 @@ for f in vaultwarden-setup.sh set-admin-token.sh close-signups.sh; do
   pct push "$CTID" "$HERE/vaultwarden/$f" "/opt/vaultwarden/$f" --perms 0755
 done
 pct exec "$CTID" -- mkdir -p /opt/vaultwarden/client
-for f in relay install-version-tools; do
+for f in broker install-version-tools; do
   pct push "$CTID" "$HERE/../client/$f" "/opt/vaultwarden/client/$f" --perms 0755
 done
 pct exec "$CTID" -- env VAULT_HOSTNAME="$VAULT_HOSTNAME" bash /opt/vaultwarden/vaultwarden-setup.sh

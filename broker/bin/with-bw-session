@@ -2,8 +2,8 @@
 # Usage (systemd units, User=relay-<org>): with-bw-session <credential-name> <command> [args...]
 # Unlocks bw with $CREDENTIALS_DIRECTORY/<credential-name> (LoadCredentialEncrypted=), syncs, and
 # execs the command with BW_SESSION set. In a unit with RuntimeDirectory=, it also writes
-# $RUNTIME_DIRECTORY/bw.env (mode 600: BW_SESSION, BITWARDENCLI_APPDATA_DIR) for the relay's
-# --bw-env-file, so the relay itself can run without BW_SESSION in its environment:
+# $RUNTIME_DIRECTORY/bw.env (mode 600: BW_SESSION, BITWARDENCLI_APPDATA_DIR) for the broker's
+# --bw-env-file, so the broker itself can run without BW_SESSION in its environment:
 #   with-bw-session bw-unlock-infra fnox ... proxy run -- env -u BW_SESSION relay_read.py ...
 # With no [[proxy.rules]] in the fnox config it skips `fnox proxy run` (see below).
 # Never prints the session.
@@ -22,8 +22,8 @@ if [ -n "${RUNTIME_DIRECTORY:-}" ]; then
   mv -f "$tmp" "$RUNTIME_DIRECTORY/bw.env"
 fi
 
-# `fnox ... -c <api.toml> proxy run -- <relay...>` with no [[proxy.rules]] in api.toml (an org
-# without [api.*] routes): run the relay directly, without a proxy it would never use.
+# `fnox ... -c <api.toml> proxy run -- <broker...>` with no [[proxy.rules]] in api.toml (an org
+# without [api.*] routes): run the broker directly, without a proxy it would never use.
 if [ "$(basename "$1")" = fnox ]; then
   args=("$@") cfg='' rest=()
   for ((i = 0; i < ${#args[@]}; i++)); do

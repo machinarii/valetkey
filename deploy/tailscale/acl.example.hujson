@@ -8,7 +8,7 @@
     "tagOwners": {
         "tag:vault":  ["autogroup:admin"],
         "tag:broker": ["autogroup:admin"],
-        "tag:desk":   ["autogroup:admin"],   // optional: the bellhop desk
+        "tag:desk":   ["autogroup:admin"],   // optional: the bellhop
     },
 
     // Named machines. Names here are for the policy only; the broker identifies callers by their
@@ -31,7 +31,7 @@
         // Workload machines get credentials only through the broker, never from Vaultwarden.
         {"src": ["devbox", "bot1"], "dst": ["tag:broker"], "ip": ["tcp:443"]},
 
-        // Workload machines use login-holding tools through the desk. Nothing else reaches it:
+        // Workload machines use login-holding tools through the bellhop. Nothing else reaches it:
         // not approver devices, not the broker, and nobody over SSH.
         {"src": ["devbox", "bot1"], "dst": ["tag:desk"], "ip": ["tcp:443"]},
 

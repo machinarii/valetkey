@@ -5,7 +5,7 @@
 Current policy: agents use broker API routes only. Raw consumers and owner entry run on separate
 trusted machines. See [secure setup](secure-setup.md) for topology and migration requirements.
 
-Keep every long-lived credential in Vaultwarden. Let the machines that use those credentials, and the AI agents on them, **use keys without storing them**, and never see a value inside an agent session. Exactly one machine, the broker, unlocks a vault. Everything else talks to relays on it.
+Keep every long-lived credential in Vaultwarden. Let the machines that use those credentials, and the AI agents on them, **use keys without storing them**, and never see a value inside an agent session. Exactly one machine, the broker, unlocks a vault. Everything else talks to broker services on it.
 
 Two sides:
 
@@ -15,8 +15,8 @@ Two sides:
 ## Anti-goals (a failure even if it "works")
 
 - A value printed in a terminal, log, chat or agent tool output, or written to any file on a client, including tmpfs.
-- A client holding a vault password, `BW_SESSION` or a relay token.
-- A machine reading an item outside its allowlist, or one org readable through the other org's relay.
+- A client holding a vault password, `BW_SESSION` or a broker token.
+- A machine reading an item outside its allowlist, or one org readable through the other org's broker.
 - Agents choosing or typing values, or the owner typing names.
 
 ## Components
@@ -25,26 +25,26 @@ Two sides:
  callers, over the tailnet            broker (Linux VM, TPM)
 ┌───────────────────────────┐        ┌──────────────────────────────────────────────┐
 │ agent machine             │        │ relay-front :443 (Tailscale certificate)     │       ┌─────────────────────┐
-│   relay CLI; API and MCP  │───────▶│   /local → relay-local  :8441 ─┐             │──────▶│ Vaultwarden         │
-│   calls, never a key      │        │   /infra → relay-infra  :8442 ─┼─ read       │       │   local-org         │
+│   valetkey-broker, API    │───────▶│   /local → relay-local  :8441 ─┐             │──────▶│ Vaultwarden         │
+│   and MCP: never a key    │        │   /infra → relay-infra  :8442 ─┼─ read       │       │   local-org         │
 ├───────────────────────────┤        │   /entry → relay-entry  :8443 ─┘  and write  │       │   infra-org         │
 │ trusted server            │───────▶│                                              │       └─────────────────────┘
 │   fnox → vault shim       │        │ fnox proxy: adds the key to [api.*] calls    │       ┌─────────────────────┐
 ├───────────────────────────┤        │ relay-approval: authenticator, route grants  │──────▶│ service APIs and    │
 │ approver device           │───────▶│ relay-entry: key entry; checks what a stored │       │ MCP servers         │
-│   valetkey-entry, browser    │        │   key opens on its MCP routes                │       └─────────────────────┘
+│   valetkey-entry, browser │        │   key opens on its MCP routes                │       └─────────────────────┘
 └───────────────────────────┘        └──────────────────────────────────────────────┘
 ```
 
 | Piece | File | Runs as | Notes |
 |---|---|---|---|
 | Front door | `relay/relay_front.py` | `relay-front` | TLS with the Tailscale certificate (`relay-cert`, renewed weekly). Strips the `/local`, `/infra` or `/entry` prefix and sets `X-Relay-Peer` to the TCP peer. Answers loopback-only paths with 404. Has no vault access. |
-| Read relay | `relay/relay_read.py --org local\|infra` | `relay-local`, `relay-infra` | Started by `with-bw-session`, which unlocks with the `systemd-creds` credential, writes `BW_SESSION` to a 600 file under `/run`, and wraps the relay in `fnox proxy run` when the org has `[api.*]` routes. The relay process's own environment never contains `BW_SESSION`. |
+| Read service | `relay/relay_read.py --org local\|infra` | `relay-local`, `relay-infra` | Started by `with-bw-session`, which unlocks with the `systemd-creds` credential, writes `BW_SESSION` to a 600 file under `/run`, and wraps the service in `fnox proxy run` when the org has `[api.*]` routes. The service's own environment never contains `BW_SESSION`. |
 | Entry service | `relay/relay_entry.py` | `relay-entry` | Holds no session. Unlocks → writes → verifies → locks per owner submission. Requests are kept in `/var/lib/relay-entry/requests.json` (names, never values) and expire after 24 h. After a value is stored, it checks the routes that use it (`relaylib/access_check.py`): for an MCP server it signs in with the new key at that route's own upstream and lists the tools, never running one. |
 | Approval worker | `relay/approval_worker.py` | `relay-approval` | Pairs the owner's authenticator (console only) and approves proposed `[api.*]` routes with its codes. Reached by the entry service over a local socket. |
 | Shared libs | `relay/relaylib/` | | `bwclient` (the only module that runs `bw`; 5-minute item cache), `routes` (parse and validate), `identity` (`tailscale whois`, cached 5 min), `requests_store`, `httpbase`. |
-| Broker CLIs | `broker/bin/` | root | `valetkey-relay login`, `valetkey-relay check`, `valetkey-relay routes`, `valetkey-relay update`, `relay-cert`, `with-bw-session`. |
-| Clients | `client/` | user | `valetkey-relay` (check/request/status/backups), `vault` (fnox shim), `valetkey-entry` (owner). Stdlib Python ≥ 3.9; no proxies from the environment; redirects are errors. |
+| Broker CLIs | `broker/bin/` | root | `valetkey-broker login`, `valetkey-broker check`, `valetkey-broker routes`, `valetkey-broker update`, `relay-cert`, `with-bw-session`. |
+| Clients | `client/` | user | `valetkey-broker` (check/request/status/backups), `vault` (fnox shim), `valetkey-entry` (owner). Stdlib Python ≥ 3.9; no proxies from the environment; redirects are errors. |
 
 ## Identity
 
@@ -57,7 +57,7 @@ also require `[security].trusted_value_nodes`, empty by default, in addition to 
 
 ## Endpoints
 
-Read relay (under `/local` or `/infra`):
+Read service (under `/local` or `/infra`):
 
 | Method and path | Who | Returns |
 |---|---|---|
@@ -80,7 +80,7 @@ Entry (under `/entry`):
 | `POST /v1/requests`, `GET /v1/requests/<id>` | any known machine (at most 20 pending requests per machine, then 429) |
 | `GET /v1/requests?status=pending`, `POST /v1/requests/<id>/value`, `POST /v1/replace` | approver devices (`entry.toml` `owner_nodes`) |
 | `GET /`, `POST /submit`, `POST /replace` | approver devices: the web page |
-| `POST /v1/suspect`, `POST /v1/unsuspect` | loopback secret: read relays mark items that got upstream 401/403 |
+| `POST /v1/suspect`, `POST /v1/unsuspect` | loopback secret: read services mark items that got upstream 401/403 |
 
 ## Writes
 
@@ -90,7 +90,7 @@ For each owner submission:
 2. If the request is a replace and the item exists, rename it to `<name>-backup-YYYYMMDD`. If that backup already exists, refuse before mutation. Renaming keeps the old value without it ever passing through a response.
 3. Create the item in the org's collection. For an `infra` request with a project, that is the nested collection `<collection>/<project>`, which must already exist. Single-line values go in Password, multi-line values in Notes, and the purpose goes in the notes.
 4. Read the item back and compare SHA-256 hashes in the process. On a mismatch or error, delete the new item and undo the rename.
-5. Mark the request `stored` or `replaced`, ask the matching read relay to refresh, and write an audit line (id, name, org, outcome, caller).
+5. Mark the request `stored` or `replaced`, ask the matching read service to refresh, and write an audit line (id, name, org, outcome, caller).
 
 Names follow `^[a-z0-9]+(-[a-z0-9]+)*-(dev|qa|prod)$` with a project, or `^[a-z0-9]+(-[a-z0-9]+)*$` without one, and may never end in `-backup-YYYYMMDD`. A request for a name that is one `-segment` away from an existing item is flagged *near duplicate*, and the owner sees the flag before entering.
 
@@ -103,10 +103,10 @@ Names follow `^[a-z0-9]+(-[a-z0-9]+)*-(dev|qa|prod)$` with a project, or `^[a-z0
 | `/etc/credstore.encrypted/relay-loopback` | shared loopback secret | 600 |
 | `/var/lib/relay-<name>/` | `bw` data dir, `org.json` (org and collection IDs), `api.toml` (fnox references only) | 700 |
 | `/var/lib/relay/tls/` | Tailscale certificate | 750, group `relay-front` |
-| `/run/relay-<org>/bw.env` | `BW_SESSION` of the running read relay | 600, tmpfs |
+| `/run/relay-<org>/bw.env` | `BW_SESSION` of the running read service | 600, tmpfs |
 
 ## fnox integration
 
 fnox 1.35's `vault` provider shells out to a `vault` CLI rather than speaking HTTP (see [fnox-vault-provider.md](fnox-vault-provider.md)). The `client/vault` shim answers exactly `vault kv get -field=<field> <path>/<name>` with one GET to `$VAULT_ADDR/<path>/value/<name>[/<field>]`. `VAULT_TOKEN` is ignored. A missing or forbidden item prints `No value found at …` and exits 2, which fnox reports normally. With `if_missing = "error"`, `fnox exec` stops instead of starting the app with an empty variable.
 
-On the broker, `valetkey-relay routes install` turns each org's `[api.*]` routes into an fnox config (`gen-fnox-config.py`) of `[[proxy.rules]]` with exact host, methods and paths, and bitwarden-provider references. `fnox proxy run` then injects values into matching requests. fnox resolves every proxy secret before it starts the relay, so a single `[api.*]` item it cannot find (missing, or a name another item's name contains) stops that org's relay; `valetkey-relay routes install` checks the items first, waits until the relay listens, and puts the previous config back if it never does. [Git through the broker](git-through-the-broker.md) is a worked example of such a route.
+On the broker, `valetkey-broker routes install` turns each org's `[api.*]` routes into an fnox config (`gen-fnox-config.py`) of `[[proxy.rules]]` with exact host, methods and paths, and bitwarden-provider references. `fnox proxy run` then injects values into matching requests. fnox resolves every proxy secret before it starts the broker, so a single `[api.*]` item it cannot find (missing, or a name another item's name contains) stops that org's broker; `valetkey-broker routes install` checks the items first, waits until the broker listens, and puts the previous config back if it never does. [Git through the broker](git-through-the-broker.md) is a worked example of such a route.

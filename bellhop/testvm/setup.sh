@@ -1,7 +1,7 @@
 #!/bin/bash
 # Build two throwaway OrbStack machines that show bellhop working. Synthetic logins only.
 #
-#   bellhop-desk    holds a fake tool login and a fake MCP key, runs the desk, has no agent
+#   bellhop-desk    holds a fake tool login and a fake MCP key, runs the bellhop, has no agent
 #   bellhop-agent   has the bellhop client (and Claude Code, not signed in); holds no key
 #
 # Both are isolated machines: no Mac files, no `mac` or `orb` command inside them.
@@ -31,9 +31,9 @@ fi
 address "$DESK" | grep -q . || orb create --isolated --cpus 1 --memory 1G debian:trixie "$DESK"
 address "$AGENT" | grep -q . || orb create --isolated --cpus 2 --memory 2G debian:trixie "$AGENT"
 desk_ip=$(address "$DESK") agent_ip=$(address "$AGENT")
-echo "desk $desk_ip, agent $agent_ip"
+echo "bellhop $desk_ip, agent $agent_ip"
 
-echo "== desk: the service, a fake tool and a fake MCP server, each with a synthetic login"
+echo "== bellhop: the service, a fake tool and a fake MCP server, each with a synthetic login"
 tar -C "$repo" -c bellhop/desk.py bellhop/fakes relay/relaylib/__init__.py relay/relaylib/httpbase.py \
   relay/relaylib/identity.py | unpack "$DESK"
 as_root "$DESK" <<EOF
@@ -77,7 +77,7 @@ callers = ["$AGENT"]
 TOML
 cat > /etc/systemd/system/bellhop-desk.service <<UNIT
 [Unit]
-Description=bellhop desk
+Description=bellhop
 After=network-online.target bellhop-fakemcp.service
 [Service]
 User=desk
@@ -116,7 +116,7 @@ export DEBIAN_FRONTEND=noninteractive
 command -v python3 >/dev/null || { apt-get update -qq && apt-get install -y -qq python3 ca-certificates >/dev/null; }
 user=\$(ls /home | head -1)
 rm -f /etc/claude-code/managed-settings.json   # a test machine: let the installer write a fresh policy
-bash /opt/bellhop-src/install.sh agent --desk-url "http://$desk_ip:$PORT" --tools fakefield --user \$user 2>&1 | grep -E '^(ok|FAIL)' | sed 's/^/  /'
+bash /opt/bellhop-src/install.sh agent --bellhop-url "http://$desk_ip:$PORT" --tools fakefield --user \$user 2>&1 | grep -E '^(ok|FAIL)' | sed 's/^/  /'
 project=\$(getent passwd \$user | cut -d: -f6)/bellhop-test
 install -d -o \$user -g \$user \$project
 cat > \$project/.mcp.json <<JSON
@@ -125,11 +125,11 @@ JSON
 printf 'a local picture\n' > \$project/scene.png
 cat > \$project/README.txt <<TXT
 Try these here. The tool and its login live on $DESK; nothing on this machine holds a key.
-  fakefield whoami                 runs on the desk with the desk's login
+  fakefield whoami                 runs on the bellhop with the bellhop's login
   fakefield upload scene.png       the file is sent along with the command
   fakefield make result.txt        a file the tool writes comes back here
   fakefield auth token             refused: that subcommand would print the login
-  valetkey-bellhop --list                   what the desk lets this machine use
+  valetkey-bellhop --list                   what the bellhop lets this machine use
   claude                           after signing in: the fakemcp server offers a whoami tool
 TXT
 chown -R \$user:\$user \$project
@@ -149,15 +149,15 @@ echo "== check, from the agent machine as its ordinary user"
 as_user "$AGENT" <<EOF
 cd ~/bellhop-test
 show() { printf '%-46s %s\n' "\$1" "\$2"; }
-show "tool runs with the desk login:"        "\$(fakefield whoami 2>&1)"
+show "tool runs with the bellhop login:"        "\$(fakefield whoami 2>&1)"
 show "file travels with the command:"        "\$(fakefield upload scene.png 2>&1 | cut -c1-40)"
 rm -f result.txt; fakefield make result.txt >/dev/null 2>&1
 show "file the tool wrote came back:"        "\$(cat result.txt 2>&1)"
 show "login-printing subcommand:"            "\$(fakefield auth token 2>&1 | cut -c1-60)"
-show "path on the desk as an argument:"      "\$(fakefield upload /etc/bellhop/keys/fakemcp 2>&1 | cut -c1-60)"
+show "path on the bellhop as an argument:"      "\$(fakefield upload /etc/bellhop/keys/fakemcp 2>&1 | cut -c1-60)"
 show "allowed here:"                         "\$(valetkey-bellhop --list 2>&1 | tr '\n' ' ')"
 ask='{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"whoami"}}'
-show "MCP through the desk, no key here:"    "\$(python3 -c "
+show "MCP through the bellhop, no key here:"    "\$(python3 -c "
 import urllib.request,json,sys
 r=urllib.request.urlopen(urllib.request.Request('http://$desk_ip:$PORT/mcp/fakemcp',data=sys.argv[1].encode()))
 print(json.load(r)['result']['content'][0]['text'])" "\$ask" 2>&1 | tail -1)"
@@ -166,8 +166,8 @@ import urllib.request
 try: urllib.request.urlopen('http://$desk_ip:8470/mcp', data=b'{}', timeout=5); print('REACHABLE')
 except Exception as e: print('blocked (' + type(e).__name__ + ')')" 2>&1)"
 show "synthetic login anywhere on this machine:" "\$(grep -rIl 'synthetic-' /home /etc /opt /usr/local /tmp 2>/dev/null | grep -v bellhop-src | head -3 | tr '\n' ' ' | grep . || echo none)"
-show "install request filed with the desk:"  "\$(valetkey-bellhop --request mcp buffer https://mcp.buffer.com/mcp schedule posts 2>&1 | cut -c1-60)"
-show "MCP server added outside the desk:"    "\$(claude mcp add --transport http rogue https://mcp.example.com/mcp 2>&1 | tail -1 | cut -c1-70)"
+show "install request filed with the bellhop:"  "\$(valetkey-bellhop --request mcp buffer https://mcp.buffer.com/mcp schedule posts 2>&1 | cut -c1-60)"
+show "MCP server added outside the bellhop:"    "\$(claude mcp add --transport http rogue https://mcp.example.com/mcp 2>&1 | tail -1 | cut -c1-70)"
 show "sudo for the agent's user:"            "\$(sudo -n true 2>/dev/null && echo STILL ALLOWED || echo removed)"
 show "reach into the Mac (mac command):"     "\$(timeout 10 mac echo reached 2>/dev/null | grep -q reached && echo WORKS || echo no)"
 EOF
@@ -185,5 +185,5 @@ rm -rf ~/.config/higgsfield ~/bellhop-test/.env ~/.local/bin/newtool
 CLEAN
 echo '/usr/local/sbin/valetkey-sweep | sed "s/^/  after cleanup: /"' | as_root "$AGENT"
 
-echo "== desk: what the owner sees"
+echo "== bellhop: what the owner sees"
 echo 'python3 -I /opt/bellhop/desk.py --requests | sed "s/^/  /"; : > /var/lib/bellhop/requests.jsonl' | as_root "$DESK"   # shown, then cleared: it was a test

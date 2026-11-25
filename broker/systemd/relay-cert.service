@@ -1,7 +1,7 @@
 # Installed by valetkey (install.sh broker). Renews the front door's Tailscale certificate (root: tailscale
 # cert needs it), then restarts relay-front if it is running.
 [Unit]
-Description=Renew the credential relay's Tailscale certificate
+Description=Renew the credential broker's Tailscale certificate
 After=network-online.target tailscaled.service
 Wants=network-online.target
 

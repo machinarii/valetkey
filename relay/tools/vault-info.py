@@ -1,5 +1,5 @@
 #!/usr/bin/python3 -I
-"""Vault lookups for valetkey-relay login and valetkey-relay check. Names and counts only, never ids or values.
+"""Vault lookups for valetkey-broker login and valetkey-broker check. Names and counts only, never ids or values.
 
 Runs as relay-<name> with BW_SESSION and BITWARDENCLI_APPDATA_DIR in its environment:
 
@@ -8,7 +8,7 @@ Runs as relay-<name> with BW_SESSION and BITWARDENCLI_APPDATA_DIR in its environ
 
 org-json: the org's broker collection and every collection nested under it (`<parent>/<child>`).
 Names come from LOCAL_ORG, INFRA_ORG, LOCAL_COLLECTION, INFRA_COLLECTION (defaults below).
-check: vault status; for read relays ok/FAIL per item in each collection and per routes entry
+check: vault status; for read services ok/FAIL per item in each collection and per routes entry
 of the org; the collections the account sees, for the owner to compare with the web vault.
 """
 import argparse
@@ -41,7 +41,7 @@ def names_for(org):
 
 
 def bw_from_env():
-    # A short-lived helper run by root's tools as the relay user: bw gets our whole environment
+    # A short-lived helper run by root's tools as the broker user: bw gets our whole environment
     # (BW_SESSION, BITWARDENCLI_APPDATA_DIR), as broker-check's bw did.
     return Bw(env=dict(os.environ))
 
@@ -117,7 +117,7 @@ def check_items(bw, rep, org, block):
 def _also_matching(name, items):
     """Other item names that contain `name`. fnox finds an [api.*] item with `bw get item <name>`,
     which matches every item whose name contains it (a `--replace` backup does) and fails on more
-    than one match; fnox then refuses to start and the whole read relay is down."""
+    than one match; fnox then refuses to start and the whole read service is down."""
     return sorted(n for n in items if n != name and name.lower() in n.lower())
 
 
@@ -149,7 +149,7 @@ def print_visible(bw, rep, label, block, org):
             rep.fail(f"collection {c} in org.json is no longer visible")
     for c in visible:
         if (c == parent or c.startswith(parent + "/")) and c not in block["collections"]:
-            rep.fail(f"collection {c} is new: re-run valetkey-relay login to add it to org.json")
+            rep.fail(f"collection {c} is new: re-run valetkey-broker login to add it to org.json")
 
 
 def check_api_items(bw, name, routes_path, org_ids_path):
