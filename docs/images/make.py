@@ -170,7 +170,7 @@ def base(focus):
     d.line(sc(0, TOP, W, TOP), fill=EDGE, width=S)
     d.text(sc(40, 15), "valetkey", font=font(20, True), fill=TEXT)
     d.text(sc(152, 20), "how a key gets used", font=font(13), fill=MUTED)
-    legend = (("keyhole", "keyhole"), ("master", "master key"), ("valet", "valet key"), ("login", "a tool's login"))
+    legend = (("keyhole", "key request"), ("master", "master key"), ("valet", "valet key"), ("login", "login credential"))
     widths = [30 + d.textlength(text, font=font(13)) / S for _, text in legend]
     x = 920 - sum(widths) - 22 * (len(legend) - 1)  # right-aligned with the boxes
     for (icon, text), w in zip(legend, widths):
