@@ -99,9 +99,9 @@ BOXES = {  # name: (left, top, right, bottom, title, subtitle)
     "agent": (40, 282, 270, 482, "Agent machine", "runs your AI agents"),
     "broker": (365, 172, 595, 332, "broker", "checks the caller\nfnox adds the key"),
     "bellhop": (365, 402, 595, 562, "bellhop", "runs MCPs & other tools\nthat require sign in"),
-    "vault": (700, 142, 920, 222, "Vaultwarden", "every key, encrypted"),
-    "api": (684, 262, 920, 342, "Service API or MCP", ""),
-    "svc": (700, 442, 920, 522, "Service tool", ""),
+    "vault": (700, 142, 920, 222, "vault", "every key, encrypted"),
+    "api": (684, 262, 920, 342, "service API/CLI", ""),
+    "svc": (700, 442, 920, 522, "service MCP/tool", ""),
 }
 # Connections, with what the far end does. Requests and answers travel both ways.
 EDGES = (("agent", "broker", ""), ("agent", "bellhop", ""), ("broker", "vault", "reads"),
@@ -251,7 +251,7 @@ PHASES = [
      lambda d, t: travel(d, "agent", "broker", t, "request", icon="keyhole")),
     (1.6, 2, "The broker checks who is calling, and that its valet key fits this route.", {"broker"},
      lambda d, t: note(d, "broker", CHECK[:1 + (t > 0.45)])),
-    (1.5, 3, "It takes that route's master key from Vaultwarden.", {"broker", "vault"},
+    (1.5, 3, "It takes that route's master key from the vault.", {"broker", "vault"},
      lambda d, t: (note(d, "broker", CHECK), travel(d, "broker", "vault", t, "", back=True, color=GOLD,
                                                     icon="master"))),
     (1.6, 4, "fnox puts the master key in the keyhole and forwards the request.", {"broker", "api"},
