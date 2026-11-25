@@ -94,6 +94,26 @@ one: give the machine the new tag in the Tailscale admin console and in your tai
 new name), and give each agent machine the new `--bellhop-url`. On trusted servers, a `fnox.toml`
 that calls its provider `relay` keeps working; files generated from 0.5 call it `broker`.
 
+## Updating to 0.6
+
+Nothing moves on disk and no manual step is needed: update the broker, then the agent machines, as
+usual. What 0.6 adds is optional and off until you use it:
+
+- **Sign-in (OAuth) routes**: [Services you sign in to](oauth-sign-in.md).
+- **Tool limits on MCP routes and approvals that end**: [Route approval](route-approval.md).
+- **Masking**: when a service's reply repeats the key the broker sent, the broker replaces it with
+  `*` and the audit line says `key hidden in reply`. To let the broker read replies it now asks
+  services for uncompressed ones, so large text replies use more bandwidth between the service
+  and the broker.
+
+An approval that uses one of the new limits is kept as `<route>.grant` beside the older
+`<route>.json` files. If you put the broker back to 0.5 with `valetkey-broker rollback`, 0.5 does
+not read `.grant` files: those routes stop working until you update again, and none of them
+becomes wider or permanent.
+
+Update each agent machine too (`valetkey-agent-setup`, or `valetkey-setup` on Linux), so its
+`valetkey-broker` command has the new options and its rules name the sign-in route.
+
 ## Updating the broker in one command
 
 After a one-time setup the broker fetches its own code, so nothing has to be copied to it:

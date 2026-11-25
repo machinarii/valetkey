@@ -68,6 +68,8 @@ find "$pkg" -type d -exec chmod 755 {} +
 rm -rf -- "${out:?}"
 install -d -m 755 "$out"
 dpkg-deb --root-owner-group --build "$pkg" "$out/valetkey_${version}_all.deb" >/dev/null
+# What the release is made of and what its installer fetches (CycloneDX), beside the package.
+python3 -I "$repo/packaging/components.py" "$out/valetkey_${version}_all.deb" > "$out/valetkey_${version}.cdx.json"
 
 # A flat repository: deb [signed-by=...] <URL> ./
 (
