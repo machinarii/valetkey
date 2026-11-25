@@ -43,9 +43,9 @@
 
 ## What is valetkey
 
-valetkey is a **credential broker for AI agents**, a kind of agent security infrastructure. It works
-with the agent harness you already use, such as Claude Code, Codex and/or T3 Code, and does not
-replace it.
+valetkey is a **credential broker for AI agents**, a kind of agent security infrastructure that
+isolates keys from agents. It works with the agent harness you already use, such as Claude Code,
+Codex and/or T3 Code, and does not replace it.
 
 | Part | Role | What it does |
 |---|---|---|
