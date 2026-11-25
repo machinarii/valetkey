@@ -68,12 +68,13 @@ valetkey-setup                     # asks which machine this is, then sets it up
 
 ## Other ways to install
 
-**A Proxmox VE host.** One command creates the vault, broker and bellhop as separate guests and
-installs each one:
+**A Proxmox VE host (recommended for the servers).** One command creates the vault, broker and
+bellhop as separate guests and installs each one. Run it as root on the host; a Proxmox host has
+`curl` and `tar` but usually neither `git` nor `sudo`:
 
 ```sh
-git clone https://github.com/machinarii/valetkey.git && cd valetkey
-sudo ./install.sh proxmox          # add --no-bellhop to skip the bellhop
+curl -fsSL https://github.com/machinarii/valetkey/archive/refs/heads/main.tar.gz | tar xz
+cd valetkey-main && bash install.sh proxmox          # add --no-bellhop to skip the bellhop
 ```
 
 **Another Linux distribution, or straight from the source.** The apt package runs this same

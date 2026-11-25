@@ -166,8 +166,18 @@ brokered API routes. [Secure setup](docs/secure-setup.md)
    valetkey-broker set-url https://broker.<tailnet>.ts.net
    ```
 
-   **On each Linux server** (apt, on Debian or Ubuntu): the **vault**, the **broker** and the
-   **bellhop**. Add the repository and install the package:
+   **The Linux servers**: the **vault**, the **broker** and the **bellhop**.
+
+   Recommended: **Proxmox VE**. As root on the Proxmox host, one command creates the three as
+   separate guests and installs each one:
+
+   ```sh
+   curl -fsSL https://github.com/machinarii/valetkey/archive/refs/heads/main.tar.gz | tar xz
+   cd valetkey-main && bash install.sh proxmox
+   ```
+
+   Or, on three Linux machines of your own (apt, on Debian or Ubuntu), add the repository and
+   install the package on each:
 
    ```sh
    curl -fsSL https://machinarii.github.io/valetkey/apt/valetkey.gpg | sudo tee /usr/share/keyrings/valetkey.gpg >/dev/null
@@ -184,9 +194,13 @@ brokered API routes. [Secure setup](docs/secure-setup.md)
 
    **Setup B: Linux for every machine**
 
-   **On each machine** (apt, on Debian or Ubuntu): the **agent machine**, the **approver device**,
-   the **vault**, the **broker** and the **bellhop**. One signed package covers them all. Add the
-   repository and install the package:
+   **The Linux servers**: the **vault**, the **broker** and the **bellhop**. Recommended:
+   **Proxmox VE**, with the one command shown in setup A. Otherwise install them with apt, like the
+   other machines below.
+
+   **On each machine** (apt, on Debian or Ubuntu): the **agent machine**, the **approver device**
+   and, without Proxmox, the three servers. One signed package covers them all. Add the repository
+   and install the package:
 
    ```sh
    curl -fsSL https://machinarii.github.io/valetkey/apt/valetkey.gpg | sudo tee /usr/share/keyrings/valetkey.gpg >/dev/null
@@ -203,9 +217,9 @@ brokered API routes. [Secure setup](docs/secure-setup.md)
 
    In either setup, an optional trusted server is one more Linux machine, installed the same way.
 
-   On a Proxmox VE host, one command creates and installs the three servers; on another Linux
-   distribution, run the installer script. Both are in
-   [the installation guide](docs/installation.md#other-ways-to-install).
+   On another Linux distribution, run the installer script; see
+   [the installation guide](docs/installation.md#other-ways-to-install), which also covers choosing
+   the Proxmox guest IDs.
 
 2. Follow the guide to sign the broker in, authorize your first route and verify it with a test
    credential. [Installation and first setup](docs/installation.md)
