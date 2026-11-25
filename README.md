@@ -32,12 +32,6 @@
   <img src="docs/images/how-it-works.svg" width="860" alt="Animated diagram with a legend: a green dot is a request, a yellow dot is a master key (the real credential), a blue dot is a credential a tool keeps for itself. An agent machine that holds no keys or credentials sends the broker a request with no key in it. The broker checks the calling machine and takes that route's master key from the vault; fnox adds the key and forwards the request to a service API or CLI. The answer comes back to the agent without the key. For a tool with its own credential, the agent calls the bellhop, which runs the MCP server or tool with that credential and returns only the output. The vault, the broker and the bellhop sit in an area marked: no agent runs here.">
 </p>
 
-> [!WARNING]
-> **For a private tailnet only, and at your own risk.** Never expose the broker, bellhop or vault to
-> the internet. valetkey reduces the risk of agents reading your keys; it does not stop an agent
-> misusing an operation you approved, and it has had no independent security audit.
-> [Security limits](docs/security-boundaries.md)
-
 <p align="center">
   <a href="#what-valetkey-is">What it is</a> ·
   <a href="#key-highlights">Key highlights</a> ·
@@ -205,11 +199,13 @@ The broker, vault, bellhop and clients have different update procedures.
 
 ## Status
 
-> [!IMPORTANT]
-> **valetkey is currently intended for personal use, not for enterprise use.** It is a practical way to reduce the risk of running AI
-> agents on your own machines, not a bulletproof one, and it has had no independent security audit.
-> If you have compliance requirements, many users or keys whose loss you could not absorb, use it as
-> a starting point and not as your only control.
+> [!WARNING]
+> **For personal use on a private tailnet, at your own risk; not for enterprise use.** Never expose
+> the broker, bellhop or vault to the internet. valetkey is a practical way to reduce the risk of
+> agents reading your keys on your own machines, not a bulletproof one: it does not stop an agent
+> misusing an operation you approved, and it has had no independent security audit. If you have
+> compliance requirements, many users or keys whose loss you could not absorb, use it as a starting
+> point and not as your only control. [Security limits](docs/security-boundaries.md)
 
 Report vulnerabilities privately through GitHub's *Report a vulnerability*; see the
 [security policy](SECURITY.md).
