@@ -8,8 +8,8 @@
 
 <p align="center">
   <b>A self-hosted credential broker for AI agents.</b><br>
-  Give an AI agent access to a tool while the credentials stay on a separate machine:<br>
-  a credential broker and a tool bellhop on their own machines, joined over your private Tailscale network.
+  Give an AI agent access to CLI, MCP and API while the credentials stay on a separate machine:<br>
+  a credential broker and a tool runner on their own machines, joined over your private Tailscale network.
 </p>
 
 <p align="center">
