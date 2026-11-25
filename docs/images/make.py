@@ -100,7 +100,7 @@ BOXES = {  # name: (left, top, right, bottom, title, subtitle, the machine it ru
     "broker": (365, 172, 595, 346, "broker", "checks the caller", "Proxmox VM"),
     "bellhop": (365, 402, 595, 562, "bellhop", "runs MCPs & other tools\nthat require sign in", "Proxmox VM"),
     "vault": (700, 142, 920, 222, "vault", "every key, encrypted", "Proxmox container"),
-    "api": (684, 262, 920, 342, "service API/CLI", "", ""),
+    "api": (700, 262, 920, 342, "service API/CLI", "", ""),
     "svc": (700, 442, 920, 522, "service MCP/tool", "", ""),
 }
 MACHINE = 18  # the machine's line, under the title, pushes what follows down by this much
@@ -170,7 +170,7 @@ def base(focus):
     d.line(sc(0, TOP, W, TOP), fill=EDGE, width=S)
     d.text(sc(40, 15), "valetkey", font=font(20, True), fill=TEXT)
     d.text(sc(152, 20), "how a key gets used", font=font(13), fill=MUTED)
-    legend = (("keyhole", "key request"), ("master", "master key"), ("valet", "valet key"), ("login", "login credential"))
+    legend = (("keyhole", "key request"), ("master", "master key"), ("valet", "valet key"), ("login", "credential"))
     widths = [30 + d.textlength(text, font=font(13)) / S for _, text in legend]
     x = 920 - sum(widths) - 22 * (len(legend) - 1)  # right-aligned with the boxes
     for (icon, text), w in zip(legend, widths):
