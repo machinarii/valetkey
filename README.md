@@ -84,7 +84,7 @@ replace it.
 
 1. **APIs:** the agent calls a route on the broker. The broker checks the calling machine, HTTP
    method and path, then adds the key from Vaultwarden and forwards the request.
-2. **Tools with their own login:** the optional bellhop runs approved commands and returns their
+2. **Tools with their own login:** the bellhop runs approved commands and returns their
    results.
 3. **New keys:** an agent requests the item by name, and you enter the key on your **approver
    device**, a phone or workstation where you can also approve requested routes. Keep agents off this
@@ -140,16 +140,18 @@ administers those machines. An optional **trusted server** runs an application t
 directly, such as a web app that reads its database password. Skip this role if all your tools use
 brokered API routes. [Secure setup](docs/secure-setup.md)
 
-1. **Install valetkey on each machine**, with the package manager of its system.
+1. **Install valetkey on each machine.** Pick the setup that matches your machines.
 
-   **macOS: Homebrew.** For an agent machine and an approver device only.
+   **Setup A: macOS for the agent machine and approver device, Linux for the servers**
+
+   **On each Mac** (Homebrew), add valetkey's packages:
 
    ```sh
    brew tap machinarii/valetkey https://github.com/machinarii/valetkey
    brew trust machinarii/valetkey
    ```
 
-   Then, on an **agent machine** (where AI agents run):
+   Then, on the **agent machine** (where AI agents run):
 
    ```sh
    brew install valetkey-agent
@@ -157,16 +159,15 @@ brokered API routes. [Secure setup](docs/secure-setup.md)
    valetkey-agent-setup
    ```
 
-   On an **approver device** (a trusted workstation without agents, where you enter keys):
+   On the **approver device** (a trusted workstation without agents, where you enter keys):
 
    ```sh
    brew install valetkey-approver
    valetkey-broker set-url https://broker.<tailnet>.ts.net
    ```
 
-   **Linux: apt** (Debian and Ubuntu). For every machine: agent machine, approver device, trusted
-   server, and the three servers (the vault, the broker and the optional bellhop). One signed
-   package covers them all. On each Linux machine, add the repository and install the package:
+   **On each Linux server** (apt, on Debian or Ubuntu): the **vault**, the **broker** and the
+   **bellhop**. Add the repository and install the package:
 
    ```sh
    curl -fsSL https://machinarii.github.io/valetkey/apt/valetkey.gpg | sudo tee /usr/share/keyrings/valetkey.gpg >/dev/null
@@ -180,6 +181,27 @@ brokered API routes. [Secure setup](docs/secure-setup.md)
    ```sh
    valetkey-setup
    ```
+
+   **Setup B: Linux for every machine**
+
+   **On each machine** (apt, on Debian or Ubuntu): the **agent machine**, the **approver device**,
+   the **vault**, the **broker** and the **bellhop**. One signed package covers them all. Add the
+   repository and install the package:
+
+   ```sh
+   curl -fsSL https://machinarii.github.io/valetkey/apt/valetkey.gpg | sudo tee /usr/share/keyrings/valetkey.gpg >/dev/null
+   echo "deb [signed-by=/usr/share/keyrings/valetkey.gpg] https://machinarii.github.io/valetkey/apt ./" \
+     | sudo tee /etc/apt/sources.list.d/valetkey.list
+   sudo apt-get update && sudo apt-get install valetkey
+   ```
+
+   Then set the machine up. The command asks which machine this is:
+
+   ```sh
+   valetkey-setup
+   ```
+
+   In either setup, an optional trusted server is one more Linux machine, installed the same way.
 
    On a Proxmox VE host, one command creates and installs the three servers; on another Linux
    distribution, run the installer script. Both are in
@@ -195,7 +217,7 @@ must sit on hardware your agents cannot log in to or administer. A mini PC such 
 Raspberry Pi, a spare laptop or a home server will do. A second user account or a container on the
 machine where agents run does not count: everything on that machine shares its network identity.
 
-The vault, the broker and the optional bellhop each need a system of their own. Either:
+The vault, the broker and the bellhop each need a system of their own. Either:
 
 - **one machine with a hypervisor** that runs them as separate guests. Proxmox VE is the tested
   path, and one command creates all three; or
@@ -213,7 +235,7 @@ Pi (arm64) is also not a tested path yet.
 | **Every machine** | [Tailscale](https://tailscale.com), on one tailnet with MagicDNS and HTTPS certificates turned on. You need admin access to edit its access rules. |
 | **vault** | Linux with Docker. The installer runs [Vaultwarden](https://github.com/dani-garcia/vaultwarden) 1.37.2 or later and publishes it on the tailnet only. |
 | **broker** | Debian 12+ or Ubuntu 24.04+ with systemd 250+ and Python 3.11+. The installer adds the Bitwarden CLI, [fnox](https://fnox.jdx.dev), `jq`, `git`, `gpg` and `qrencode`. |
-| **bellhop** (optional) | Debian 12+ or Ubuntu 24.04+ with systemd and Python 3.11+, plus the MCPs/tools you want it to run. |
+| **bellhop** | Debian 12+ or Ubuntu 24.04+ with systemd and Python 3.11+, plus the MCPs/tools you want it to run. |
 | **Trusted server** (optional) | Linux with Python 3.9+ and [fnox](https://fnox.jdx.dev), for an application that must hold a key itself. No agent runs on it. |
 | **Agent machines** | macOS or Linux with Python 3.9+ and your agent, such as Claude Code or Codex. On macOS, [Homebrew](https://brew.sh) to install valetkey. |
 | **Approver device** | A phone or workstation no agent runs on, with a browser and an authenticator app (TOTP) for approving routes. For the terminal prompt instead of the browser: macOS or Linux with Python 3.9+. |
