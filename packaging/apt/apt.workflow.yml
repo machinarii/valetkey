@@ -6,7 +6,7 @@
 # One-time setup, by the owner:
 #   1. Settings -> Pages -> Build and deployment -> Source: GitHub Actions.
 #   2. On your own device, make a signing key with no passphrase and keep a private backup:
-#        gpg --quick-generate-key "valetkey apt <you@example.com>" ed25519 sign 3y
+#        gpg --batch --passphrase '' --quick-generate-key "valetkey apt <you@example.com>" ed25519 sign 3y
 #        gpg --armor --export-secret-keys <fingerprint>
 #      Add the armored private key as the repository secret APT_GPG_PRIVATE_KEY
 #      (Settings -> Secrets and variables -> Actions). Never put it on an agent machine.
