@@ -105,15 +105,15 @@ class Approvals:
         return "Authenticator paired"
 
     def granted(self, stem):
-        return any((self.grants / (stem + suffix)).exists() for suffix in (".json", ".timed"))
+        return any((self.grants / (stem + suffix)).exists() for suffix in (".json", ".grant"))
 
     def sweep(self):
         """Remove approvals whose time has run out, so the route or join can be asked for again."""
-        for file in self.grants.glob("*.timed"):
+        for file in self.grants.glob("*.grant"):
             try:
-                if json.loads(file.read_bytes())["until"] <= self.clock():
+                if json.loads(file.read_bytes()).get("until", float("inf")) <= self.clock():
                     file.unlink()
-            except (ValueError, KeyError, TypeError):
+            except (ValueError, AttributeError, TypeError):
                 pass  # load_routes reports a damaged grant
 
     def propose(self, who, spec):
@@ -130,7 +130,8 @@ class Approvals:
                 raise Refused(400, str(exc)) from None
             if route.name in routes.api or self.granted(route.name):
                 raise Refused(409, "route name already exists")
-            spec = dict(spec, methods=route.methods, paths=route.paths)
+            spec = dict(spec, methods=route.methods, paths=route.paths,
+                        **({"tools": route.tools} if route.tools else {}))
         now = int(self.clock())
         self.db.execute("DELETE FROM proposal WHERE expires<=? AND state NOT IN ('installing','recovery')",
                         (now,))
@@ -153,7 +154,7 @@ class Approvals:
         if who in route.nodes or self.granted(f"{name}+{who}"):
             raise Refused(409, "this machine already uses that route")
         return dict(join_binding(route), join=name, methods=list(route.methods), paths=list(route.paths),
-                    nodes=list(route.nodes))
+                    nodes=list(route.nodes), **({"tools": route.tools} if route.tools else {}))
 
     def review(self, who, rid):
         _, conf = self.policy()
@@ -175,7 +176,8 @@ class Approvals:
             obj = {"request": rid, "node": node, "spec": spec}
         if until:
             obj["until"] = until
-        path = self.grants / (self.stem(node, spec) + (".timed" if until else ".json"))
+        limited = until or ("tools" in spec and "join" not in spec)
+        path = self.grants / (self.stem(node, spec) + (".grant" if limited else ".json"))
         return path, json.dumps(obj, sort_keys=True).encode()
 
     def sync_grants(self):
@@ -186,7 +188,7 @@ class Approvals:
             os.close(fd)
 
     def restore(self, rid, node, spec):
-        for suffix in (".json", ".timed"):
+        for suffix in (".json", ".grant"):
             path = self.grants / (self.stem(node, spec) + suffix)
             if path.exists():
                 try:  # this proposal's own grant, with or without an end time

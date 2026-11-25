@@ -520,6 +520,11 @@ class Handler(BrokerHandler):
                         ("Methods", "".join(f'<span class="chip">{e(m)}</span>' for m in spec["methods"])),
                         ("Paths", "".join(f"<code>{e(p)}</code><br>" for p in spec["paths"])
                          + '<span class="hint">and everything under them</span>'),
+                        *([("Tools", '<span class="hint">only the tools its server labels read-only</span>'
+                            if spec["tools"] == "read-only"
+                            else "".join(f'<span class="chip">{e(t)}</span>' for t in spec["tools"])
+                            + '<span class="hint">no other tool can be called</span>')]
+                          if spec.get("tools") else []),
                         *([("Already used by", "".join(f'<span class="chip">{e(n)}</span>' for n in spec["nodes"]))]
                           if "join" in spec else []),
                         ("Key sent as", e(auth_label(spec.get("auth_header", "Authorization"),

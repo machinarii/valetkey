@@ -695,6 +695,86 @@ class BrokerReadTest(unittest.TestCase):
         self.assertEqual(json.loads(self.get("/check?names=stripe-api-key-shop-live")[2]),
                          {"stripe-api-key-shop-live": "missing"})
 
+    def mcp_upstream(self, calls, listing=True):
+        class Mcp(BaseHTTPRequestHandler):
+            protocol_version = "HTTP/1.1"
+
+            def log_message(self, *a):
+                pass
+
+            def do_POST(self):
+                msg = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+                method = msg.get("method") if isinstance(msg, dict) else "batch"
+                calls.append((method, (msg.get("params") or {}).get("name") if isinstance(msg, dict) else None,
+                              self.headers.get("Authorization")))
+                result = {"initialize": {"protocolVersion": "2025-06-18", "serverInfo": {"name": "fake"}},
+                          "tools/list": {"tools": [{"name": "search", "annotations": {"readOnlyHint": True}},
+                                                   {"name": "delete_page"}]}}.get(method, {"ok": True})
+                listed = method not in ("initialize", "tools/list") or listing
+                body = json.dumps({"jsonrpc": "2.0", "id": msg.get("id"), "result": result}).encode() if (
+                    isinstance(msg, dict) and "id" in msg) else b""
+                self.send_response((200 if body else 202) if listed else 500)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+        up = serve(Mcp)
+        self.addCleanup(up.server_close)
+        self.addCleanup(up.shutdown)
+        self.start(org="local", machine="devbox", upstream_port=up.server_address[1])
+        return self.srv.ctx["routes"].api["stripe-shop"]
+
+    def rpc(self, method, name=None, raw=None, **extra):
+        msg = dict({"jsonrpc": "2.0", "id": 7, "method": method}, **extra)
+        if name is not None:
+            msg["params"] = {"name": name, "arguments": {}}
+        status, _, body = self.get("/stripe-shop/v1/mcp", method="POST", headers={"Content-Type": "application/json"},
+                                   data=json.dumps(msg).encode() if raw is None else raw)
+        return status, body
+
+    def test_route_limited_to_named_tools_refuses_the_others_before_forwarding(self):
+        calls = []
+        self.mcp_upstream(calls).tools = ["search"]
+        self.assertEqual(self.rpc("tools/call", "search"), (200, b'{"jsonrpc": "2.0", "id": 7, "result": {"ok": true}}'))
+        self.assertEqual(self.rpc("tools/list")[0], 200)  # other MCP requests pass
+        self.assertEqual(self.rpc("notifications/initialized", id=None)[0], 200)
+        seen = len(calls)
+        status, body = self.rpc("tools/call", "delete_page")
+        self.assertEqual((status, json.loads(body)["id"], json.loads(body)["error"]["code"]), (200, 7, -32602))
+        self.assertIn("has not allowed the tool 'delete_page'", json.loads(body)["error"]["message"])
+        self.assertTrue(self.audit_has("POST /stripe-shop/v1/mcp 200 tool refused: delete_page"))
+        twins = b'{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"search","name":"delete_page"}}'
+        batch = json.dumps([{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "search"}},
+                            {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "delete_page"}}]).encode()
+        for raw, want in ((twins, 400), (b"not json", 400), (b'"text"', 400), (b"[1]", 400), (batch, 403),
+                          (b'{"method":"tools/call","params":{"name":"delete_page"}}', 403),  # no id to answer
+                          (b'{"id":1,"method":"tools/call","params":["search"]}', 200),
+                          (b'{"id":1,"method":"tools\\u002fcall","params":{"name":"delete_page"}}', 200)):
+            self.assertEqual(self.rpc(None, raw=raw)[0], want, raw)
+        self.assertEqual(len(calls), seen)  # none of those reached the server
+        self.assertIn(b'"error"', self.rpc(None, raw=b'{"id":1,"method":"tools\\u002fcall","params":{"name":"x"}}')[1])
+
+    def test_route_limited_to_read_only_tools_follows_the_servers_labels(self):
+        calls = []
+        route = self.mcp_upstream(calls)
+        route.tools = "read-only"
+        self.assertEqual(self.rpc("tools/call", "search")[1], b'{"jsonrpc": "2.0", "id": 7, "result": {"ok": true}}')
+        self.assertIn(b"only tools its server labels read-only", self.rpc("tools/call", "delete_page")[1])
+        self.assertIn(b'"error"', self.rpc("tools/call", "unknown")[1])
+        self.assertEqual([c[:2] for c in calls], [("initialize", None), ("notifications/initialized", None),
+                                                  ("tools/list", None), ("tools/call", "search")])  # listed once
+        self.assertEqual({c[2] for c in calls}, {"Bearer fnox-ph-stripe-shop-not-a-secret"})  # never the key itself
+        self.now += broker_read.TOOLS_TTL
+        self.rpc("tools/call", "search")
+        self.assertEqual([c[0] for c in calls].count("tools/list"), 2)
+
+    def test_read_only_route_refuses_every_call_when_the_tool_list_cannot_be_had(self):
+        calls = []
+        self.mcp_upstream(calls, listing=False).tools = "read-only"
+        self.assertIn(b'"error"', self.rpc("tools/call", "search")[1])
+        self.assertNotIn("tools/call", [c[0] for c in calls])
+
     def test_model_inference_forwards_only_approved_operations_and_headers(self):
         seen = []
         class Provider(BaseHTTPRequestHandler):

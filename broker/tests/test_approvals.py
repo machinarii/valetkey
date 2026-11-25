@@ -120,7 +120,7 @@ class ApprovalTests(unittest.TestCase):
             self.assertEqual(exc.exception.status, 400)
         self.assertEqual(self.store.approve("laptop", rid, totp(seed, self.now // 30), 3600),
                          "Route active for 1 hour")
-        self.assertEqual([f.name for f in grants.iterdir()], ["reports.timed"])  # an older version never reads it
+        self.assertEqual([f.name for f in grants.iterdir()], ["reports.grant"])  # an older version never reads it
         end = self.now + 3600
         route = load_routes(self.routes, self.now).api["reports"]
         self.assertEqual((route.allows("devbox", end - 1), route.allows("devbox", end), route.allows("x", 0)),
@@ -159,6 +159,21 @@ class ApprovalTests(unittest.TestCase):
             self.store.approve("laptop", rid, totp(seed, self.now // 30), 86400)
         self.assertEqual(list((self.root / "approved-routes.d").iterdir()), [])
         self.assertEqual(self.store.review("laptop", rid)["state"], "failed")
+
+    def test_a_route_limited_to_some_tools_keeps_the_limit_and_shows_it_to_a_joiner(self):
+        self.routes.write_text('[security]\nagent_nodes=["devbox","kls5"]\n')
+        seed = self.enroll()
+        rid = self.store.propose("devbox", dict(SPEC, methods=["POST"], tools=["search", "fetch", "search"]))
+        self.assertEqual(self.store.review("laptop", rid)["spec"]["tools"], ["fetch", "search"])
+        self.now += 30
+        self.store.approve("laptop", rid, totp(seed, self.now // 30))
+        # not *.json: a version that knows no tool limit must not load the route without it
+        self.assertEqual([f.name for f in (self.root / "approved-routes.d").iterdir()], ["reports.grant"])
+        self.assertEqual(load_routes(self.routes, self.now + 10 ** 9).api["reports"].tools, ["fetch", "search"])
+        join = self.store.propose("kls5", {"join": "reports"})
+        self.assertEqual(self.store.review("laptop", join)["spec"]["tools"], ["fetch", "search"])
+        with self.assertRaises(Refused):
+            self.store.propose("devbox", dict(SPEC, name="other", tools="anything"))
 
     def test_join_refused_when_the_route_changed_before_approval(self):
         route = ('[security]\nagent_nodes=["devbox","kls5"]\n[api.motion]\norg="local"\nitem="motion-api-key"\n'

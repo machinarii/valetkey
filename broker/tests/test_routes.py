@@ -74,6 +74,22 @@ class LoadRoutesTests(unittest.TestCase):
                     self.load_text(text)
                 self.assertIn(entry, str(cm.exception))
 
+    def test_tools_limit_is_read_only_or_a_list_of_names(self):
+        api = ('[api.notes]\norg = "local"\nitem = "notes-api-key"\nupstream = "https://mcp.x.example"\n'
+               'auth = "Bearer {}"\nmethods = ["POST"]\npaths = ["/mcp"]\nnodes = ["devbox"]\n')
+        self.assertIsNone(self.load_text(api).api["notes"].tools)
+        self.assertEqual(self.load_text(api + 'tools = "read-only"\n').api["notes"].tools, "read-only")
+        self.assertEqual(self.load_text(api + 'tools = ["search", "fetch", "search"]\n').api["notes"].tools,
+                         ["fetch", "search"])
+        for bad in ('"all"', "[]", '["a b"]', "[1]", "true", '["ok", "new\\nline"]'):
+            with self.subTest(bad=bad), self.assertRaises(routes.RoutesError):
+                self.load_text(api + f"tools = {bad}\n")
+        spec = dict(name="notes", org="local", item="notes-api-key", upstream="https://mcp.x.example",
+                    methods=["POST"], paths=["/mcp"])
+        self.assertEqual(routes.proposed_api(dict(spec, tools=["search"]), "devbox").tools, ["search"])
+        with self.assertRaises(routes.RoutesError):
+            routes.proposed_api(dict(spec, tools="everything"), "devbox")
+
     def test_reserved_route_names(self):
         self.assertIn("backups", routes.RESERVED_ROUTES)
         api = ('upstream = "https://x.example"\nauth = "Bearer {}"\n'

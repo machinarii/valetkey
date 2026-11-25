@@ -237,6 +237,12 @@ class BrokerTests(ClientCase):
         posts = [x[2] for x in self.srv.log if x[0] == "POST"]
         self.assertEqual((posts[0]["encode"], posts[1]["auth"]), ("basic", "basic"))
 
+    def test_route_request_can_limit_the_tools(self):
+        for arg, sent in (("read-only", "read-only"), ("search,fetch", ["search", "fetch"])):
+            self.run_tool("broker", "request-route", "notes", "--org", "local", "--item", "notes-api-key",
+                          "--upstream", "https://mcp.example.com", "--method", "POST", "--path", "/mcp", "--tools", arg)
+            self.assertEqual(self.srv.log[-1][2]["tools"], sent)
+
     def test_update_installs_on_the_broker_only_with_root(self):
         from importlib.machinery import SourceFileLoader
         from unittest import mock

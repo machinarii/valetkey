@@ -63,6 +63,25 @@ point the route at another address or key, the joined machine loses it until it 
 and methods you change by hand apply to every machine on the route, joined ones included. A join
 cannot add a machine to a model route.
 
+## An MCP route limited to some tools
+
+A route to an MCP server lets the machine call every tool the key allows, unless you limit it:
+
+```sh
+valetkey-broker request-route notes --org local --item notes-api-key \
+  --upstream https://mcp.example.com --method POST --path /mcp --tools read-only
+```
+
+`--tools read-only` allows only the tools the server itself labels read-only (`readOnlyHint`); the
+broker asks the server for its tool list every ten minutes and refuses every call when it cannot
+get it. `--tools search,fetch` allows exactly those names. In `routes.toml` the same setting is
+`tools = "read-only"` or `tools = ["search", "fetch"]`. The approval page shows the limit.
+
+The broker reads each request before it forwards it. A call to another tool gets an MCP error that
+names the tool, and the audit line says `tool refused: <name>`. A request that is not JSON-RPC, or
+that repeats a key, is refused. The machine still sees the full tool list; the limit is on calling.
+The read-only labels are the server's own word, so for a service you do not trust, name the tools.
+
 ## Access that ends by itself
 
 The approval page asks how long the access lasts: until you remove it (the default), 1 hour,
@@ -75,7 +94,7 @@ machine can ask again with the same `request-route` or `join-route` command. A l
 for every machine on it, also for machines that joined it later; a limited join ends for that
 machine only.
 
-A limited approval is kept as `<route>.timed` (or `<route>+<machine>.timed`) with its end time. A
+A limited approval is kept as `<route>.grant` (or `<route>+<machine>.grant`) with its end time. A
 broker version from before 0.6 reads only the `.json` files, so if you roll back, a limited
 approval is gone rather than permanent.
 

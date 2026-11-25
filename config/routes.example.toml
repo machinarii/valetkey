@@ -13,6 +13,7 @@
 #   fnox proxy swaps in the real value only for this upstream host, these methods and paths.
 #   item     Vaultwarden item name (add "/notes" for a value stored in Notes)
 #   paths    path prefixes allowed under the route, e.g. "/v1/" (fnox gets "/v1/**")
+#   tools    optional, for an MCP server: "read-only" or the tool names the route may call
 #   The caller never holds the key. Prefer this over [value].
 #
 # [value.<name>]  GET https://<broker>/<org>/value/<name>  ->  the raw value

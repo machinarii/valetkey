@@ -14,10 +14,21 @@ BACKUP_RE = re.compile(r"-backup-[0-9]{8}\Z")
 ROUTE_NAME_RE = re.compile(r"\A[a-z0-9][a-z0-9-]{0,62}\Z")
 RESERVED_ROUTES = ("value", "check", "refresh", "names", "v1", "backups")
 PATTERN_RE = re.compile(r"\A(\*-)?[a-z0-9-]+\Z")
+TOOL_NAME_RE = re.compile(r"\A[A-Za-z0-9_.:/-]{1,128}\Z")
 
 
 class RoutesError(Exception):
     pass
+
+
+def tool_limit(value):
+    """A route's `tools` setting: None (every tool), "read-only" or a list of MCP tool names."""
+    if value is None or value == "read-only":
+        return value
+    if (isinstance(value, list) and 1 <= len(value) <= 200
+            and all(isinstance(t, str) and TOOL_NAME_RE.match(t) for t in value)):
+        return sorted(set(value))
+    raise RoutesError('tools must be "read-only" or a list of MCP tool names')
 
 
 def validate_item_name(name, project):
@@ -57,6 +68,7 @@ class ApiRoute:
     model: bool = False
     # When an approval the owner limited in time ends: machine -> seconds, "*" for every machine.
     until: dict = field(default_factory=dict)
+    tools: object = None  # MCP tools the route may call: None (all), "read-only" or a list of names
 
     def allows(self, node, now):
         forever = float("inf")
@@ -185,7 +197,7 @@ def api_path_allowed(path, paths):
 
 def proposed_api(spec, node):
     """Web grants can create a new bearer API for the authenticated agent only."""
-    if not isinstance(spec, dict) or set(spec) - {"auth"} != {"name", "org", "item", "upstream", "methods", "paths"}:
+    if not isinstance(spec, dict) or set(spec) - {"auth", "tools"} != {"name", "org", "item", "upstream", "methods", "paths"}:
         raise RoutesError("expected route name, org, item, upstream, methods and paths")
     # Bearer by default; Basic sends the item as stored, so it must already be base64("<key>:").
     auth = {"bearer": "Bearer {}", "basic": "Basic {}"}.get(spec.get("auth", "bearer"))
@@ -210,7 +222,8 @@ def proposed_api(spec, node):
             not isinstance(p, str) or not re.fullmatch(r"/[a-zA-Z0-9_~./-]{1,255}", p)
             or canonical_api_path(p) != p for p in paths):
         raise RoutesError("use explicit canonical path prefixes")
-    return ApiRoute(name, org, item, origin, auth, sorted(set(methods)), sorted(set(paths)), [node])
+    return ApiRoute(name, org, item, origin, auth, sorted(set(methods)), sorted(set(paths)), [node],
+                    tools=tool_limit(spec.get("tools")))
 
 
 # What decides where a route's key goes. A machine that joins a route keeps it only while these
@@ -254,12 +267,13 @@ def model_route(name, entry):
 def _grant(file, keys, now):
     """A grant file's content, or None for an approval whose time has run out."""
     grant = json.loads(file.read_bytes())
-    timed = file.suffix == ".timed"
-    if not isinstance(grant, dict) or set(grant) != keys | ({"until"} if timed else set()):
+    extra = {"until"} if file.suffix == ".grant" else set()
+    if not isinstance(grant, dict) or not keys <= set(grant) <= keys | extra:
         raise RoutesError("invalid web-approved grant")
-    if timed and type(grant["until"]) is not int:
+    until = grant.get("until")
+    if until is not None and type(until) is not int:
         raise RoutesError("invalid web-approved grant")
-    return None if timed and grant["until"] <= now else grant
+    return None if until is not None and until <= now else grant
 
 
 def load_routes(path, now=None):
@@ -301,8 +315,12 @@ def load_routes(path, now=None):
         methods = _str_list("api", name, e, "methods")
         if any(m not in ("GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS") for m in methods):
             _fail("api", name, "unsupported HTTP method")
+        try:
+            tools = tool_limit(e.get("tools"))
+        except RoutesError as exc:
+            _fail("api", name, str(exc))
         routes.api[name] = ApiRoute(name, org, _item("api", name, e), upstream, auth,
-                                    methods, paths, nodes)
+                                    methods, paths, nodes, tools=tools)
     models = conf.get("model", {})
     if not isinstance(models, dict):
         raise RoutesError("model: expected named route tables")
@@ -332,9 +350,10 @@ def load_routes(path, now=None):
         if set(r.nodes) & set(routes.agent_nodes):
             raise RoutesError(f"route {r.name}: agent_nodes cannot be granted raw-value routes")
     grants = Path(path).parent / "approved-routes.d"
-    # <name>.timed is an approval with an end ("until"). A version from before these reads only
-    # *.json, so after a rollback a limited approval is gone, never permanent.
-    files = sorted([*grants.glob("*.json"), *grants.glob("*.timed")])
+    # <name>.grant is an approval with a limit added in 0.6: an end ("until") or a tool list. A
+    # version from before reads only *.json, so after a rollback such an approval is gone, never
+    # permanent or wider.
+    files = sorted([*grants.glob("*.json"), *grants.glob("*.grant")])
     for file in (f for f in files if "+" not in f.stem):  # new routes: <route>.json
         grant = _grant(file, {"spec", "node", "request"}, now)
         if grant is None:

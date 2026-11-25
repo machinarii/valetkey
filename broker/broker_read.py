@@ -30,13 +30,13 @@ import urllib.parse
 import urllib.request
 
 if __package__:
-    from .brokerlib import routes as routes_mod
+    from .brokerlib import access_check, routes as routes_mod
     from .brokerlib.bwclient import Bw, BwError, ItemCache, split_ref
     from .brokerlib.httpbase import BrokerHandler, BrokerServer
     from .brokerlib.identity import Whois, peer_ip
 else:  # installed as a script next to brokerlib/
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    from brokerlib import routes as routes_mod
+    from brokerlib import access_check, routes as routes_mod
     from brokerlib.bwclient import Bw, BwError, ItemCache, split_ref
     from brokerlib.httpbase import BrokerHandler, BrokerServer
     from brokerlib.identity import Whois, peer_ip
@@ -44,6 +44,7 @@ else:  # installed as a script next to brokerlib/
 MAX_BODY = 50 * 1024 * 1024
 MAX_CHECK_NAMES = 500
 RATE_PER_MINUTE = 300
+TOOLS_TTL = 600  # how long a server's list of read-only tools is trusted
 HOP = {"connection", "keep-alive", "proxy-authenticate", "proxy-authorization", "te", "trailer",
        "transfer-encoding", "upgrade", "host", "content-length"}
 # accept-encoding: the broker asks for plain replies so it can look for the key in them.
@@ -53,6 +54,15 @@ DROP_IN = HOP | {"authorization", "cookie", "x-api-key", "forwarded", "x-forward
 BW_ENV_KEYS = ("BW_SESSION", "BITWARDENCLI_APPDATA_DIR")
 NO_PROXY = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 BACKUP_NAME_RE = re.compile(r"\A(?P<base>.+)-backup-(?P<date>[0-9]{8})\Z")
+
+
+def no_twins(pairs):
+    """JSON objects with a repeated key are refused: the broker and the service could each read
+    a different one of the two values."""
+    d = dict(pairs)
+    if len(d) != len(pairs):
+        raise ValueError("repeated key")
+    return d
 
 
 MIN_HIDE = 8  # shorter values would also mask ordinary text
@@ -335,6 +345,62 @@ class Handler(BrokerHandler):
 
     # --- api routes (prototype forwarding through fnox proxy) ---
 
+    def read_only_tools(self, r):
+        """Names the MCP server itself labels read-only, asked the way a forwarded call goes
+        (fnox swaps the placeholder for the key). Empty when the list cannot be had."""
+        ctx = self.server.ctx
+        known = ctx["tools"].get(r.name)
+        if known and ctx["clock"]() - known[0] < TOOLS_TTL:
+            return known[1]
+        up = urllib.parse.urlsplit(r.upstream)
+
+        def connect(host):
+            if ctx["upstream_scheme"] == "http":  # tests only
+                return http.client.HTTPConnection(host, up.port or 80, timeout=access_check.TIMEOUT)
+            conn = upstream_conn(host, up.port or 443)
+            conn.timeout = access_check.TIMEOUT
+            return conn
+        path = next((p for p in r.paths if access_check.looks_like_mcp(r, p)), r.paths[0])
+        try:
+            listed = access_check.Session(r, path, placeholder(r.name), connect).tools()["tools"]
+        except (access_check.Refused, access_check.NotMcp, OSError, http.client.HTTPException, ValueError):
+            return set()  # not remembered: the next call asks again
+        names = {t["name"] for t in listed if t["group"] == "read"}
+        ctx["tools"][r.name] = (ctx["clock"](), names)
+        return names
+
+    def tool_refused(self, who, r, body):
+        """On a route limited to some MCP tools: answer a call to any other tool here. True if so."""
+        try:
+            msgs = json.loads(body, object_pairs_hook=no_twins)
+        except (ValueError, RecursionError):
+            msgs = None
+        msgs = msgs if isinstance(msgs, list) else [msgs]
+        if not all(isinstance(m, dict) for m in msgs):
+            self.deny(who, r.name, 400, "this route takes MCP (JSON-RPC) requests only", "not JSON-RPC")
+            return True
+        allowed = None
+        for m in msgs:
+            if m.get("method") != "tools/call":
+                continue
+            if allowed is None:
+                allowed = self.read_only_tools(r) if r.tools == "read-only" else set(r.tools)
+            name = m["params"].get("name") if isinstance(m.get("params"), dict) else None
+            if isinstance(name, str) and name in allowed:
+                continue
+            shown = re.sub(r"[^\w.:/-]", "?", name if isinstance(name, str) else "")[:60]
+            rid = m.get("id")
+            if len(msgs) > 1 or isinstance(rid, bool) or not isinstance(rid, (str, int, float)):
+                self.deny(who, r.name, 403, "the owner has not allowed that tool on this route",
+                          f"tool refused: {shown}")
+            else:  # an MCP client shows the model a JSON-RPC error, not an HTTP one
+                self.send_json(200, {"jsonrpc": "2.0", "id": rid, "error": {
+                    "code": -32602, "message": f"valetkey: the owner has not allowed the tool '{shown}' on "
+                    "this route" + (" (only tools its server labels read-only)" if r.tools == "read-only" else "")}})
+                self.audit(who, r.name, 200, f"tool refused: {shown}")
+            return True
+        return False
+
     def api(self, who, r, rest, query):
         ctx = self.server.ctx
         route = r.name
@@ -356,6 +422,8 @@ class Handler(BrokerHandler):
         if body is None:
             self.close_connection = True
             return self.deny(who, route, 413, "body too large")
+        if r.tools is not None and body and self.tool_refused(who, r, body):
+            return
 
         up = urllib.parse.urlsplit(r.upstream)
         if r.model:
@@ -477,6 +545,7 @@ def build_server(args, **overrides):
         "whois": overrides.pop("whois", None) or Whois(),
         "limiter": RateLimiter(RATE_PER_MINUTE, clock),
         "clock": clock,
+        "tools": {},  # route -> (when asked, the tools its server labels read-only)
         "now": time.time,  # approvals end by the calendar, not by this service's uptime
         "loopback_secret": secret,
         "entry_url": args.entry_url,
