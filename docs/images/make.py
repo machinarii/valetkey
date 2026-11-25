@@ -95,14 +95,15 @@ ICONS = {"master": lambda d, x, y, bg, a=1: key(d, x, y, 24, mix(bg, GOLD, a), b
                                                        mix(bg, MUTED, a))}  # black plate, light outline
 
 
-BOXES = {  # name: (left, top, right, bottom, title, subtitle)
-    "agent": (40, 282, 270, 482, "agent", "where your AI agents run"),
-    "broker": (365, 172, 595, 332, "broker", "checks the caller\nfnox adds the key"),
-    "bellhop": (365, 402, 595, 562, "bellhop", "runs MCPs & other tools\nthat require sign in"),
-    "vault": (700, 142, 920, 222, "vault", "every key, encrypted"),
-    "api": (684, 262, 920, 342, "service API/CLI", ""),
-    "svc": (700, 442, 920, 522, "service MCP/tool", ""),
+BOXES = {  # name: (left, top, right, bottom, title, subtitle, the machine it runs on)
+    "agent": (40, 282, 270, 482, "agent", "where your AI agents run", "agent machine"),
+    "broker": (365, 172, 595, 332, "broker", "checks the caller\nfnox adds the key", "Proxmox VM"),
+    "bellhop": (365, 402, 595, 562, "bellhop", "runs MCPs & other tools\nthat require sign in", "Proxmox VM"),
+    "vault": (700, 142, 920, 222, "vault", "every key, encrypted", "Proxmox container"),
+    "api": (684, 262, 920, 342, "service API/CLI", "", ""),
+    "svc": (700, 442, 920, 522, "service MCP/tool", "", ""),
 }
+MACHINE = 18  # the machine's line, under the title, pushes what follows down by this much
 # Connections, with what the far end does. Requests and answers travel both ways.
 EDGES = (("agent", "broker", ""), ("agent", "bellhop", ""), ("broker", "vault", "reads"),
          ("broker", "api", "calls"), ("bellhop", "svc", "runs"))
@@ -145,18 +146,18 @@ def base(focus):
             label_offset = 28 if a == "broker" else 20
             d.text(sc((ax + bx) / 2, (ay + by) / 2 - label_offset), label, font=font(13), anchor="ms",
                    fill=MUTED if lit(a) and lit(b) else mix(MUTED, NAVY, DIM))
-    for name, (left, top, right, bottom, title, sub) in BOXES.items():
+    for name, (left, top, right, bottom, title, sub, machine) in BOXES.items():
         d.rounded_rectangle(sc(left, top, right, bottom), radius=14 * S, fill=c(PANEL, name),
                             outline=c(EDGE if focus is None or not lit(name) else (96, 132, 170), name), width=2 * S)
         d.text(sc(left + 16, top + 12), title, font=font(19, True), fill=c(TEXT, name))
+        if machine:
+            d.text(sc(left + 16, top + 37), machine, font=font(13), fill=c(TEXT, name))
         if sub:
-            d.text(sc(left + 16, top + 37), sub, font=font(13), fill=c(MUTED, name), spacing=4 * S)
+            d.text(sc(left + 16, top + 37 + (MACHINE if machine else 0)), sub, font=font(13),
+                   fill=c(MUTED, name), spacing=4 * S)
     left, top, right, bottom = BOXES["agent"][:4]                       # the agent holds nothing
     label, f = "holds no keys", font(14, True)
     d.text(sc(left + 16, bottom - 39), label, font=f, fill=c(TEXT, "agent"))
-    left, top, right, bottom = BOXES["vault"][:4]
-    for i in range(3):
-        key(d, right - 92 + i * 30, top + 64, 26, c(GOLD, "vault"), c(PANEL, "vault"))
     left, top, right, bottom = BOXES["bellhop"][:4]                        # the tool's login lives on the bellhop
     d.text(sc(left + 16, bottom - 39), "the tool's login", font=font(13), fill=c(MUTED, "bellhop"))
     d.rectangle(sc(0, 0, W, TOP), fill=PANEL)
@@ -205,7 +206,7 @@ def note(d, box, lines):
     left, top, right, bottom = BOXES[box][:4]
     for i, (text, color, *icon) in enumerate(lines):
         below = 16 if "\n" in BOXES[box][5] else 0  # clear a two-line subtitle
-        y, x = top + 66 + below + i * 22, left + 16
+        y, x = top + 66 + below + (MACHINE if BOXES[box][6] else 0) + i * 22, left + 16
         if icon:
             ICONS[icon[0]](d, x + 12, y + 9, PANEL)
             x += 30
@@ -217,11 +218,8 @@ def broker_key(d, alpha=1.0):
     key(d, right - 34, bottom - 24, 34, mix(PANEL, GOLD, alpha), PANEL)
 
 
-STEPS = 9
-
-
-def caption(d, number, text, k=1.0, step=0):
-    """The step description: it slides up a few pixels and fades in (k 0..1); dots show progress."""
+def caption(d, number, text, k=1.0):
+    """The step description: it slides up a few pixels and fades in (k 0..1)."""
     top, bottom = STEP
     d.rounded_rectangle(sc(40, top, 920, bottom), radius=12 * S, fill=PANEL)
     lift, x = (1 - k) * 6, 58
@@ -232,14 +230,6 @@ def caption(d, number, text, k=1.0, step=0):
         x = 92
     d.text(sc(x, (top + bottom) / 2 + lift), text, font=font(16),
            fill=mix(PANEL, TEXT, k), anchor="lm")
-    for i in range(STEPS):                                              # progress: done, current, to come
-        cx, cy = 920 - 18 - (STEPS - 1 - i) * 13, (top + bottom) / 2
-        if i + 1 == number:
-            d.ellipse(sc(cx - 4, cy - 4, cx + 4, cy + 4), fill=TEAL)
-        elif i + 1 < step:
-            d.ellipse(sc(cx - 3, cy - 3, cx + 3, cy + 3), fill=mix(PANEL, TEAL, 0.5))
-        else:
-            d.ellipse(sc(cx - 3, cy - 3, cx + 3, cy + 3), outline=EDGE, width=S)
 
 
 CHECK = [("caller: agent-dev  ✓", TEAL), ("fits this route  ✓", TEAL)]
@@ -278,8 +268,7 @@ def animation(path):
     stills, prev = {}, None
     with tempfile.TemporaryDirectory() as tmp:
         n = 0
-        for p, (seconds, number, text, focus, moving) in enumerate(PHASES):
-            step = number or (0 if p == 0 else STEPS + 1)  # before the first step, or after the last
+        for seconds, number, text, focus, moving in PHASES:
             k = frozenset(focus) if focus is not None else None
             if k not in stills:
                 stills[k] = base(focus)
@@ -290,7 +279,7 @@ def animation(path):
                 img = Image.blend(prev, still, fade) if prev is not None and fade < 1 else still.copy()
                 d = ImageDraw.Draw(img)
                 moving(d, min(i / max(frames - 1, 1), 1.0))
-                caption(d, number, text, fade, step)
+                caption(d, number, text, fade)
                 img.resize(OUTPUT, Image.Resampling.LANCZOS).save(
                     os.path.join(tmp, f"f{n:04d}.png"), compress_level=1)
                 n += 1
