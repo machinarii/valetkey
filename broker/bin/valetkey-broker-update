@@ -8,12 +8,12 @@
 # otherwise run code as root here.
 #
 # setup    once. An https address (a public repository) needs no key: it only writes
-#          /etc/broker/update.env. A git@ address (a private repository) makes a read-only
+#          /etc/valetkey-broker/update.env. A git@ address (a private repository) makes a read-only
 #          deploy key (private half encrypted with systemd-creds), prints
 #          the public half to add on GitHub, records GitHub's SSH host key, writes
-#          /etc/broker/update.env (names only).
+#          /etc/valetkey-broker/update.env (names only).
 # install  fetches the branch, shows what would change and waits for "y". Then: checks
-#          /etc/broker with the new parser, keeps a copy of the installed code, runs the new
+#          /etc/valetkey-broker with the new parser, keeps a copy of the installed code, runs the new
 #          install.sh broker, waits until the broker ports that listened before listen again,
 #          and puts the previous code back if they do not. Nothing from the repository is run
 #          before the "y".
@@ -25,11 +25,11 @@ usage="usage: valetkey-broker setup <https://github.com/|git@github.com:><owner>
 # BROKER_UPDATE_ROOT (tests only): a directory used in place of /. sudo does not pass it on.
 root=${BROKER_UPDATE_ROOT:-}
 [ -n "$root" ] || [ "$(id -u)" = 0 ] || { echo "Run with sudo." >&2; exit 1; }
-conf=$root/etc/broker/update.env
-known=$root/etc/broker/update-known-hosts
-cred=$root/etc/credstore.encrypted/broker-update-key
-state=$root/var/lib/broker/update
-libexec=$root/usr/local/libexec/broker
+conf=$root/etc/valetkey-broker/update.env
+known=$root/etc/valetkey-broker/update-known-hosts
+cred=$root/etc/credstore.encrypted/valetkey-broker-update-key
+state=$root/var/lib/valetkey-broker-update
+libexec=$root/usr/local/libexec/valetkey-broker
 sbin=$root/usr/local/sbin
 units=$root/etc/systemd/system
 repo=$state/repo.git
@@ -63,22 +63,22 @@ healthy() {  # every port in $1 listens, and still does 3 s later
 restore() {  # the installed code becomes exactly what $backup holds
   [ -d "$backup/libexec" ] || fail "no copy of the previous code in $backup"
   set +e  # best effort to the end: stopping half-way would leave neither version in place
-  systemctl stop broker-approval.service 2>/dev/null || true
+  systemctl stop valetkey-broker-approval.service 2>/dev/null || true
   rm -rf "$libexec"
   cp -a "$backup/libexec" "$libexec"
-  find "$sbin" "$units" -maxdepth 1 \( -type f -o -type l \) -name 'broker-*' -delete
+  find "$sbin" "$units" -maxdepth 1 \( -type f -o -type l \) -name 'valetkey-broker-*' -delete
   cp -a "$backup/sbin/." "$sbin/"
-  rm -f "$units/broker-front.service.d/approval-front.conf"
+  rm -f "$units/valetkey-broker-front.service.d/approval-front.conf"
   cp -a "$backup/units/." "$units/"
   systemctl daemon-reload
-  if [ -f "$units/broker-approval.service" ] && [ -f "$root/etc/credstore.encrypted/broker-approval-key" ]; then
-    systemctl restart broker-approval.service
+  if [ -f "$units/valetkey-broker-approval.service" ] && [ -f "$root/etc/credstore.encrypted/valetkey-broker-approval-key" ]; then
+    systemctl restart valetkey-broker-approval.service
   fi
   # api.toml was written by the new generator: let the previous one write it again.
-  routes=$libexec/bin/broker-routes  # a copy from before the tools moved keeps them in sbin
-  [ -x "$routes" ] || routes=$sbin/broker-routes
+  routes=$libexec/bin/valetkey-broker-routes  # a copy from before the tools moved keeps them in sbin
+  [ -x "$routes" ] || routes=$sbin/valetkey-broker-routes
   "$routes" install
-  systemctl restart broker-entry.service broker-front.service
+  systemctl restart valetkey-broker-entry.service valetkey-broker-front.service
   rm -f "$marker"
   set -e
 }
@@ -100,16 +100,16 @@ cmd_setup() {
   for c in git ssh ssh-keygen ssh-keyscan systemd-creds; do
     command -v "$c" >/dev/null || fail "$c missing: sudo apt-get install -y git openssh-client"
   done
-  tmp=$(mktemp -d -p /run broker-update.XXXXXX)
+  tmp=$(mktemp -d -p /run valetkey-broker-update.XXXXXX)
   trap "rm -rf '$tmp'" EXIT  # expanded now: tmp is local and gone by the time the script exits
   if [ -f "$cred" ]; then
-    systemd-creds decrypt --name=broker-update-key "$cred" "$tmp/key"
+    systemd-creds decrypt --name=valetkey-broker-update-key "$cred" "$tmp/key"
     ssh-keygen -y -f "$tmp/key" > "$tmp/key.pub"
     ok "kept the existing deploy key"
   else
-    ssh-keygen -q -t ed25519 -N '' -C broker-update -f "$tmp/key"
+    ssh-keygen -q -t ed25519 -N '' -C valetkey-broker-update -f "$tmp/key"
     install -d -m 700 "$(dirname "$cred")"
-    systemd-creds encrypt --name=broker-update-key "$tmp/key" "$cred"
+    systemd-creds encrypt --name=valetkey-broker-update-key "$tmp/key" "$cred"
     chmod 600 "$cred"
     ok "deploy key made; private half encrypted in $cred"
   fi
@@ -145,7 +145,7 @@ cmd_install() {
   command -v git >/dev/null || fail "git missing: sudo apt-get install -y git openssh-client"
   install -d -m 700 "$state"
   exec 9> "$state/lock"
-  flock -n 9 || fail "another broker-update is running"
+  flock -n 9 || fail "another valetkey-broker-update is running"
 
   if [ -f "$marker" ]; then
     echo "An earlier update was cut off: putting the previous code back first."
@@ -154,11 +154,11 @@ cmd_install() {
   fi
 
   # --- fetch: nothing fetched is checked out or run here ---
-  tmp=$(mktemp -d -p "${root:-/run}" broker-update.XXXXXX)
+  tmp=$(mktemp -d -p "${root:-/run}" valetkey-broker-update.XXXXXX)
   trap "rm -rf '$tmp'" EXIT  # expanded now: tmp is local and gone by the time the script exits
   export GIT_TERMINAL_PROMPT=0  # a private repository over https fails here instead of asking for a login
   if [ -f "$cred" ] && [[ $url != https://* ]]; then
-    systemd-creds decrypt --name=broker-update-key "$cred" "$tmp/key"
+    systemd-creds decrypt --name=valetkey-broker-update-key "$cred" "$tmp/key"
     export GIT_SSH_COMMAND="ssh -F /dev/null -i $tmp/key -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$known"
   fi
   [ -d "$repo" ] || git_ init --quiet --bare "$repo"
@@ -220,18 +220,18 @@ try:
     routes = load_routes(sys.argv[2])
     routes.validate_owners(load_entry_config(sys.argv[3]).owner_nodes)
 except (OSError, ValueError, RoutesError) as err:
-    sys.exit(f"FAIL  the new code rejects /etc/broker: {err}")
-' "$staged/broker" "$root/etc/broker/routes.toml" "$root/etc/broker/entry.toml" \
+    sys.exit(f"FAIL  the new code rejects /etc/valetkey-broker: {err}")
+' "$staged/broker" "$root/etc/valetkey-broker/routes.toml" "$root/etc/valetkey-broker/entry.toml" \
     || { rm -rf "$staged"; fail "nothing installed"; }
-  ok "/etc/broker is valid for $short"
+  ok "/etc/valetkey-broker is valid for $short"
 
   before=''
   for p in $PORTS; do if listening "$p"; then before="$before $p"; fi; done
   rm -rf "$backup"
   mkdir -p "$backup/sbin" "$backup/units"
   cp -a "$libexec" "$backup/libexec"
-  cp -a "$sbin"/broker-* "$backup/sbin/" 2>/dev/null || true
-  cp -a "$units"/broker-* "$backup/units/" 2>/dev/null || true
+  cp -a "$sbin"/valetkey-broker-* "$backup/sbin/" 2>/dev/null || true
+  cp -a "$units"/valetkey-broker-* "$backup/units/" 2>/dev/null || true
   echo "$new" > "$marker"
   ok "previous code kept in $backup"
 

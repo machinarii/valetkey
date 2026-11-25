@@ -10,7 +10,7 @@ by Tailscale machine name. Endpoints (design §5.2):
   GET  /backups/<name>           {"name": ..., "backups": ["YYYYMMDD", ...]} newest first, no values
 
 A backup <name>-backup-YYYYMMDD is readable by every caller that may read <name> (design §6.4).
-  POST /refresh, GET /names      loopback only (X-Broker-Loopback secret), for broker-entry
+  POST /refresh, GET /names      loopback only (X-Broker-Loopback secret), for valetkey-broker-entry
   *    /<route>/<path>           [api.<route>] forwarded through fnox's proxy with a placeholder
 
 One audit line per request; never values, bw output or query strings.
@@ -93,7 +93,7 @@ class RateLimiter:
 
 
 def post_mark(entry_url, secret, kind, name, org):
-    """Best-effort suspect/unsuspect notice to broker-entry, in the background."""
+    """Best-effort suspect/unsuspect notice to valetkey-broker-entry, in the background."""
     def send():
         req = urllib.request.Request(
             f"{entry_url.rstrip('/')}/v1/{kind}", method="POST",
@@ -156,7 +156,7 @@ class Handler(BrokerHandler):
         failed = self.server.ctx["cache"].sync_failures > before
         return " ".join(x for x in (note, "sync-failed" if failed else "") if x)
 
-    # --- loopback (broker-entry) ---
+    # --- loopback (valetkey-broker-entry) ---
 
     def loopback(self, what):
         ctx = self.server.ctx
@@ -431,7 +431,7 @@ def main(argv=None):
     srv = build_server(args)
     r = srv.ctx["routes"]
     host, port = srv.server_address[:2]
-    print(f"broker-{args.org} listening on {host}:{port}: {len(r.api)} api, {len(r.values)} value, "
+    print(f"valetkey-broker-{args.org} listening on {host}:{port}: {len(r.api)} api, {len(r.values)} value, "
           f"{len(r.projects)} project routes", flush=True)
     try:
         srv.serve_forever()

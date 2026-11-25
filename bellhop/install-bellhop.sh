@@ -5,7 +5,7 @@
 # Override with env vars: BELLHOP_HOSTNAME (default bellhop), BELLHOP_TAGS (default tag:bellhop).
 set -euo pipefail
 repo=$(cd "$(dirname "$0")/.." && pwd)
-lib=/usr/local/libexec/broker
+lib=/usr/local/libexec/valetkey-broker
 BELLHOP_HOSTNAME=${BELLHOP_HOSTNAME:-bellhop}
 BELLHOP_TAGS=${BELLHOP_TAGS:-tag:bellhop}
 ok() { echo "ok    $*"; }
@@ -38,7 +38,7 @@ ok "tailnet name $dns"
 bash "$repo/client/install-version-tools"
 
 # A bellhop installed before 0.5 used the name "desk" (its user, service, configuration and address)
-# and the front door's earlier name "relay". Move them, once. The tool logins stay with the same
+# and the front door's earlier names, "relay" and (in 0.5.0) "broker". Move them, once. The tool logins stay with the same
 # user id. There is no automatic way back: snapshot or back up the machine before updating.
 migrate_names() {
   local old_home new_home f
@@ -52,11 +52,17 @@ migrate_names() {
     ln -s "$new_home" "$old_home"  # a tool that recorded its old folder still finds it
     ok "user desk is now bellhop (same id, same logins); its home is $new_home"
   fi
-  if id relay-front >/dev/null 2>&1 && ! id broker-front >/dev/null 2>&1; then
+  if id relay-front >/dev/null 2>&1 && ! id valetkey-broker-front >/dev/null 2>&1; then
     systemctl stop relay-front.service 2>/dev/null || true
-    usermod -l broker-front relay-front
-    if getent group relay-front >/dev/null; then groupmod -n broker-front relay-front; fi
-    ok "user relay-front is now broker-front"
+    usermod -l valetkey-broker-front relay-front
+    if getent group relay-front >/dev/null; then groupmod -n valetkey-broker-front relay-front; fi
+    ok "user relay-front is now valetkey-broker-front"
+  fi
+  if id broker-front >/dev/null 2>&1 && ! id valetkey-broker-front >/dev/null 2>&1; then
+    systemctl stop broker-front.service 2>/dev/null || true
+    usermod -l valetkey-broker-front broker-front
+    if getent group broker-front >/dev/null; then groupmod -n valetkey-broker-front broker-front; fi
+    ok "user broker-front is now valetkey-broker-front"
   fi
   if [ -f /etc/bellhop/desk.toml ] && [ ! -e /etc/bellhop/bellhop.toml ]; then
     mv /etc/bellhop/desk.toml /etc/bellhop/bellhop.toml
@@ -66,25 +72,38 @@ migrate_names() {
     ok "/etc/bellhop/desk.toml is now /etc/bellhop/bellhop.toml"
   fi
   rm -f /etc/bellhop/desk.example.toml
-  if [ -d /var/lib/relay ] && [ ! -e /var/lib/broker ]; then mv /var/lib/relay /var/lib/broker; fi
-  for f in bellhop-desk.service relay-front.service relay-cert.service relay-cert.timer; do
+  # The certificate folder: under relay before 0.5, under /var/lib/broker in 0.5.0.
+  for f in /var/lib/relay/tls /var/lib/broker/tls; do
+    if [ -d "$f" ] && [ ! -e /var/lib/valetkey-broker-front/tls ]; then
+      install -d -m 755 /var/lib/valetkey-broker-front
+      mv "$f" /var/lib/valetkey-broker-front/tls
+      rmdir "$(dirname "$f")" 2>/dev/null || true
+    fi
+  done
+  for f in bellhop-desk.service relay-front.service relay-cert.service relay-cert.timer \
+           broker-front.service broker-cert.service broker-cert.timer; do
     if [ -e "/etc/systemd/system/$f" ]; then
       systemctl disable --now "$f" 2>/dev/null || true
       rm -f "/etc/systemd/system/$f"
     fi
   done
-  rm -rf /etc/systemd/system/relay-front.service.d /usr/local/libexec/relay
+  rm -rf /etc/systemd/system/relay-front.service.d /etc/systemd/system/broker-front.service.d /usr/local/libexec/relay
+  # 0.5.0 put the front door in a folder called just "broker": remove what it put there, nothing else.
+  old=/usr/local/libexec/broker
+  rm -rf "${old:?}/brokerlib" "${old:?}/__pycache__"
+  rm -f "${old:?}/broker_front.py" "${old:?}/server.py" "${old:?}/broker-cert"
+  rmdir "$old" 2>/dev/null || true
 }
 migrate_names
 
-# bellhop: owns the tool logins and runs the tools. broker-front: holds only the TLS key.
+# bellhop: owns the tool logins and runs the tools. valetkey-broker-front: holds only the TLS key.
 id bellhop >/dev/null 2>&1 || useradd --system --create-home --shell /usr/sbin/nologin bellhop
-id broker-front >/dev/null 2>&1 || useradd --system --no-create-home --shell /usr/sbin/nologin broker-front
+id valetkey-broker-front >/dev/null 2>&1 || useradd --system --no-create-home --shell /usr/sbin/nologin valetkey-broker-front
 bellhophome=$(getent passwd bellhop | cut -d: -f6)
 
 install -d "$lib/brokerlib" /etc/bellhop
 install -m 644 "$repo"/broker/brokerlib/*.py "$lib/brokerlib/"
-install -m 755 "$repo/broker/broker_front.py" "$repo/bellhop/server.py" "$repo/broker/bin/broker-cert" "$lib/"
+install -m 755 "$repo/broker/broker_front.py" "$repo/bellhop/server.py" "$repo/broker/bin/valetkey-broker-cert" "$lib/"
 install -m 644 "$repo/bellhop/bellhop.example.toml" /etc/bellhop/bellhop.example.toml
 # valetkey-bellhop: the bellhop's own commands (--requests, --done ID) without the long path.
 printf '#!/bin/sh\nexec /usr/bin/python3 -I %s/server.py --config /etc/bellhop/bellhop.toml "$@"\n' "$lib" > /usr/local/sbin/valetkey-bellhop
@@ -104,20 +123,20 @@ fi
 python3 -I "$lib/server.py" --config /etc/bellhop/bellhop.toml --requests >/dev/null || fail "/etc/bellhop/bellhop.toml does not load"
 ok "bellhop code and configuration"
 
-install -m 644 "$repo"/broker/systemd/broker-front.service "$repo"/broker/systemd/broker-cert.service \
-  "$repo"/broker/systemd/broker-cert.timer /etc/systemd/system/
-install -d /etc/systemd/system/broker-front.service.d
+install -m 644 "$repo"/broker/systemd/valetkey-broker-front.service "$repo"/broker/systemd/valetkey-broker-cert.service \
+  "$repo"/broker/systemd/valetkey-broker-cert.timer /etc/systemd/system/
+install -d /etc/systemd/system/valetkey-broker-front.service.d
 backends="--backend bellhop=127.0.0.1:8460"
 if [ -f /etc/bellhop/old-address ]; then  # see migrate_names: the address before 0.5 still answers
   backends="$backends --backend desk=127.0.0.1:8460"
 fi
-cat > /etc/systemd/system/broker-front.service.d/bellhop.conf <<EOF
+cat > /etc/systemd/system/valetkey-broker-front.service.d/bellhop.conf <<EOF
 # This front door has one backend: the bellhop. Callers use https://$dns/bellhop/...
 [Unit]
 After=bellhop.service
 [Service]
 ExecStart=
-ExecStart=/usr/bin/python3 -I $lib/broker_front.py $backends --tls-dir /var/lib/broker/tls
+ExecStart=/usr/bin/python3 -I $lib/broker_front.py $backends --tls-dir /var/lib/valetkey-broker-front/tls
 EOF
 cat > /etc/systemd/system/bellhop.service <<EOF
 # Installed by bellhop/install-bellhop.sh. Runs listed tools as the bellhop user, with that user's logins.
@@ -145,12 +164,12 @@ RestartSec=10
 WantedBy=multi-user.target
 EOF
 systemctl daemon-reload
-"$lib/broker-cert" || fail "tailscale cert (turn on HTTPS Certificates in the tailnet admin console, then re-run)"
-systemctl enable -q bellhop broker-front broker-cert.timer
-systemctl restart bellhop broker-front
-systemctl start broker-cert.timer
+"$lib/valetkey-broker-cert" || fail "tailscale cert (turn on HTTPS Certificates in the tailnet admin console, then re-run)"
+systemctl enable -q bellhop valetkey-broker-front valetkey-broker-cert.timer
+systemctl restart bellhop valetkey-broker-front
+systemctl start valetkey-broker-cert.timer
 sleep 2
-for u in bellhop broker-front; do
+for u in bellhop valetkey-broker-front; do
   [ "$(systemctl is-active "$u")" = active ] || fail "$u is not running: journalctl -u $u -n 20"
 done
 code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "https://$dns/bellhop/tools" || true)

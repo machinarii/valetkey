@@ -1,6 +1,6 @@
 """What a key just stored opens: the routes that use it and, for an MCP server, its tools.
 
-broker-entry runs this right after the owner stores a value, with that value still in memory.
+valetkey-broker-entry runs this right after the owner stores a value, with that value still in memory.
 The value goes only to each route's own upstream, in the route's own auth header, the same way
 the broker would send it. Only route facts, tool names, labels and short descriptions are kept.
 

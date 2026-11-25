@@ -19,7 +19,7 @@ drill_ip=$(address "$DRILL") agent_ip=$(address "$AGENT")
 
 echo "== drill machine: fake tailscale, then the real installer"
 { echo 'rm -rf /tmp/valetkey; mkdir -p /tmp/valetkey; base64 -d <<"B64" | tar -xz -C /tmp/valetkey'
-  tar -C "$repo" --exclude __pycache__ -cz bellhop broker/brokerlib broker/broker_front.py broker/bin/broker-cert \
+  tar -C "$repo" --exclude __pycache__ -cz bellhop broker/brokerlib broker/broker_front.py broker/bin/valetkey-broker-cert \
     broker/systemd | base64
   echo B64; } | as_root "$DRILL"
 as_root "$DRILL" <<EOF

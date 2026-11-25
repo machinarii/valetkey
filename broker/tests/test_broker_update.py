@@ -1,8 +1,8 @@
-"""broker-update install against a synthetic repository under a temporary root.
+"""valetkey-broker-update install against a synthetic repository under a temporary root.
 
 The fixture repository carries the real brokerlib (for the config check) and a stub install.sh
 that copies its own payload into the fake libexec and decides which ports "listen" afterwards.
-ss, systemctl and broker-routes are stubs; nothing here needs root, systemd or a network.
+ss, systemctl and valetkey-broker-routes are stubs; nothing here needs root, systemd or a network.
 """
 import os
 import shutil
@@ -12,13 +12,13 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent.parent
-TOOL = ROOT / "broker/bin/broker-update"
+TOOL = ROOT / "broker/bin/valetkey-broker-update"
 ENTRY = 'owner_nodes = ["laptop"]\ntailnet_name = "broker.test.ts.net"\n'
 INSTALL_SH = """#!/bin/bash
 # Stub of install.sh broker: put this commit's payload in place, then set the listening ports.
 here=$(cd "$(dirname "$0")" && pwd)
-cp "$here/payload" "$BROKER_UPDATE_ROOT/usr/local/libexec/broker/payload"
-[ ! -f "$here/extra" ] || cp "$here/extra" "$BROKER_UPDATE_ROOT/usr/local/libexec/broker/extra"
+cp "$here/payload" "$BROKER_UPDATE_ROOT/usr/local/libexec/valetkey-broker/payload"
+[ ! -f "$here/extra" ] || cp "$here/extra" "$BROKER_UPDATE_ROOT/usr/local/libexec/valetkey-broker/extra"
 cp "$here/ports" "$FAKE_PORTS"
 """
 
@@ -34,20 +34,20 @@ class BrokerUpdateTests(unittest.TestCase):
         self.addCleanup(tmp.cleanup)
         self.tmp = Path(tmp.name)
         self.root = self.tmp / "root"
-        self.libexec = self.root / "usr/local/libexec/broker"
+        self.libexec = self.root / "usr/local/libexec/valetkey-broker"
         self.sbin = self.root / "usr/local/sbin"
         self.ports = self.tmp / "ports"
-        for d in (self.libexec, self.sbin, self.root / "etc/broker", self.root / "etc/systemd/system",
+        for d in (self.libexec, self.sbin, self.root / "etc/valetkey-broker", self.root / "etc/systemd/system",
                   self.tmp / "bin"):
             d.mkdir(parents=True)
-        (self.root / "etc/broker/routes.toml").write_text("")
-        (self.root / "etc/broker/entry.toml").write_text(ENTRY)
+        (self.root / "etc/valetkey-broker/routes.toml").write_text("")
+        (self.root / "etc/valetkey-broker/entry.toml").write_text(ENTRY)
         (self.libexec / "payload").write_text("old\n")
         (self.libexec / "CONFIG_EPOCH").write_text("1\n")
         self.ports.write_text("8441 8442 8443 443\n")
         self.stub("bin/ss", 'for p in $(cat "$FAKE_PORTS"); do echo "LISTEN 0 128 127.0.0.1:$p 0.0.0.0:*"; done')
         self.stub("bin/systemctl", "exit 0")
-        self.stub("root/usr/local/sbin/broker-routes", 'echo "$*" >> "$BROKER_UPDATE_ROOT/routes-ran"')
+        self.stub("root/usr/local/sbin/valetkey-broker-routes", 'echo "$*" >> "$BROKER_UPDATE_ROOT/routes-ran"')
         self.env = {"PATH": f"{self.tmp / 'bin'}:{os.environ.get('PATH', '/usr/bin:/bin')}",
                     "HOME": str(self.tmp), "BROKER_UPDATE_ROOT": str(self.root),
                     "FAKE_PORTS": str(self.ports), "BROKER_START_WAIT": "2",
@@ -61,7 +61,7 @@ class BrokerUpdateTests(unittest.TestCase):
         self.git("init", "--quiet", "-b", "main")
         self.first = self.commit("first", payload="old\n")
         (self.libexec / "COMMIT").write_text(self.first + "\n")
-        (self.root / "etc/broker/update.env").write_text(f"UPDATE_REPO={self.src}\nUPDATE_BRANCH=main\n")
+        (self.root / "etc/valetkey-broker/update.env").write_text(f"UPDATE_REPO={self.src}\nUPDATE_BRANCH=main\n")
 
     def stub(self, rel, body):
         path = self.tmp / rel
@@ -94,7 +94,7 @@ class BrokerUpdateTests(unittest.TestCase):
         self.assertEqual((self.libexec / "COMMIT").read_text().strip(), new)
         self.assertIn("Commits:   1", r.stdout)
         self.assertNotIn("\x1b", r.stdout)  # a commit title cannot drive the console
-        self.assertFalse((self.root / "var/lib/broker/update/in-progress").exists())
+        self.assertFalse((self.root / "var/lib/valetkey-broker-update/in-progress").exists())
         r = self.install("")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertIn("already up to date", r.stdout)
@@ -110,17 +110,17 @@ class BrokerUpdateTests(unittest.TestCase):
             r = self.install(answer)
             self.assertEqual(r.returncode, 1, (answer, r.stdout, r.stderr))
             self.assertEqual(self.payload(), "old\n")
-            self.assertFalse((self.root / "var/lib/broker/update/staged").exists())
+            self.assertFalse((self.root / "var/lib/valetkey-broker-update/staged").exists())
             self.assertEqual((self.libexec / "COMMIT").read_text().strip(), self.first)
 
     def test_config_the_new_code_rejects_changes_nothing(self):
         self.commit("second", payload="new\n")
-        (self.root / "etc/broker/routes.toml").write_text('[value.x]\norg = "nowhere"\nnodes = ["a"]\nitem = "x"\n')
+        (self.root / "etc/valetkey-broker/routes.toml").write_text('[value.x]\norg = "nowhere"\nnodes = ["a"]\nitem = "x"\n')
         r = self.install()
         self.assertEqual(r.returncode, 1, r.stdout)
-        self.assertIn("rejects /etc/broker", r.stderr)
+        self.assertIn("rejects /etc/valetkey-broker", r.stderr)
         self.assertEqual(self.payload(), "old\n")
-        self.assertFalse((self.root / "var/lib/broker/update/backup").exists())
+        self.assertFalse((self.root / "var/lib/valetkey-broker-update/backup").exists())
 
     def test_ports_that_do_not_come_back_restore_the_previous_code_exactly(self):
         self.commit("broken", payload="new\n", extra="added by the broken version\n", ports="8441\n")
@@ -131,13 +131,13 @@ class BrokerUpdateTests(unittest.TestCase):
         self.assertFalse((self.libexec / "extra").exists())  # a file the failed version added is gone
         self.assertEqual((self.libexec / "COMMIT").read_text().strip(), self.first)
         self.assertEqual((self.root / "routes-ran").read_text(), "install\n")  # api.toml regenerated
-        self.assertFalse((self.root / "var/lib/broker/update/in-progress").exists())
+        self.assertFalse((self.root / "var/lib/valetkey-broker-update/in-progress").exists())
 
     def test_cut_off_install_is_rolled_back_by_the_next_run(self):
         self.commit("second", payload="new\n")
         r = self.install()
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        state = self.root / "var/lib/broker/update"
+        state = self.root / "var/lib/valetkey-broker-update"
         (self.libexec / "payload").write_text("half-written\n")
         (state / "in-progress").write_text("x\n")
         r = self.install("")
@@ -160,14 +160,14 @@ class BrokerUpdateTests(unittest.TestCase):
     def test_setup_for_a_public_repository_needs_no_key(self):
         r = sh("bash", str(TOOL), "setup", "https://github.com/acme/valetkey.git", env=self.env)
         self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertEqual((self.root / "etc/broker/update.env").read_text(),
+        self.assertEqual((self.root / "etc/valetkey-broker/update.env").read_text(),
                          "UPDATE_REPO=https://github.com/acme/valetkey.git\nUPDATE_BRANCH=main\n")
         self.assertFalse((self.root / "etc/credstore.encrypted").exists())
         r = sh("bash", str(TOOL), "setup", "https://example.com/acme/valetkey.git", env=self.env)
         self.assertEqual(r.returncode, 1)
 
     def test_refuses_without_setup_and_without_root(self):
-        (self.root / "etc/broker/update.env").unlink()
+        (self.root / "etc/valetkey-broker/update.env").unlink()
         r = self.install()
         self.assertEqual(r.returncode, 1)
         self.assertIn("not set up", r.stderr)

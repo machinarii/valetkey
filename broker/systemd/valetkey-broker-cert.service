@@ -1,5 +1,5 @@
 # Installed by valetkey (install.sh broker). Renews the front door's Tailscale certificate (root: tailscale
-# cert needs it), then restarts broker-front if it is running.
+# cert needs it), then restarts valetkey-broker-front if it is running.
 [Unit]
 Description=Renew the credential broker's Tailscale certificate
 After=network-online.target tailscaled.service
@@ -7,4 +7,4 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/local/libexec/broker/broker-cert
+ExecStart=/usr/local/libexec/valetkey-broker/valetkey-broker-cert

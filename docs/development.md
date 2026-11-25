@@ -17,8 +17,8 @@ valetkey/
 │   ├── deps.sh                 apt packages, Tailscale, bw, fnox
 │   ├── setup.sh                users, code, configs, credentials, units
 │   ├── migrate-names.sh        moves a broker from before 0.5 from the name relay to broker
-│   ├── bin/                    broker-login, broker-check, broker-routes, broker-update (run as valetkey-broker <word>), broker-cert, with-bw-session
-│   └── systemd/                broker-{front,local,infra,entry}.service, broker-cert.{service,timer}
+│   ├── bin/                    valetkey-broker-login, valetkey-broker-check, valetkey-broker-routes, valetkey-broker-update (run as valetkey-broker <word>), valetkey-broker-cert, with-bw-session
+│   └── systemd/                valetkey-broker-{front,local,infra,entry}.service, valetkey-broker-cert.{service,timer}
 ├── relay/relaylib/             only so that the updater of 0.4 and earlier can check the configuration
 ├── client/                     broker (valetkey-broker), vault (fnox shim), vault-entry (valetkey-entry)
 ├── bellhop/                    the bellhop: tools with their own login

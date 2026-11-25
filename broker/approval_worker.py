@@ -27,7 +27,7 @@ def install(org, route):
     if org not in ("local", "infra"):
         return False
     action = "restore" if route is None else "activate"
-    unit = f"broker-{action}@{org}.service"
+    unit = f"valetkey-broker-{action}@{org}.service"
     return subprocess.run(["/usr/bin/systemctl", "start", unit], capture_output=True).returncode == 0
 
 
@@ -85,14 +85,14 @@ class Handler(socketserver.StreamRequestHandler):
 
 
 def main():
-    key = (Path(os.environ["CREDENTIALS_DIRECTORY"]) / "broker-approval-key").read_bytes()
-    store = Approvals("/var/lib/broker-approval/state.sqlite", key, "/etc/broker/routes.toml",
-                      "/etc/broker/entry.toml", install)
+    key = (Path(os.environ["CREDENTIALS_DIRECTORY"]) / "valetkey-broker-approval-key").read_bytes()
+    store = Approvals("/var/lib/valetkey-broker-approval/state.sqlite", key, "/etc/valetkey-broker/routes.toml",
+                      "/etc/valetkey-broker/entry.toml", install)
     store.recover()
     Path(SOCKET).unlink(missing_ok=True)
     with socketserver.UnixStreamServer(SOCKET, Handler) as server:
         server.store = store
-        server.entry_uid = pwd.getpwnam("broker-entry").pw_uid
+        server.entry_uid = pwd.getpwnam("valetkey-broker-entry").pw_uid
         server.identity = Whois(ttl=0)
         os.chmod(SOCKET, 0o660)
         server.serve_forever()

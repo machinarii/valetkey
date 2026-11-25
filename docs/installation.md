@@ -184,7 +184,7 @@ In the web vault, in your browser:
 3. As yourself, create the organizations `local-org` and `infra-org` with those collections, and invite the broker accounts. Log in once as each broker account to accept, then **Confirm** each member as yourself.
 4. Close sign-ups: `pct exec 210 -- /opt/vaultwarden/close-signups.sh` (or run the script inside the container).
 
-Vaultwarden grants access per collection: a parent does not include its children. Each new project collection (`infra-broker-collection/<project>`) needs the `-infra` and `-entry` accounts granted on it, and then `sudo valetkey-broker login infra …` and `sudo valetkey-broker login entry …` run again on the broker. The broker services record collection IDs at login (`/var/lib/broker-<name>/org.json`). Different org or collection names are fine; set them in `/etc/broker/vault.env` (step 4).
+Vaultwarden grants access per collection: a parent does not include its children. Each new project collection (`infra-broker-collection/<project>`) needs the `-infra` and `-entry` accounts granted on it, and then `sudo valetkey-broker login infra …` and `sudo valetkey-broker login entry …` run again on the broker. The broker services record collection IDs at login (`/var/lib/valetkey-broker-<name>/org.json`). Different org or collection names are fine; set them in `/etc/valetkey-broker/vault.env` (step 4).
 
 ### 4. Install the broker
 
@@ -201,14 +201,14 @@ git clone https://github.com/machinarii/valetkey && cd valetkey
 sudo ./install.sh broker --with-deps
 ```
 
-`--with-deps` installs Python, jq, Tailscale, the Bitwarden CLI and fnox (pinned version, via mise), then joins the tailnet as `broker` with `tag:broker`; open the login URL it prints. `install.sh broker` then creates the service users, installs the code to `/usr/local/libexec/broker`, writes `/etc/broker/{routes,entry}.toml` and `vault.env` from the examples, generates the loopback credential, fetches the Tailscale certificate and enables the units. It prints `ok`, `skip` or `FAIL` for each step. It is safe to re-run, and never overwrites your `/etc/broker` files.
+`--with-deps` installs Python, jq, Tailscale, the Bitwarden CLI and fnox (pinned version, via mise), then joins the tailnet as `broker` with `tag:broker`; open the login URL it prints. `install.sh broker` then creates the service users, installs the code to `/usr/local/libexec/valetkey-broker`, writes `/etc/valetkey-broker/{routes,entry}.toml` and `vault.env` from the examples, generates the loopback credential, fetches the Tailscale certificate and enables the units. It prints `ok`, `skip` or `FAIL` for each step. It is safe to re-run, and never overwrites your `/etc/valetkey-broker` files.
 
 Edit the configs for your machines (see [Configuration](operations.md#configuration)):
 
 ```sh
-sudo nano /etc/broker/routes.toml   # who may use what
-sudo nano /etc/broker/entry.toml    # your own devices (owner_nodes)
-sudo nano /etc/broker/vault.env     # VAULT_URL and org/collection names, if not the defaults
+sudo nano /etc/valetkey-broker/routes.toml   # who may use what
+sudo nano /etc/valetkey-broker/entry.toml    # your own devices (owner_nodes)
+sudo nano /etc/valetkey-broker/vault.env     # VAULT_URL and org/collection names, if not the defaults
 ```
 
 ### 5. Log the broker services in
@@ -262,7 +262,7 @@ Client tools install in `~/.local/bin` by default. On an application server, put
 ### 7. Wire up a project
 
 On a separate trusted server with no agents or agent-controlled code, add the project to
-`/etc/broker/routes.toml` on the broker and reload. Merge the security lists with existing policy:
+`/etc/valetkey-broker/routes.toml` on the broker and reload. Merge the security lists with existing policy:
 
 ```toml
 [security]

@@ -1,4 +1,4 @@
-"""Load and validate /etc/broker/routes.toml and entry.toml."""
+"""Load and validate /etc/valetkey-broker/routes.toml and entry.toml."""
 import json
 import re
 import urllib.parse

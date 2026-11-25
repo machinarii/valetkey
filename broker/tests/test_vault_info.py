@@ -111,13 +111,13 @@ class VaultInfoTests(unittest.TestCase):
         r = self.run_tool("check", "infra", "--routes", self.routes, "--org-ids", org_ids, "--lock")
         self.assertEqual(r.returncode, 1)
         out = r.stdout
-        self.assertIn("broker-infra: unlocked", out)
+        self.assertIn("valetkey-broker-infra: unlocked", out)
         self.assertIn("FAIL  Bad Name:", out)
         self.assertIn("FAIL  some-token: no password or notes value", out)
         self.assertIn("FAIL  [value.missing-thing] item missing-thing missing", out)
         self.assertIn("FAIL  [project.shop] 0 items match", out)
         self.assertNotIn("local-only", out)
-        self.assertIn("collections broker-infra sees: infra-broker-collection, "
+        self.assertIn("collections valetkey-broker-infra sees: infra-broker-collection, "
                       "infra-broker-collection/shop, infra-owner-only", out)
         self.assertIn("FAIL  collection infra-broker-collection/shop is new", out)
         for secret in (VALUE, "org-infra-id", "c-infra-id", "fake-session"):

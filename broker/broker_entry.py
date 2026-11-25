@@ -1,7 +1,7 @@
 #!/usr/bin/python3 -I
 """Entry service: agents request credentials by name, the owner enters values (design §6).
 
-Runs as broker-entry on loopback behind the front door, which strips /entry and adds
+Runs as valetkey-broker-entry on loopback behind the front door, which strips /entry and adds
 X-Broker-Peer. Endpoints:
 
   POST /v1/requests, GET /v1/requests/<id>        any machine known to whois (no other
@@ -1134,7 +1134,7 @@ def main(argv=None):
     args = parse_args(sys.argv[1:] if argv is None else argv)
     srv = build_server(args)
     host, port = srv.server_address[:2]
-    print(f"broker-entry listening on {host}:{port}", flush=True)
+    print(f"valetkey-broker-entry listening on {host}:{port}", flush=True)
     try:
         srv.serve_forever()
     except KeyboardInterrupt:

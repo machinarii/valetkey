@@ -4,5 +4,5 @@ After=tailscaled.service
 
 [Service]
 Type=oneshot
-ExecStart=/usr/local/libexec/broker/bin/broker-routes install %i
+ExecStart=/usr/local/libexec/valetkey-broker/bin/valetkey-broker-routes install %i
 TimeoutStartSec=200

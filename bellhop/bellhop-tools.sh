@@ -14,7 +14,7 @@
 # changes a login. Read them before widening them.
 set -euo pipefail
 conf=/etc/bellhop/bellhop.toml
-lib=/usr/local/libexec/broker
+lib=/usr/local/libexec/valetkey-broker
 ok() { echo "ok    $*"; }
 fail() { echo "FAIL  $*" >&2; exit 1; }
 

@@ -88,7 +88,7 @@ bellhop/install-bellhop.sh           # what it runs inside the VM; safe to re-ru
 
 The installer joins the tailnet (it prints a login link, tag `tag:bellhop`), fetches the machine's
 HTTPS certificate, and starts two services: `bellhop` (user `bellhop`, loopback only) and the
-broker's `broker-front` as the only listener, on the tailnet address, port 443. Callers use
+broker's `valetkey-broker-front` as the only listener, on the tailnet address, port 443. Callers use
 `https://bellhop.<tailnet>.ts.net/bellhop`. It installs no tool and no login, and refuses to run on a
 machine that has an agent installed.
 

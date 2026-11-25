@@ -1,4 +1,4 @@
-"""Entry requests and suspect marks for broker-entry, kept in one JSON file.
+"""Entry requests and suspect marks for valetkey-broker-entry, kept in one JSON file.
 
 The file holds names, orgs, purposes, statuses and result texts only — never a value. Every
 change is written atomically (temp file in the same directory, mode 600, then os.replace).

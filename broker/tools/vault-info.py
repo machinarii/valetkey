@@ -1,7 +1,7 @@
 #!/usr/bin/python3 -I
 """Vault lookups for valetkey-broker login and valetkey-broker check. Names and counts only, never ids or values.
 
-Runs as broker-<name> with BW_SESSION and BITWARDENCLI_APPDATA_DIR in its environment:
+Runs as valetkey-broker-<name> with BW_SESSION and BITWARDENCLI_APPDATA_DIR in its environment:
 
   vault-info.py org-json <local|infra|entry>     org.json on stdout, "ok ..." lines on stderr
   vault-info.py check <local|infra|entry> --routes R --org-ids F [--lock]
@@ -42,7 +42,7 @@ def names_for(org):
 
 def bw_from_env():
     # A short-lived helper run by root's tools as the broker user: bw gets our whole environment
-    # (BW_SESSION, BITWARDENCLI_APPDATA_DIR), as broker-check's bw did.
+    # (BW_SESSION, BITWARDENCLI_APPDATA_DIR), as valetkey-broker-check's bw did.
     return Bw(env=dict(os.environ))
 
 
@@ -172,7 +172,7 @@ def check_api_items(bw, name, routes_path, org_ids_path):
 def cmd_check(bw, name, routes_path, org_ids_path):
     rep = Report()
     status = json.loads(bw._run(["status"])).get("status", "unknown")
-    print(f"broker-{name}: {status}")
+    print(f"valetkey-broker-{name}: {status}")
     if status != "unlocked":
         return 1
     try:
@@ -183,11 +183,11 @@ def cmd_check(bw, name, routes_path, org_ids_path):
         ids = json.load(f)
     if name == "entry":
         for org in ("local", "infra"):
-            print_visible(bw, rep, f"broker-entry ({org})", ids[org], org)
+            print_visible(bw, rep, f"valetkey-broker-entry ({org})", ids[org], org)
     else:
         items = check_items(bw, rep, name, ids)
         check_routes(rep, routes_mod.load_routes(routes_path).for_org(name), items)
-        print_visible(bw, rep, f"broker-{name}", ids, name)
+        print_visible(bw, rep, f"valetkey-broker-{name}", ids, name)
     return 1 if rep.failed else 0
 
 

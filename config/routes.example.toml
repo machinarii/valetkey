@@ -1,6 +1,6 @@
 # valetkey routes: which machine may use which credential. Names only; every value lives in
-# Vaultwarden. Installed to /etc/broker/routes.toml by `install.sh broker` (only if absent).
-# After editing /etc/broker/routes.toml run `sudo valetkey-broker routes install`.
+# Vaultwarden. Installed to /etc/valetkey-broker/routes.toml by `install.sh broker` (only if absent).
+# After editing /etc/valetkey-broker/routes.toml run `sudo valetkey-broker routes install`.
 #
 # Every entry has `org` ("local" or "infra") and `nodes`: the Tailscale machine names allowed to
 # call it (checked with `tailscale whois`, so nothing is stored on the client).

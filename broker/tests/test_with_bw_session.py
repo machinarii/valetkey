@@ -35,7 +35,7 @@ class WithBwSessionTests(unittest.TestCase):
         env = support.fresh_env(self.state)
         env.update(CREDENTIALS_DIRECTORY=os.path.join(self.d, "creds"),
                    RUNTIME_DIRECTORY=os.path.join(self.d, "run"),
-                   BITWARDENCLI_APPDATA_DIR="/var/lib/broker-infra/bw-cli",
+                   BITWARDENCLI_APPDATA_DIR="/var/lib/valetkey-broker-infra/bw-cli",
                    HTTPS_PROXY="http://127.0.0.1:9", SSL_CERT_FILE="/x/ca.pem")
         broker = ["env", "-u", "BW_SESSION", "sh", "-c",
                  'echo "broker-ran session=${BW_SESSION:-none} proxy=${HTTPS_PROXY:-none} ca=${SSL_CERT_FILE:-none}"']

@@ -5,7 +5,7 @@ Valetkey 0.1.2 adds two separate links. A broker administrator issues a **pairin
 ## Pair once
 
 1. On the trusted broker, install the 0.1.2 broker services from a reviewed checkout with `sudo ./install.sh broker`. The QR page uses the distribution's `qrencode` package. On Debian or Ubuntu, install it with `sudo apt-get install qrencode`. The broker installer also includes it with `--with-deps`. The `./install.sh update` command refreshes the version CLI.
-2. Choose the Tailscale machine name of an untagged approver device already listed in `/etc/broker/entry.toml` under `owner_nodes`. Keep agents on separate machines in `routes.toml` under `security.agent_nodes`.
+2. Choose the Tailscale machine name of an untagged approver device already listed in `/etc/valetkey-broker/entry.toml` under `owner_nodes`. Keep agents on separate machines in `routes.toml` under `security.agent_nodes`.
 3. At the broker console run the following, substituting that device's name for `laptop`.
 
    ```sh
@@ -57,7 +57,7 @@ is sent and which machines already use it. Approving adds only that machine to t
 address, key, auth format, methods and paths stay as they are, so this also works for routes you
 wrote by hand with another auth format, such as Basic.
 
-The join is kept as `/etc/broker/approved-routes.d/<route>+<machine>.json`. It applies only while the
+The join is kept as `/etc/valetkey-broker/approved-routes.d/<route>+<machine>.json`. It applies only while the
 route keeps the same org, key, address and auth format it had when you approved it. If you later
 point the route at another address or key, the joined machine loses it until it asks again. Paths
 and methods you change by hand apply to every machine on the route, joined ones included. A join
@@ -65,6 +65,6 @@ cannot add a machine to a model route.
 
 ## Broker operations
 
-The worker installs new bearer API grants, and joins to existing API routes, for the requesting machine only. It stores grants in `/etc/broker/approved-routes.d` and leaves the administrator's TOML in place. Bearer and Basic are supported; manual routing remains available for other authentication schemes. To revoke a web grant or a join, the administrator removes its JSON file and runs `sudo valetkey-broker routes install <org>` and verifies denial from the affected agent. Restrict root access to this directory and the broker. Keep the vault, hypervisor, broker and approver device outside agent control.
+The worker installs new bearer API grants, and joins to existing API routes, for the requesting machine only. It stores grants in `/etc/valetkey-broker/approved-routes.d` and leaves the administrator's TOML in place. Bearer and Basic are supported; manual routing remains available for other authentication schemes. To revoke a web grant or a join, the administrator removes its JSON file and runs `sudo valetkey-broker routes install <org>` and verifies denial from the affected agent. Restrict root access to this directory and the broker. Keep the vault, hypervisor, broker and approver device outside agent control.
 
-If activation fails, check `systemctl status broker-approval.service`, `systemctl status broker-activate@local.service` (or `infra`) and `sudo valetkey-broker check <org>` at the trusted broker console. An interrupted installation is rolled back when the worker starts. If recovery fails, resolve the reported broker or vault issue, restart the worker, then file a fresh request. The worker's private database and its encrypted master credential together protect authenticator enrollments. Protect both when backing up the broker.
+If activation fails, check `systemctl status valetkey-broker-approval.service`, `systemctl status valetkey-broker-activate@local.service` (or `infra`) and `sudo valetkey-broker check <org>` at the trusted broker console. An interrupted installation is rolled back when the worker starts. If recovery fails, resolve the reported broker or vault issue, restart the worker, then file a fresh request. The worker's private database and its encrypted master credential together protect authenticator enrollments. Protect both when backing up the broker.

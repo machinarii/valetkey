@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 import socket
 
-SOCKET = "/run/broker-approval/worker.sock"
+SOCKET = "/run/valetkey-broker-approval/worker.sock"
 LIMIT = 16384
 
 
@@ -16,7 +16,7 @@ def front_key():
     directory = os.environ.get("CREDENTIALS_DIRECTORY")
     if directory:
         try:
-            key = (Path(directory) / "broker-approval-front").read_bytes()
+            key = (Path(directory) / "valetkey-broker-approval-front").read_bytes()
         except FileNotFoundError:
             return None
         if len(key) == 64:

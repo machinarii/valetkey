@@ -1,0 +1,56 @@
+# Installed by valetkey (install.sh broker). Entry service on 127.0.0.1:8443 (behind valetkey-broker-front, /entry).
+# No with-bw-session: it unlocks bw for each write with %d/bw-unlock-entry and locks again.
+# /run/valetkey-broker-entry/bw.env holds only BITWARDENCLI_APPDATA_DIR.
+[Unit]
+Description=Credential broker, entry (owner writes)
+After=network-online.target tailscaled.service
+Wants=network-online.target
+# Not configured yet (valetkey-broker login entry): stay inactive, don't crash-loop.
+ConditionPathExists=/etc/credstore.encrypted/bw-unlock-entry
+ConditionPathExists=/var/lib/valetkey-broker-entry/org.json
+
+[Service]
+User=valetkey-broker-entry
+Group=valetkey-broker-entry
+WorkingDirectory=/usr/local/libexec/valetkey-broker
+RuntimeDirectory=valetkey-broker-entry
+RuntimeDirectoryMode=0700
+LoadCredentialEncrypted=bw-unlock-entry
+LoadCredentialEncrypted=valetkey-broker-loopback
+LoadCredentialEncrypted=valetkey-broker-approval-front
+Environment=HOME=/var/lib/valetkey-broker-entry BITWARDENCLI_APPDATA_DIR=/var/lib/valetkey-broker-entry/bw-cli
+ExecStartPre=/bin/sh -c 'umask 077 && echo BITWARDENCLI_APPDATA_DIR=/var/lib/valetkey-broker-entry/bw-cli > /run/valetkey-broker-entry/bw.env'
+ExecStart=/usr/bin/python3 -I /usr/local/libexec/valetkey-broker/broker_entry.py --port 8443 \
+  --routes /etc/valetkey-broker/routes.toml --entry-config /etc/valetkey-broker/entry.toml \
+  --state /var/lib/valetkey-broker-entry/requests.json \
+  --local-url http://127.0.0.1:8441 --infra-url http://127.0.0.1:8442 \
+  --loopback-secret-file %d/valetkey-broker-loopback --unlock-file %d/bw-unlock-entry \
+  --bw-env-file /run/valetkey-broker-entry/bw.env --org-ids /var/lib/valetkey-broker-entry/org.json \
+  --public-prefix /entry
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+LockPersonality=yes
+# Decrypted items and the bw session live in this process: never in a core file on disk.
+LimitCORE=0
+UMask=0077
+ProtectProc=invisible
+ProtectKernelLogs=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+SystemCallArchitectures=native
+ReadWritePaths=/var/lib/valetkey-broker-entry
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

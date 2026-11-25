@@ -1,5 +1,5 @@
 #!/bin/bash
-# Usage (systemd units, User=broker-<org>): with-bw-session <credential-name> <command> [args...]
+# Usage (systemd units, User=valetkey-broker-<org>): with-bw-session <credential-name> <command> [args...]
 # Unlocks bw with $CREDENTIALS_DIRECTORY/<credential-name> (LoadCredentialEncrypted=), syncs, and
 # execs the command with BW_SESSION set. In a unit with RuntimeDirectory=, it also writes
 # $RUNTIME_DIRECTORY/bw.env (mode 600: BW_SESSION, BITWARDENCLI_APPDATA_DIR) for the broker's

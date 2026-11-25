@@ -69,7 +69,7 @@ persistent files.
 
 All configuration files on the broker hold names only.
 
-**`/etc/broker/routes.toml`** decides who may use what. Every entry has `org` (`local` or `infra`) and `nodes` (Tailscale machine names). See [`config/routes.example.toml`](../config/routes.example.toml).
+**`/etc/valetkey-broker/routes.toml`** decides who may use what. Every entry has `org` (`local` or `infra`) and `nodes` (Tailscale machine names). See [`config/routes.example.toml`](../config/routes.example.toml).
 
 | Table | Keys | URL |
 |---|---|---|
@@ -80,9 +80,9 @@ All configuration files on the broker hold names only.
 
 Route names may not be `value`, `check`, `refresh`, `names`, `v1` or `backups`. After editing: `sudo valetkey-broker routes check`, then `sudo valetkey-broker routes install`.
 
-**`/etc/broker/entry.toml`** sets `owner_nodes` (your devices, which are the only ones that may submit values) and `tailnet_name` (the broker's DNS name, filled in by the installer). After editing: `sudo valetkey-broker routes check && sudo systemctl restart broker-entry`.
+**`/etc/valetkey-broker/entry.toml`** sets `owner_nodes` (your devices, which are the only ones that may submit values) and `tailnet_name` (the broker's DNS name, filled in by the installer). After editing: `sudo valetkey-broker routes check && sudo systemctl restart valetkey-broker-entry`.
 
-**`/etc/broker/vault.env`** is read by `valetkey-broker login`:
+**`/etc/valetkey-broker/vault.env`** is read by `valetkey-broker login`:
 
 | Key | Default |
 |---|---|
@@ -130,13 +130,13 @@ The installer's words changed with them: `./install.sh bellhop` (was `install.sh
 `BROKER_URL` variable (was `RELAY_URL`).
 
 Three names stay as they are: `vault` (fnox calls it by that name), the stand-ins that carry each
-bellhop tool's own name, and the broker's own tool files, which live in `/usr/local/libexec/broker/bin`
+bellhop tool's own name, and the broker's own tool files, which live in `/usr/local/libexec/valetkey-broker/bin`
 and are run through `valetkey-broker`. On the broker, `valetkey-broker check` is the broker's own
 check; on other machines it is the client's. On the bellhop, `valetkey-bellhop` is the bellhop's own
 command; on agent machines it is the stand-in.
 
-Since 0.5 the names on disk match the commands. The broker's files and services say `broker`
-(`/etc/broker/routes.toml`, `broker-front`), and the bellhop's say `bellhop`
+Since 0.5 the names on disk match the commands. The broker's files and services say `valetkey-broker`
+(`/etc/valetkey-broker/routes.toml`, `valetkey-broker-front`), and the bellhop's say `bellhop`
 (`/etc/bellhop/bellhop.toml`, the `bellhop` user, the `/bellhop` address). A machine installed
 before 0.5 is moved over by its installer:
 see [Updating to 0.5](updating-valetkey.md#updating-to-05-names-on-disk).
@@ -183,9 +183,9 @@ see [Updating to 0.5](updating-valetkey.md#updating-to-05-names-on-disk).
 | A new project's items are `missing` | Either the `-infra`/`-entry` accounts weren't granted the new nested collection, or the broker services haven't seen it yet. Grant it, run `sudo valetkey-broker login infra …` and `sudo valetkey-broker login entry …` again, then `sudo valetkey-broker check infra`. |
 | `no collection for project …` on entry | Create `infra-broker-collection/<project>` first, grant it, then run `valetkey-broker login entry …` again. |
 | fnox runs the wrong `vault` | Put the valetkey prefix before HashiCorp Vault on `PATH`. |
-| `broker-front` fails after setup | HTTPS Certificates are off in the tailnet DNS settings. Turn them on and re-run `install.sh broker`. |
+| `valetkey-broker-front` fails after setup | HTTPS Certificates are off in the tailnet DNS settings. Turn them on and re-run `install.sh broker`. |
 | The broker stops answering during `valetkey-broker check` or `valetkey-broker routes install`, or after adding `[api.*]` routes | Out of memory: fnox fetches one vault item per API route when a read service starts, each through the Bitwarden CLI. Give the VM 2 GB and 2 cores (Proxmox: `qm stop <id>; qm set <id> --memory 2048 --cores 2; qm start <id>`). |
-| A broker unit is inactive | It has no login yet (the units wait for `valetkey-broker login`). `journalctl -u broker-<name> -n 30` shows why. |
+| A broker unit is inactive | It has no login yet (the units wait for `valetkey-broker login`). `journalctl -u valetkey-broker-<name> -n 30` shows why. |
 | Every route of one org answers `502 backend unavailable` | That read service restarts in a loop because fnox cannot resolve an `[api.*]` item: it is missing, or its name is contained in another item's name (a `--replace` backup). `sudo valetkey-broker check <org>` names it. Fix the item, then run `sudo valetkey-broker routes install <org>`. |
 | An `[api.*]` call answers `502 upstream error: SSLCertVerificationError` | The broker predates the Python 3.13 fix (fnox's proxy certificates fail the strict default check). Update the broker. |
 | git through a route answers `400` | The item holds the raw token. See [Git through the broker](git-through-the-broker.md). |

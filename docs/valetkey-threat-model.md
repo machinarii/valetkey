@@ -45,7 +45,7 @@ bundled JS/CSS and escaped server-rendered request descriptions.
 - Front → loopback services: HTTP with peer IP; service trust in the front and broker host.
   Duplicate lengths/transfer encoding are rejected (`brokerlib/httpbase.py:61`).
 - Read service → vault subprocess/cache: per-org account, values in broker memory; errors exclude
-  subprocess output (`brokerlib/bwclient.py`, `broker/systemd/broker-{local,infra}.service`).
+  subprocess output (`brokerlib/bwclient.py`, `broker/systemd/valetkey-broker-{local,infra}.service`).
 - API forwarding → fnox proxy → upstream: fixed HTTPS origin and permitted method/path; proxy injects
   the key. Responses stream back and remain a trusted confidentiality boundary
   (`broker_read.py:287`, `broker/tools/gen-fnox-config.py:generate`).

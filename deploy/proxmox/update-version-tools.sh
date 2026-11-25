@@ -21,8 +21,8 @@ if not result.get("exited") or result.get("exitcode") != 0:
 
 # Verify the selected roles before installing anywhere.
 pct exec "$vault" -- test -f /opt/vaultwarden/compose.yaml </dev/null
-guest "$broker" -- /bin/sh -c 'test -x /usr/local/libexec/broker/bin/broker-check || test -x /usr/local/sbin/broker-check'
-guest "$bellhop" -- /usr/bin/test -f /usr/local/libexec/broker/server.py
+guest "$broker" -- /bin/sh -c 'test -x /usr/local/libexec/valetkey-broker/bin/valetkey-broker-check || test -x /usr/local/sbin/valetkey-broker-check'
+guest "$bellhop" -- /usr/bin/test -f /usr/local/libexec/valetkey-broker/server.py
 
 payload=$(tar -czf - -C "$repo/client" broker install-version-tools | base64 -w0)
 apply=$(cat <<'INSTALL'

@@ -26,16 +26,16 @@ changed by the source test suite.
 
 ```sh
 git pull
-sudo ./install.sh broker      # on the broker: replaces code and units, keeps /etc/broker and logins
+sudo ./install.sh broker      # on the broker: replaces code and units, keeps /etc/valetkey-broker and logins
 ./install.sh client --agent   # on an agent, using its existing install prefix
 ```
 
-The broker reports its installed version in `/usr/local/libexec/broker/VERSION` and in `./install.sh doctor`.
+The broker reports its installed version in `/usr/local/libexec/valetkey-broker/VERSION` and in `./install.sh doctor`.
 
 ## Updating to 0.5: names on disk
 
 Before 0.5 the broker's files, users and services were named `relay` and the bellhop's were named
-`desk`. From 0.5 they are named `broker` and `bellhop`. Each machine's installer moves an existing
+`desk`. From 0.5 they are named `valetkey-broker` and `bellhop`. Each machine's installer moves an existing
 installation over the first time it runs. The commands are the usual ones. What is different:
 **this update cannot be put back by `valetkey-broker rollback`.**
 
@@ -45,10 +45,10 @@ installation over the first time it runs. The commands are the usual ones. What 
 
 | | Before 0.5 | From 0.5 |
 |---|---|---|
-| Broker configuration | `/etc/relay/` | `/etc/broker/` |
-| Broker services | `relay-front`, `relay-local`, `relay-infra`, `relay-entry`, `relay-approval`, `relay-cert.timer` | `broker-front`, `broker-local`, `broker-infra`, `broker-entry`, `broker-approval`, `broker-cert.timer` |
-| Broker users and their folders | `relay-<name>`, `/var/lib/relay-<name>` | `broker-<name>`, `/var/lib/broker-<name>` |
-| Broker code | `/usr/local/libexec/relay/` | `/usr/local/libexec/broker/` |
+| Broker configuration | `/etc/relay/` | `/etc/valetkey-broker/` |
+| Broker services | `relay-front`, `relay-local`, `relay-infra`, `relay-entry`, `relay-approval`, `relay-cert.timer` | `valetkey-broker-front`, `valetkey-broker-local`, `valetkey-broker-infra`, `valetkey-broker-entry`, `valetkey-broker-approval`, `valetkey-broker-cert.timer` |
+| Broker users and their folders | `relay-<name>`, `/var/lib/relay-<name>` | `valetkey-broker-<name>`, `/var/lib/valetkey-broker-<name>` |
+| Broker code | `/usr/local/libexec/relay/` | `/usr/local/libexec/valetkey-broker/` |
 | Bellhop configuration | `/etc/bellhop/desk.toml`, section `[desk]` | `/etc/bellhop/bellhop.toml`, section `[bellhop]` |
 | Bellhop user and service | `desk`, `bellhop-desk` | `bellhop`, `bellhop` |
 | Bellhop address | `https://<name>/desk` | `https://<name>/bellhop` |
@@ -63,7 +63,11 @@ services, moves the names, installs 0.5 and starts the services under their new 
 minute or two without the broker. Then run `sudo valetkey-broker check`.
 
 - If a check fails before the move, nothing is changed and the old services keep running.
-- `/etc/relay` and `/var/lib/relay` stay behind as links until the next update removes them.
+- `/etc/relay` and `/var/lib/relay/update` stay behind as links until the next update removes them.
+- Every name valetkey uses on the broker starts with `valetkey-broker`. A user, folder, script
+  or unit of your own called `broker` (a monitoring heartbeat, say) is never read or changed.
+- 0.5.0 used plain `broker` names and was withdrawn the same day. A broker that installed it is
+  not moved from there: restore the snapshot from before 0.5.0, then update.
 - Settings you added beside a unit (a `relay-<name>.service.d` folder) move to the new unit's
   name. Check any path in them that says `relay`.
 
@@ -106,7 +110,7 @@ prints GitHub's SSH host key fingerprint to compare with the published one.
 diff, and asks for confirmation. Enter `y` to install or `n` to cancel. The updater already
 on the broker handles this prompt, so an older installation may show its earlier wording.
 Code from the fetched revision runs only after approval. The updater then checks
-`/etc/broker` with the new parser, keeps a copy of the installed code, runs `install.sh broker`,
+`/etc/valetkey-broker` with the new parser, keeps a copy of the installed code, runs `install.sh broker`,
 and waits until the broker ports that listened before listen again. If they do not, it puts the
 previous code back and says so. `sudo valetkey-broker rollback` does the same on request, for an
 update that starts but misbehaves.
@@ -116,7 +120,7 @@ to the repository decides what that command installs. There is deliberately no r
 automatic trigger.
 
 `broker/CONFIG_EPOCH` is a number that changes whenever an update needs you to do something
-first (edit `/etc/broker`, change the vault or the tailnet). `install` warns when it differs from
+first (edit `/etc/valetkey-broker`, change the vault or the tailnet). `install` warns when it differs from
 the installed one; the steps are listed here, newest first:
 
 - **2** (0.5): take a snapshot or backup of the broker first. Its names on disk move from

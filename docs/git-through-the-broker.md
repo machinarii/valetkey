@@ -71,7 +71,7 @@ service](several-keys-per-service.md) explains why, and which GitHub jobs get se
 
 ## 2. Add the route
 
-In `/etc/broker/routes.toml` on the broker:
+In `/etc/valetkey-broker/routes.toml` on the broker:
 
 ```toml
 [api.git-acme]

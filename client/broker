@@ -35,7 +35,7 @@ def _broker_url():
 
 # Keep the version in the executable so copied clients and Homebrew symlinks identify themselves.
 # The install test checks it against the repository VERSION.
-CLIENT_VERSION = "0.5.0"
+CLIENT_VERSION = "0.5.1"
 TAGS_URL = "https://api.github.com/repos/machinarii/valetkey/tags"
 STABLE_TAG = re.compile(r"v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)")
 BASE = ""
@@ -105,14 +105,14 @@ def cmd_version(a):
     print(CLIENT_VERSION)
 
 
-BROKER_BIN = "/usr/local/libexec/broker/bin"  # the broker's own tools, off the PATH
-BROKER_UPDATE = BROKER_BIN + "/broker-update"
+BROKER_BIN = "/usr/local/libexec/valetkey-broker/bin"  # the broker's own tools, off the PATH
+BROKER_UPDATE = BROKER_BIN + "/valetkey-broker-update"
 
 
 # On the broker, `valetkey-broker <word> ...` runs the broker tool of that name.
-BROKER_TOOLS = {"routes": ["broker-routes"], "login": ["broker-login"], "check": ["broker-check"],
-                "approval": ["broker-approval"], "rollback": ["broker-update", "rollback"],
-                "setup": ["broker-update", "setup"]}
+BROKER_TOOLS = {"routes": ["valetkey-broker-routes"], "login": ["valetkey-broker-login"], "check": ["valetkey-broker-check"],
+                "approval": ["valetkey-broker-approval"], "rollback": ["valetkey-broker-update", "rollback"],
+                "setup": ["valetkey-broker-update", "setup"]}
 
 
 def broker_tool(argv):

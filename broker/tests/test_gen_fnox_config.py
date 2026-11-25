@@ -119,7 +119,7 @@ class GenFnoxConfigTests(unittest.TestCase):
             # Today's shape: the one api route is in the other org, this org has only a project.
             f.write(ROUTES.split("[api.resend]")[0].replace('org      = "local"', 'org      = "infra"', 1))
             f.write('\n[project.shop]\norg = "local"\nnodes = ["devbox"]\nitems = ["*-shop-qa"]\n')
-        routes = routes_mod.load_routes(path)  # what broker-routes check runs: valid
+        routes = routes_mod.load_routes(path)  # what valetkey-broker-routes check runs: valid
         self.assertEqual(len(routes.for_org("local").api), 0)
         text = self.gen.generate(routes, "local", "org-id-123", None)
         conf = tomllib.loads(text)

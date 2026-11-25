@@ -59,9 +59,9 @@ valetkey is several small tools, each with one job, and each belongs on a partic
 | **Tailscale** | The private network between your machines. It gives every machine a name the broker and bellhop can check, issues the HTTPS certificates, and holds the policy that says who may reach whom. | Every machine |
 | **Vaultwarden** | The vault. Stores every key, encrypted. You manage it with the Bitwarden apps. Only the broker and your own devices can reach it. | Vault host |
 | **Broker services** | They stand between your machines and the vault: unlock it, hand out only what each machine's routes allow, add keys to outgoing API calls, and take new keys from you. | Broker |
-| &nbsp;&nbsp;`broker-front` | The only listener: HTTPS on the broker's tailnet address. Passes each request to a service below and tells it which machine is calling. | Broker |
-| &nbsp;&nbsp;`broker-local`, `broker-infra` | The read side, one per vault organization: checks, values for trusted servers, API routes. | Broker |
-| &nbsp;&nbsp;`broker-entry` | The write side: named requests from agents, and the page and prompt where you type a value. | Broker |
+| &nbsp;&nbsp;`valetkey-broker-front` | The only listener: HTTPS on the broker's tailnet address. Passes each request to a service below and tells it which machine is calling. | Broker |
+| &nbsp;&nbsp;`valetkey-broker-local`, `valetkey-broker-infra` | The read side, one per vault organization: checks, values for trusted servers, API routes. | Broker |
+| &nbsp;&nbsp;`valetkey-broker-entry` | The write side: named requests from agents, and the page and prompt where you type a value. | Broker |
 | **fnox** | On the broker, adds the key to an outgoing API call (`fnox proxy`). On a trusted server, starts a program with its secrets (`fnox exec`). | Broker; trusted servers |
 | **Broker tools** `valetkey-broker login`, `valetkey-broker check`, `valetkey-broker routes`, `valetkey-broker update` | Sign the broker services in to the vault, check them, apply route changes, update the broker. | Broker, at its console |
 | **`valetkey-broker`** | The client. Asks the broker whether a key exists and requests a new one by name. Never shows a value. | Agent machines and every other client |
@@ -78,14 +78,14 @@ valetkey is several small tools, each with one job, and each belongs on a partic
 ```text
  callers, over the tailnet            broker (Linux VM, TPM)
 ┌───────────────────────────┐        ┌──────────────────────────────────────────────┐
-│ agent machine             │        │ broker-front :443 (Tailscale certificate)     │       ┌─────────────────────┐
-│   valetkey-broker, API    │───────▶│   /local → broker-local  :8441 ─┐             │──────▶│ Vaultwarden         │
-│   and MCP: never a key    │        │   /infra → broker-infra  :8442 ─┼─ read       │       │   local-org         │
-├───────────────────────────┤        │   /entry → broker-entry  :8443 ─┘  and write  │       │   infra-org         │
+│ agent machine             │        │ valetkey-broker-front :443 (Tailscale certificate)     │       ┌─────────────────────┐
+│   valetkey-broker, API    │───────▶│   /local → valetkey-broker-local  :8441 ─┐             │──────▶│ Vaultwarden         │
+│   and MCP: never a key    │        │   /infra → valetkey-broker-infra  :8442 ─┼─ read       │       │   local-org         │
+├───────────────────────────┤        │   /entry → valetkey-broker-entry  :8443 ─┘  and write  │       │   infra-org         │
 │ trusted server            │───────▶│                                              │       └─────────────────────┘
 │   fnox → vault shim       │        │ fnox proxy: adds the key to [api.*] calls    │       ┌─────────────────────┐
-├───────────────────────────┤        │ broker-approval: authenticator, route grants  │──────▶│ service APIs and    │
-│ approver device           │───────▶│ broker-entry: key entry; checks what a stored │       │ MCP servers         │
+├───────────────────────────┤        │ valetkey-broker-approval: authenticator, route grants  │──────▶│ service APIs and    │
+│ approver device           │───────▶│ valetkey-broker-entry: key entry; checks what a stored │       │ MCP servers         │
 │   valetkey-entry, browser │        │   key opens on its MCP routes                │       └─────────────────────┘
 └───────────────────────────┘        └──────────────────────────────────────────────┘
  identity = Tailscale machine name   each service: own Linux user, own Vaultwarden account,
@@ -101,15 +101,15 @@ valetkey is several small tools, each with one job, and each belongs on a partic
 
 | Service | Vault access | Does |
 |---|---|---|
-| `broker-front` | none | TLS on the broker's Tailscale address, port 443. Routes `/local`, `/infra` and `/entry` to the loopback services and stamps each request with the caller's tailnet IP. |
-| `broker-local` | reads `local-org` (view-only account) | Serves `local` values, checks and API routes. |
-| `broker-infra` | reads `infra-org` (view-only account) | The same for `infra`. |
-| `broker-entry` | writes both (edit account) | Creates and replaces items, only when the owner submits a value. Unlocks for one write, then locks again. Then checks what the new key opens on its MCP routes and shows the owner. |
-| `broker-approval` | none | Pairs your authenticator at the console and approves proposed `[api.*]` routes with its codes. |
+| `valetkey-broker-front` | none | TLS on the broker's Tailscale address, port 443. Routes `/local`, `/infra` and `/entry` to the loopback services and stamps each request with the caller's tailnet IP. |
+| `valetkey-broker-local` | reads `local-org` (view-only account) | Serves `local` values, checks and API routes. |
+| `valetkey-broker-infra` | reads `infra-org` (view-only account) | The same for `infra`. |
+| `valetkey-broker-entry` | writes both (edit account) | Creates and replaces items, only when the owner submits a value. Unlocks for one write, then locks again. Then checks what the new key opens on its MCP routes and shows the owner. |
+| `valetkey-broker-approval` | none | Pairs your authenticator at the console and approves proposed `[api.*]` routes with its codes. |
 
 Each unlock password is stored with `systemd-creds`, encrypted to the VM's TPM/vTPM and host key. Read services keep a decrypted item cache in broker memory that refreshes every 5 minutes, and immediately after every write.
 
-**Who may use what.** `/etc/broker/routes.toml` on the broker lists, per credential, which Tailscale machines (`nodes`) may use it. There are three kinds of route:
+**Who may use what.** `/etc/valetkey-broker/routes.toml` on the broker lists, per credential, which Tailscale machines (`nodes`) may use it. There are three kinds of route:
 
 | Route | The caller gets | Use it for |
 |---|---|---|

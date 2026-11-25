@@ -1,19 +1,19 @@
 #!/bin/bash
 # Usage: sudo valetkey-broker routes check
 #        sudo valetkey-broker routes install [local|infra]
-# check    validates /etc/broker/routes.toml and /etc/broker/entry.toml (names, orgs, nodes, globs).
-# install  check, then regenerate /var/lib/broker-<org>/api.toml (fnox references only) from the
-#          routes and org.json, and restart broker-<org>. Without an org: both read services.
+# check    validates /etc/valetkey-broker/routes.toml and /etc/valetkey-broker/entry.toml (names, orgs, nodes, globs).
+# install  check, then regenerate /var/lib/valetkey-broker-<org>/api.toml (fnox references only) from the
+#          routes and org.json, and restart valetkey-broker-<org>. Without an org: both read services.
 #          With [api.*] routes it first asks valetkey-broker check whether fnox can find each route's item,
 #          and changes nothing if not; after the restart it waits until the broker listens, and
 #          puts the previous api.toml back if it never does.
-# Edit /etc/broker/routes.toml, then run `sudo valetkey-broker routes install`. Prints names only.
-# After editing entry.toml: sudo valetkey-broker routes check && sudo systemctl restart broker-entry
+# Edit /etc/valetkey-broker/routes.toml, then run `sudo valetkey-broker routes install`. Prints names only.
+# After editing entry.toml: sudo valetkey-broker routes check && sudo systemctl restart valetkey-broker-entry
 set -euo pipefail
 [ "$(id -u)" = 0 ] || { echo "Run with sudo." >&2; exit 1; }
-libexec=/usr/local/libexec/broker
-routes=/etc/broker/routes.toml
-entry=/etc/broker/entry.toml
+libexec=/usr/local/libexec/valetkey-broker
+routes=/etc/valetkey-broker/routes.toml
+entry=/etc/valetkey-broker/entry.toml
 usage="usage: valetkey-broker routes check | install [local|infra]"
 
 check() {
@@ -50,7 +50,7 @@ for kind, entries in (("value", r.values), ("project", r.projects)):
 # down. So: the port, not the unit state, says whether the broker is up.
 START_WAIT=${BROKER_START_WAIT:-90}
 
-listening() {  # broker-<org> has bound its loopback port
+listening() {  # valetkey-broker-<org> has bound its loopback port
   local port out
   case $1 in local) port=8441 ;; infra) port=8442 ;; *) return 1 ;; esac
   # Not `ss | grep -q`: under pipefail, grep leaving early can kill ss and read as "not listening".
@@ -58,7 +58,7 @@ listening() {  # broker-<org> has bound its loopback port
   grep -q ":$port " <<< "$out"
 }
 
-wait_listening() {  # true once broker-<org> listens and still does 3 s later
+wait_listening() {  # true once valetkey-broker-<org> listens and still does 3 s later
   local org=$1 i
   for ((i = 0; i < START_WAIT; i += 3)); do
     if listening "$org"; then sleep 3; listening "$org" && return 0; fi
@@ -68,14 +68,14 @@ wait_listening() {  # true once broker-<org> listens and still does 3 s later
 }
 
 api_item_problems() {  # valetkey-broker check's FAIL lines about [api.*] items of <org>; names only
-  "$(dirname "$0")/broker-check" "$1" 2>/dev/null | grep '^FAIL  \[api\.' || true
+  "$(dirname "$0")/valetkey-broker-check" "$1" 2>/dev/null | grep '^FAIL  \[api\.' || true
 }
 
 install_org() {
-  local org=$1 user=broker-$1 home=/var/lib/broker-$1 org_id tmp n bad
+  local org=$1 user=valetkey-broker-$1 home=/var/lib/valetkey-broker-$1 org_id tmp n bad
   if [ ! -f "$home/org.json" ]; then
     [ "${verified:-no}" = yes ] && return 1
-    echo "skip  broker-$org: no org.json yet; run valetkey-broker login $org <email> first"
+    echo "skip  valetkey-broker-$org: no org.json yet; run valetkey-broker login $org <email> first"
     return 0
   fi
   org_id=$(runuser -u "$user" -- jq -er '.org_id' "$home/org.json") || { echo "FAIL  $home/org.json has no org_id" >&2; return 1; }
@@ -90,7 +90,7 @@ install_org() {
     if [ -n "$bad" ]; then
       rm -f "$tmp"
       printf '%s\n' "$bad" >&2
-      echo "FAIL  broker-$org not changed: fix the items above, then run valetkey-broker routes install again" >&2
+      echo "FAIL  valetkey-broker-$org not changed: fix the items above, then run valetkey-broker routes install again" >&2
       return 1
     fi
   fi
@@ -108,21 +108,21 @@ install_org() {
   echo "ok    $home/api.toml: $n api routes"
   if [ ! -f "/etc/credstore.encrypted/bw-unlock-$org" ]; then
     [ "${verified:-no}" = yes ] && return 1
-    echo "skip  broker-$org: run valetkey-broker login $org <email> first"
+    echo "skip  valetkey-broker-$org: run valetkey-broker login $org <email> first"
     return 0
   fi
-  systemctl enable "broker-$org.service" >/dev/null 2>&1 || true
-  if systemctl restart "broker-$org.service" && wait_listening "$org"; then
-    echo "ok    broker-$org running"
+  systemctl enable "valetkey-broker-$org.service" >/dev/null 2>&1 || true
+  if systemctl restart "valetkey-broker-$org.service" && wait_listening "$org"; then
+    echo "ok    valetkey-broker-$org running"
     return 0
   fi
-  echo "FAIL  broker-$org did not start; see: journalctl -u broker-$org -n 30" >&2
+  echo "FAIL  valetkey-broker-$org did not start; see: journalctl -u valetkey-broker-$org -n 30" >&2
   if [ -f "$home/api.toml.prev" ]; then
     runuser -u "$user" -- cp -p --remove-destination "$home/api.toml.prev" "$home/api.toml" || return 1
-    if systemctl restart "broker-$org.service" && wait_listening "$org"; then
-      echo "FAIL  broker-$org runs again with its previous api.toml; the new [api.*] routes are not active" >&2
+    if systemctl restart "valetkey-broker-$org.service" && wait_listening "$org"; then
+      echo "FAIL  valetkey-broker-$org runs again with its previous api.toml; the new [api.*] routes are not active" >&2
     else
-      echo "FAIL  broker-$org is still down with its previous api.toml" >&2
+      echo "FAIL  valetkey-broker-$org is still down with its previous api.toml" >&2
     fi
   fi
   return 1
@@ -138,8 +138,8 @@ case ${1:-} in
     if [ "$1" = install-verified ]; then
       verified=yes
       case ${2:-} in local|infra) ;; *) exit 2 ;; esac
-      [ -f "/var/lib/broker-$2/org.json" ] && [ -f "/etc/credstore.encrypted/bw-unlock-$2" ] || exit 1
-      "$(dirname "$0")/broker-check" "$2" --api-only >/dev/null || exit 1
+      [ -f "/var/lib/valetkey-broker-$2/org.json" ] && [ -f "/etc/credstore.encrypted/bw-unlock-$2" ] || exit 1
+      "$(dirname "$0")/valetkey-broker-check" "$2" --api-only >/dev/null || exit 1
     fi
     case ${2:-all} in local|infra|all) ;; *) echo "$usage" >&2; exit 2 ;; esac
     check

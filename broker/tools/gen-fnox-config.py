@@ -1,10 +1,10 @@
 #!/usr/bin/python3 -I
 """Generate the fnox config for one org's [api.*] routes (references only, never values).
 
-  gen-fnox-config.py --routes /etc/broker/routes.toml --org infra --org-id <id> > api.toml
+  gen-fnox-config.py --routes /etc/valetkey-broker/routes.toml --org infra --org-id <id> > api.toml
 
-Run by valetkey-broker routes on the broker; the output is /var/lib/broker-<org>/api.toml, read by
-`fnox proxy run` in broker-<org>.service. Each route becomes one secret (env = false: the broker
+Run by valetkey-broker routes on the broker; the output is /var/lib/valetkey-broker-<org>/api.toml, read by
+`fnox proxy run` in valetkey-broker-<org>.service. Each route becomes one secret (env = false: the broker
 never sees it) and one strict proxy rule that swaps the route's placeholder for the real value,
 only for that upstream host, those methods and paths.
 """
@@ -15,7 +15,7 @@ import re
 import sys
 import urllib.parse
 
-# brokerlib sits next to this file on the broker (/usr/local/libexec/broker/) and one level up in
+# brokerlib sits next to this file on the broker (/usr/local/libexec/valetkey-broker/) and one level up in
 # the repo (broker/tools/ beside broker/brokerlib/); -I keeps both off sys.path otherwise.
 _here = os.path.dirname(os.path.abspath(__file__))
 for _d in (_here, os.path.dirname(_here)):

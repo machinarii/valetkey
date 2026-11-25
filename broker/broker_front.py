@@ -177,7 +177,7 @@ def main(argv=None):
     args = parse_args(sys.argv[1:] if argv is None else argv)
     srv = build_server(args)
     host, port = srv.server_address[:2]
-    print(f"broker-front listening on {host}:{port}: {', '.join(sorted(srv.ctx['backends']))}", flush=True)
+    print(f"valetkey-broker-front listening on {host}:{port}: {', '.join(sorted(srv.ctx['backends']))}", flush=True)
     try:
         srv.serve_forever()
     except KeyboardInterrupt:

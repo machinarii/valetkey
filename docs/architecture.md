@@ -24,26 +24,26 @@ Two sides:
 ```text
  callers, over the tailnet            broker (Linux VM, TPM)
 ┌───────────────────────────┐        ┌──────────────────────────────────────────────┐
-│ agent machine             │        │ broker-front :443 (Tailscale certificate)     │       ┌─────────────────────┐
-│   valetkey-broker, API    │───────▶│   /local → broker-local  :8441 ─┐             │──────▶│ Vaultwarden         │
-│   and MCP: never a key    │        │   /infra → broker-infra  :8442 ─┼─ read       │       │   local-org         │
-├───────────────────────────┤        │   /entry → broker-entry  :8443 ─┘  and write  │       │   infra-org         │
+│ agent machine             │        │ valetkey-broker-front :443 (Tailscale certificate)     │       ┌─────────────────────┐
+│   valetkey-broker, API    │───────▶│   /local → valetkey-broker-local  :8441 ─┐             │──────▶│ Vaultwarden         │
+│   and MCP: never a key    │        │   /infra → valetkey-broker-infra  :8442 ─┼─ read       │       │   local-org         │
+├───────────────────────────┤        │   /entry → valetkey-broker-entry  :8443 ─┘  and write  │       │   infra-org         │
 │ trusted server            │───────▶│                                              │       └─────────────────────┘
 │   fnox → vault shim       │        │ fnox proxy: adds the key to [api.*] calls    │       ┌─────────────────────┐
-├───────────────────────────┤        │ broker-approval: authenticator, route grants  │──────▶│ service APIs and    │
-│ approver device           │───────▶│ broker-entry: key entry; checks what a stored │       │ MCP servers         │
+├───────────────────────────┤        │ valetkey-broker-approval: authenticator, route grants  │──────▶│ service APIs and    │
+│ approver device           │───────▶│ valetkey-broker-entry: key entry; checks what a stored │       │ MCP servers         │
 │   valetkey-entry, browser │        │   key opens on its MCP routes                │       └─────────────────────┘
 └───────────────────────────┘        └──────────────────────────────────────────────┘
 ```
 
 | Piece | File | Runs as | Notes |
 |---|---|---|---|
-| Front door | `broker/broker_front.py` | `broker-front` | TLS with the Tailscale certificate (`broker-cert`, renewed weekly). Strips the `/local`, `/infra` or `/entry` prefix and sets `X-Broker-Peer` to the TCP peer. Answers loopback-only paths with 404. Has no vault access. |
-| Read service | `broker/broker_read.py --org local\|infra` | `broker-local`, `broker-infra` | Started by `with-bw-session`, which unlocks with the `systemd-creds` credential, writes `BW_SESSION` to a 600 file under `/run`, and wraps the service in `fnox proxy run` when the org has `[api.*]` routes. The service's own environment never contains `BW_SESSION`. |
-| Entry service | `broker/broker_entry.py` | `broker-entry` | Holds no session. Unlocks → writes → verifies → locks per owner submission. Requests are kept in `/var/lib/broker-entry/requests.json` (names, never values) and expire after 24 h. After a value is stored, it checks the routes that use it (`brokerlib/access_check.py`): for an MCP server it signs in with the new key at that route's own upstream and lists the tools, never running one. |
-| Approval worker | `broker/approval_worker.py` | `broker-approval` | Pairs the owner's authenticator (console only) and approves proposed `[api.*]` routes with its codes. Reached by the entry service over a local socket. |
+| Front door | `broker/broker_front.py` | `valetkey-broker-front` | TLS with the Tailscale certificate (`valetkey-broker-cert`, renewed weekly). Strips the `/local`, `/infra` or `/entry` prefix and sets `X-Broker-Peer` to the TCP peer. Answers loopback-only paths with 404. Has no vault access. |
+| Read service | `broker/broker_read.py --org local\|infra` | `valetkey-broker-local`, `valetkey-broker-infra` | Started by `with-bw-session`, which unlocks with the `systemd-creds` credential, writes `BW_SESSION` to a 600 file under `/run`, and wraps the service in `fnox proxy run` when the org has `[api.*]` routes. The service's own environment never contains `BW_SESSION`. |
+| Entry service | `broker/broker_entry.py` | `valetkey-broker-entry` | Holds no session. Unlocks → writes → verifies → locks per owner submission. Requests are kept in `/var/lib/valetkey-broker-entry/requests.json` (names, never values) and expire after 24 h. After a value is stored, it checks the routes that use it (`brokerlib/access_check.py`): for an MCP server it signs in with the new key at that route's own upstream and lists the tools, never running one. |
+| Approval worker | `broker/approval_worker.py` | `valetkey-broker-approval` | Pairs the owner's authenticator (console only) and approves proposed `[api.*]` routes with its codes. Reached by the entry service over a local socket. |
 | Shared libs | `broker/brokerlib/` | | `bwclient` (the only module that runs `bw`; 5-minute item cache), `routes` (parse and validate), `identity` (`tailscale whois`, cached 5 min), `requests_store`, `httpbase`. |
-| Broker CLIs | `broker/bin/` | root | `valetkey-broker login`, `valetkey-broker check`, `valetkey-broker routes`, `valetkey-broker update`, `broker-cert`, `with-bw-session`. |
+| Broker CLIs | `broker/bin/` | root | `valetkey-broker login`, `valetkey-broker check`, `valetkey-broker routes`, `valetkey-broker update`, `valetkey-broker-cert`, `with-bw-session`. |
 | Clients | `client/` | user | `valetkey-broker` (check/request/status/backups), `vault` (fnox shim), `valetkey-entry` (owner). Stdlib Python ≥ 3.9; no proxies from the environment; redirects are errors. |
 
 ## Identity
@@ -66,7 +66,7 @@ Read service (under `/local` or `/infra`):
 | `GET /check?names=a,b/notes` | any known machine | `{"a":"ok"\|"missing"\|"not-allowed"}` |
 | `GET /backups/<name>` | machines that may read `<name>` | `{"backups":["YYYYMMDD",…]}`, newest first |
 | `* /<route>/<path>` | `[api.<route>]` nodes | the upstream's response; the key is added by `fnox proxy` |
-| `POST /refresh`, `GET /names` | loopback secret only | for `broker-entry` |
+| `POST /refresh`, `GET /names` | loopback secret only | for `valetkey-broker-entry` |
 
 A backup `<name>-backup-YYYYMMDD` requires the original item's raw-route permission and trusted
 consumer policy. API-only callers can check their exact API item reference but cannot read it
@@ -98,12 +98,12 @@ Names follow `^[a-z0-9]+(-[a-z0-9]+)*-(dev|qa|prod)$` with a project, or `^[a-z0
 
 | Path | Content | Mode |
 |---|---|---|
-| `/etc/broker/routes.toml`, `entry.toml`, `vault.env` | names, URLs | 644 |
+| `/etc/valetkey-broker/routes.toml`, `entry.toml`, `vault.env` | names, URLs | 644 |
 | `/etc/credstore.encrypted/bw-unlock-{local,infra,entry}` | unlock passwords, `systemd-creds` (TPM + host key) | 600 |
-| `/etc/credstore.encrypted/broker-loopback` | shared loopback secret | 600 |
-| `/var/lib/broker-<name>/` | `bw` data dir, `org.json` (org and collection IDs), `api.toml` (fnox references only) | 700 |
-| `/var/lib/broker/tls/` | Tailscale certificate | 750, group `broker-front` |
-| `/run/broker-<org>/bw.env` | `BW_SESSION` of the running read service | 600, tmpfs |
+| `/etc/credstore.encrypted/valetkey-broker-loopback` | shared loopback secret | 600 |
+| `/var/lib/valetkey-broker-<name>/` | `bw` data dir, `org.json` (org and collection IDs), `api.toml` (fnox references only) | 700 |
+| `/var/lib/valetkey-broker-front/tls/` | Tailscale certificate | 750, group `valetkey-broker-front` |
+| `/run/valetkey-broker-<org>/bw.env` | `BW_SESSION` of the running read service | 600, tmpfs |
 
 ## fnox integration
 

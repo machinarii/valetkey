@@ -123,7 +123,7 @@ class ItemCache:
     """Item list of an org's collections, refreshed every `ttl` seconds. Thread-safe.
 
     Every refresh runs `bw sync` first: `bw list items` reads the CLI's local copy, which
-    writes through other accounts (broker-entry, the web vault) never reach otherwise. A failed
+    writes through other accounts (valetkey-broker-entry, the web vault) never reach otherwise. A failed
     sync still lists the local copy and counts in `sync_failures`.
     """
 

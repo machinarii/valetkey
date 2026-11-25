@@ -5,11 +5,11 @@
 # with the web vault: a nested collection the account was not given shows up only there).
 # Then the units' state and the front door's last audit lines. Names only, never ids or values.
 #
-# A read service that is running is checked with its own session (/run/broker-<org>/bw.env): a
+# A read service that is running is checked with its own session (/run/valetkey-broker-<org>/bw.env): a
 # second `bw unlock` as the same user would replace that session and lock the running broker.
 set -uo pipefail
 [ "$(id -u)" = 0 ] || { echo "Run with sudo." >&2; exit 1; }
-libexec=/usr/local/libexec/broker
+libexec=/usr/local/libexec/valetkey-broker
 case ${1:-all} in
   local|infra|entry) names=$1 ;;
   all) names="local infra entry" ;;
@@ -18,28 +18,28 @@ esac
 
 rc=0
 for n in $names; do
-  user=broker-$n home=/var/lib/broker-$n
-  echo "== broker-$n"
+  user=valetkey-broker-$n home=/var/lib/valetkey-broker-$n
+  echo "== valetkey-broker-$n"
   if [ ! -f "/etc/credstore.encrypted/bw-unlock-$n" ]; then
-    echo "broker-$n: locked (no unlock credential: sudo valetkey-broker login $n <email>)"; rc=1; continue
+    echo "valetkey-broker-$n: locked (no unlock credential: sudo valetkey-broker login $n <email>)"; rc=1; continue
   fi
   if [ ! -f "$home/org.json" ]; then
-    echo "broker-$n: no org.json (sudo valetkey-broker login $n <email>)"; rc=1; continue
+    echo "valetkey-broker-$n: no org.json (sudo valetkey-broker login $n <email>)"; rc=1; continue
   fi
   inner=(/usr/bin/python3 -I "$libexec/vault-info.py" check "$n"
-         --routes /etc/broker/routes.toml --org-ids "$home/org.json")
+         --routes /etc/valetkey-broker/routes.toml --org-ids "$home/org.json")
   if [ "${2:-}" = --api-only ]; then inner+=(--api-only); fi
   run=(systemd-run --quiet --wait --pipe --collect -p "User=$user" -p "WorkingDirectory=$home"
        -E "HOME=$home" -E "BITWARDENCLI_APPDATA_DIR=$home/bw-cli")
-  if [ "$n" != entry ] && systemctl is-active --quiet "broker-$n.service" && [ -f "/run/broker-$n/bw.env" ]; then
-    out=$("${run[@]}" -p "EnvironmentFile=/run/broker-$n/bw.env" "${inner[@]}"); r=$?
+  if [ "$n" != entry ] && systemctl is-active --quiet "valetkey-broker-$n.service" && [ -f "/run/valetkey-broker-$n/bw.env" ]; then
+    out=$("${run[@]}" -p "EnvironmentFile=/run/valetkey-broker-$n/bw.env" "${inner[@]}"); r=$?
   else
     out=$("${run[@]}" -p "LoadCredentialEncrypted=bw-unlock-$n" \
-          "$libexec/with-bw-session" "bw-unlock-$n" "${inner[@]}" --lock); r=$?
+          "$libexec/bin/with-bw-session" "bw-unlock-$n" "${inner[@]}" --lock); r=$?
   fi
   if [ "${2:-}" = --api-only ]; then exit "$r"; fi
   if [ -z "$out" ]; then
-    echo "broker-$n: locked (unlock failed; re-run: sudo valetkey-broker login $n <email>)"
+    echo "valetkey-broker-$n: locked (unlock failed; re-run: sudo valetkey-broker login $n <email>)"
   else
     printf '%s\n' "$out"
   fi
@@ -48,11 +48,11 @@ done
 
 if [ "${2:-}" = --api-only ]; then exit 1; fi
 echo "== units"
-for u in broker-local broker-infra broker-entry broker-front broker-cert.timer; do
+for u in valetkey-broker-local valetkey-broker-infra valetkey-broker-entry valetkey-broker-front valetkey-broker-cert.timer; do
   s=$(systemctl is-active "$u" 2>/dev/null); [ -n "$s" ] || s=unknown
   printf '%-18s %s\n' "$u" "$s"
   [ "$s" = active ] || rc=1
 done
-echo "== broker-front, last 15 lines"
-journalctl -u broker-front -n 15 --no-pager -o cat
+echo "== valetkey-broker-front, last 15 lines"
+journalctl -u valetkey-broker-front -n 15 --no-pager -o cat
 exit $rc

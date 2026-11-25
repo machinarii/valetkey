@@ -5,7 +5,7 @@
 class ValetkeyApprover < Formula
   desc "valetkey client for an approver device: valetkey-broker and valetkey-entry"
   homepage "https://github.com/machinarii/valetkey"
-  url "https://github.com/machinarii/valetkey.git", tag: "v0.5.0"
+  url "https://github.com/machinarii/valetkey.git", tag: "v0.5.1"
   license "MIT"
   head "https://github.com/machinarii/valetkey.git", branch: "main"
 
@@ -26,7 +26,7 @@ class ValetkeyApprover < Formula
       Point it at your broker once (names only, never a key):
         valetkey-broker set-url https://broker.<tailnet>.ts.net
       Use valetkey-entry on an approver device to enter keys; never run agents on this machine.
-      List it in the broker's /etc/broker/entry.toml owner_nodes.
+      List it in the broker's /etc/valetkey-broker/entry.toml owner_nodes.
     EOS
   end
 

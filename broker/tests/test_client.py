@@ -257,7 +257,7 @@ class BrokerTests(ClientCase):
             execv.side_effect = SystemExit(0)
             with self.assertRaises(SystemExit):
                 client.cmd_update(None)
-            execv.assert_called_once_with("/usr/local/libexec/broker/bin/broker-update", ["/usr/local/libexec/broker/bin/broker-update", "install"])
+            execv.assert_called_once_with("/usr/local/libexec/valetkey-broker/bin/valetkey-broker-update", ["/usr/local/libexec/valetkey-broker/bin/valetkey-broker-update", "install"])
 
     def test_broker_words_run_broker_tools_only_on_a_server_install(self):
         from importlib.machinery import SourceFileLoader
@@ -268,11 +268,11 @@ class BrokerTests(ClientCase):
             execv.assert_not_called()
             with mock.patch.object(client.Path, "resolve", return_value=client.Path("/usr/local/bin/valetkey-broker-version")):
                 client.broker_tool(["routes", "install", "local"])
-                execv.assert_called_once_with("/usr/local/libexec/broker/bin/broker-routes",
-                                              ["/usr/local/libexec/broker/bin/broker-routes", "install", "local"])
+                execv.assert_called_once_with("/usr/local/libexec/valetkey-broker/bin/valetkey-broker-routes",
+                                              ["/usr/local/libexec/valetkey-broker/bin/valetkey-broker-routes", "install", "local"])
                 execv.reset_mock()
                 client.broker_tool(["rollback"])
-                execv.assert_called_once_with("/usr/local/libexec/broker/bin/broker-update", ["/usr/local/libexec/broker/bin/broker-update", "rollback"])
+                execv.assert_called_once_with("/usr/local/libexec/valetkey-broker/bin/valetkey-broker-update", ["/usr/local/libexec/valetkey-broker/bin/valetkey-broker-update", "rollback"])
                 execv.reset_mock()
                 for argv in ([], ["version"], ["request", "x"]):
                     client.broker_tool(argv)
@@ -596,7 +596,7 @@ class HardeningTests(ClientCase):
 
     def test_shim_with_root_address_and_local_path(self):
         # LAPTOP launcher: VAULT_ADDR=<broker root>, `vault kv get -field=value local/<name>`
-        # -> GET /local/value/<name>, which the front door routes to broker-local's [value.*].
+        # -> GET /local/value/<name>, which the front door routes to valetkey-broker-local's [value.*].
         p = self.run_tool("vault", "kv", "get", "-field=value", "local/claude-code-oauth-laptop",
                           env={"VAULT_ADDR": self.base})
         self.assertEqual((p.returncode, p.stdout), (0, b"local-value-1"), p.stderr)

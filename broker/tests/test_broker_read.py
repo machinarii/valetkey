@@ -560,7 +560,7 @@ class BrokerReadTest(unittest.TestCase):
 
     def test_api_route_forwards_and_marks_suspect_on_401(self):
         seen = {"auth": [], "status": 401}
-        marks, ctypes = [], []  # broker-entry answers 415 without application/json
+        marks, ctypes = [], []  # valetkey-broker-entry answers 415 without application/json
 
         class Upstream(BaseHTTPRequestHandler):
             protocol_version = "HTTP/1.1"

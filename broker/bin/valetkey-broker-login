@@ -3,8 +3,8 @@
 # Interactive only (a secure terminal on the broker or its hypervisor console). For one broker user:
 # the master password is read with hidden input, passed to bw in an environment variable (never
 # an argument), and stored encrypted as /etc/credstore.encrypted/bw-unlock-<name>. While still
-# unlocked it writes /var/lib/broker-<name>/org.json (org and collection ids, mode 600), then locks.
-# Prints names and counts only. Settings come from the environment or /etc/broker/vault.env:
+# unlocked it writes /var/lib/valetkey-broker-<name>/org.json (org and collection ids, mode 600), then locks.
+# Prints names and counts only. Settings come from the environment or /etc/valetkey-broker/vault.env:
 # VAULT_URL (default https://vault.<tailnet suffix>) and LOCAL_ORG, INFRA_ORG, LOCAL_COLLECTION,
 # INFRA_COLLECTION (see vault-info.py).
 set -euo pipefail
@@ -15,16 +15,16 @@ name=${1:?$usage}
 email=${2:?$usage}
 case $name in local|infra|entry) ;; *) echo "$usage" >&2; exit 2 ;; esac
 
-user=broker-$name
-home=/var/lib/broker-$name
+user=valetkey-broker-$name
+home=/var/lib/valetkey-broker-$name
 appdata=$home/bw-cli
-libexec=/usr/local/libexec/broker
+libexec=/usr/local/libexec/valetkey-broker
 cred=/etc/credstore.encrypted/bw-unlock-$name
 id "$user" >/dev/null 2>&1 || { echo "No user $user: run install.sh broker first." >&2; exit 1; }
 
-# /etc/broker/vault.env: plain KEY=value lines (names and URLs only). Only these keys are read,
+# /etc/valetkey-broker/vault.env: plain KEY=value lines (names and URLs only). Only these keys are read,
 # the file is never sourced, and a variable already set in the environment wins.
-conf=/etc/broker/vault.env
+conf=/etc/valetkey-broker/vault.env
 if [ -f "$conf" ]; then
   while IFS='=' read -r key val; do
     case $key in
@@ -43,7 +43,7 @@ cd /
 # Stop the unit first: its own `bw unlock` as the same user (a restart, or a restart loop on an
 # old credential) would replace this login's session mid-way. It is started again at the end,
 # after api.toml (read services, via valetkey-broker routes install) and org.json exist.
-systemctl stop "broker-$name.service" 2>/dev/null || true
+systemctl stop "valetkey-broker-$name.service" 2>/dev/null || true
 
 # bw as the broker user, with its own data dir. runuser keeps the exported BW_* variables.
 bwu() { runuser -u "$user" -- env HOME="$home" BITWARDENCLI_APPDATA_DIR="$appdata" bw "$@"; }
@@ -80,15 +80,15 @@ unset BW_SESSION
 echo "ok    $home/org.json written; vault locked"
 
 # (Re)start the service with the new login.
-if [ -f "/etc/systemd/system/broker-$name.service" ]; then
+if [ -f "/etc/systemd/system/valetkey-broker-$name.service" ]; then
   if [ "$name" = entry ]; then
-    systemctl enable broker-entry.service >/dev/null 2>&1 || true
-    systemctl restart broker-entry.service
+    systemctl enable valetkey-broker-entry.service >/dev/null 2>&1 || true
+    systemctl restart valetkey-broker-entry.service
     sleep 3
-    if systemctl is-active --quiet broker-entry.service; then echo "ok    broker-entry running"
-    else echo "FAIL  broker-entry not running; see: journalctl -u broker-entry -n 30" >&2; exit 1; fi
+    if systemctl is-active --quiet valetkey-broker-entry.service; then echo "ok    valetkey-broker-entry running"
+    else echo "FAIL  valetkey-broker-entry not running; see: journalctl -u valetkey-broker-entry -n 30" >&2; exit 1; fi
   else
-    "$(dirname "$0")/broker-routes" install "$name"
+    "$(dirname "$0")/valetkey-broker-routes" install "$name"
   fi
 fi
 echo "Next: sudo valetkey-broker check $name"

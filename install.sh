@@ -423,9 +423,9 @@ cmd_doctor() {
       *) echo "broker       answered $code" ;;
     esac
   fi
-  if [ -d /usr/local/libexec/broker ]; then
-    printf '%-12s %s\n' "broker code" "$(cat /usr/local/libexec/broker/VERSION 2>/dev/null || echo 'installed, version unknown')"
-    for u in broker-local broker-infra broker-entry broker-front broker-cert.timer; do
+  if [ -d /usr/local/libexec/valetkey-broker ]; then
+    printf '%-12s %s\n' "broker code" "$(cat /usr/local/libexec/valetkey-broker/VERSION 2>/dev/null || echo 'installed, version unknown')"
+    for u in valetkey-broker-local valetkey-broker-infra valetkey-broker-entry valetkey-broker-front valetkey-broker-cert.timer; do
       printf '  %-16s %s\n' "$u" "$(systemctl is-active "$u" 2>/dev/null || true)"
     done
   fi
