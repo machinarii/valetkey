@@ -117,7 +117,9 @@ administers those machines. An optional **trusted server** runs an application t
 directly, such as a web app that reads its database password. Skip this role if all your tools use
 brokered API routes. [Secure setup](docs/secure-setup.md)
 
-1. **Your devices** (macOS or Linux): install with Homebrew, one package per role.
+1. **Install valetkey on each machine**, with the package manager of its system.
+
+   **macOS: Homebrew.** One package per role.
 
    ```sh
    brew tap machinarii/valetkey https://github.com/machinarii/valetkey
@@ -127,18 +129,22 @@ brokered API routes. [Secure setup](docs/secure-setup.md)
    valetkey-broker set-url https://broker.<tailnet>.ts.net
    ```
 
-2. **The servers** (vault, broker, optional bellhop; Linux): on a Proxmox VE host,
-   `sudo ./install.sh proxmox` creates and installs all three. Otherwise run the installer on each
-   server and choose its role:
+   **Linux: apt** (Debian and Ubuntu). One signed package for every role, including the three
+   servers: the vault, the broker and the optional bellhop.
 
    ```sh
-   curl -fsSL https://raw.githubusercontent.com/machinarii/valetkey/main/install.sh | bash
+   curl -fsSL https://machinarii.github.io/valetkey/apt/valetkey.gpg | sudo tee /usr/share/keyrings/valetkey.gpg >/dev/null
+   echo "deb [signed-by=/usr/share/keyrings/valetkey.gpg] https://machinarii.github.io/valetkey/apt ./" \
+     | sudo tee /etc/apt/sources.list.d/valetkey.list
+   sudo apt-get update && sudo apt-get install valetkey
+   valetkey-setup                   # asks which machine this is, then sets it up
    ```
 
-   On Debian and Ubuntu the same installer is also a signed apt package:
-   [`apt-get install valetkey`](docs/installation.md#debian-and-ubuntu-apt).
+   On a Proxmox VE host, one command creates and installs the three servers; on another Linux
+   distribution, run the installer script. Both are in
+   [the installation guide](docs/installation.md#other-ways-to-install).
 
-3. Follow the guide to sign the broker in, authorize your first route and verify it with a test
+2. Follow the guide to sign the broker in, authorize your first route and verify it with a test
    credential. [Installation and first setup](docs/installation.md)
 
 <a id="upgrading"></a>

@@ -16,8 +16,11 @@ as root to update the CLI on the host and all three guests. Use their numeric
 IDs. The command checks each role first and verifies the installed CLI version
 on each machine. The broker service has its own update command below.
 
-For Homebrew installs, run `brew update` and then `brew upgrade valetkey-agent`,
-`brew upgrade valetkey-approver`, or `brew upgrade valetkey-trusted-server` for the installed role.
+- **macOS (Homebrew):** run `brew update` and then `brew upgrade valetkey-agent`,
+  `brew upgrade valetkey-approver` or `brew upgrade valetkey-trusted-server` for the installed role.
+- **Linux (apt):** run `sudo apt-get update && sudo apt-get install --only-upgrade valetkey`, then
+  `valetkey-setup` to apply the new version to the machine's role. The broker updates with
+  `sudo valetkey-broker update` instead.
 
 Read [the migration procedure](secure-setup.md#migrate-an-existing-deployment-without-breaking-its-consumers)
 first. Ordinary raw routes require explicit `trusted_value_nodes`. Prepare

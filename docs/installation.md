@@ -1,18 +1,23 @@
 # Install valetkey
 
-valetkey runs on two kinds of machines:
+Install valetkey with the package manager of each machine's system:
 
-- **Your devices:** the machines where your agents run, the device where you type keys, and any
-  server whose app must read a key itself. Install these with **Homebrew**, on macOS or Linux.
-- **Three small Linux servers** that hold the keys and the tools: the vault, the broker and,
-  optionally, the bellhop. Install these with the **installer**.
+| System | Install with | Roles it covers |
+|---|---|---|
+| **macOS** | [Homebrew](#macos-homebrew) | agent machine, approver device, trusted server |
+| **Linux** (Debian, Ubuntu) | [apt](#linux-apt) | every role, including the three servers: vault, broker and bellhop |
+
+A phone or tablet where you type keys needs nothing installed: open the broker's entry page in its
+browser. For a Proxmox VE host or another Linux distribution, see
+[Other ways to install](#other-ways-to-install).
 
 Put each role on its own machine; [Containment](system-design.md#containment-where-everything-runs)
-explains why. Every machine needs Tailscale; see [Requirements](#requirements).
+explains why. The three servers (the vault, the broker and, optionally, the bellhop) run on Linux.
+Every machine needs Tailscale; see [Requirements](#requirements).
 
-## Your devices: Homebrew
+## macOS: Homebrew
 
-Add valetkey's Homebrew tap once on each device:
+Add valetkey's Homebrew tap once on each Mac:
 
 ```sh
 brew tap machinarii/valetkey https://github.com/machinarii/valetkey
@@ -29,48 +34,54 @@ Then install the package for that machine's role, and point it at your broker:
 
 - One machine, one role: the packages refuse to install side by side.
 - `brew upgrade` keeps them current.
-- A phone or tablet where you type keys needs nothing installed: open the broker's entry page in
-  its browser.
-- On a **Linux agent machine**, `sudo ./install.sh agent` does more than the package: it also adds
-  the hourly sweep, the bellhop's tool stand-ins and a root-owned Claude Code policy. Use it instead of
-  Homebrew there if you want those ([Installer reference](#installer-reference)).
+- Homebrew on Linux installs the same three packages, but apt is the usual way there and covers
+  more: see below.
 
-## The servers: the installer
+## Linux: apt
 
-On a **Proxmox VE host**, one command creates the vault, broker and bellhop and installs each one:
-
-```sh
-git clone https://github.com/machinarii/valetkey.git && cd valetkey
-sudo ./install.sh proxmox          # add --no-bellhop to skip the bellhop
-```
-
-Without Proxmox, run this on each Linux server and choose **vault host**, **broker** or **bellhop**:
-
-```sh
-curl -fsSL https://raw.githubusercontent.com/machinarii/valetkey/main/install.sh | bash
-```
-
-The installer asks for `sudo` only when it needs it, fills in your tailnet's addresses, and never
-asks for a key or password. To read the code first, clone the repository and run `./install.sh`.
-
-### Debian and Ubuntu: apt
-
-On Debian or Ubuntu you can get the same installer as a signed package instead of `curl | bash`.
-apt checks the signature on every install and upgrade:
+On Debian or Ubuntu, add valetkey's signed package repository once on each machine, install the
+package and run its setup command:
 
 ```sh
 curl -fsSL https://machinarii.github.io/valetkey/apt/valetkey.gpg | sudo tee /usr/share/keyrings/valetkey.gpg >/dev/null
 echo "deb [signed-by=/usr/share/keyrings/valetkey.gpg] https://machinarii.github.io/valetkey/apt ./" \
   | sudo tee /etc/apt/sources.list.d/valetkey.list
 sudo apt-get update && sudo apt-get install valetkey
-valetkey-setup                     # choose this machine's role
+valetkey-setup                     # asks which machine this is, then sets it up
 ```
 
-The package installs one command, `valetkey-setup`, and the installer's files in
-`/usr/share/valetkey`. It works for every role on Linux: agent machine, approver device, trusted
-server, broker, bellhop and vault host. Installing or upgrading the package changes nothing on its
-own. After `sudo apt-get upgrade`, run `valetkey-setup` again to apply the new version to the
-machine's role (on the broker, `sudo valetkey-broker update` remains the way to update).
+- One package covers every role on Linux: agent machine, approver device, trusted server, broker,
+  bellhop and vault host. `valetkey-setup` asks which one this machine is.
+- apt checks the package's signature on every install and upgrade.
+- The package installs one command, `valetkey-setup`, and the installer's files in
+  `/usr/share/valetkey`.
+- Installing or upgrading the package changes nothing on its own. After `sudo apt-get upgrade`,
+  run `valetkey-setup` again to apply the new version to the machine's role. On the broker,
+  `sudo valetkey-broker update` remains the way to update.
+- On an agent machine, the setup adds more than the Homebrew package does: the hourly sweep, the
+  bellhop's tool stand-ins and a root-owned Claude Code policy
+  ([Installer reference](#installer-reference)).
+- The setup asks for `sudo` only when it needs it, fills in your tailnet's addresses, and never
+  asks for a key or password.
+
+## Other ways to install
+
+**A Proxmox VE host.** One command creates the vault, broker and bellhop as separate guests and
+installs each one:
+
+```sh
+git clone https://github.com/machinarii/valetkey.git && cd valetkey
+sudo ./install.sh proxmox          # add --no-bellhop to skip the bellhop
+```
+
+**Another Linux distribution, or straight from the source.** The apt package runs this same
+installer. Run it on each machine and choose its role:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/machinarii/valetkey/main/install.sh | bash
+```
+
+To read the code first, clone the repository and run `./install.sh`.
 
 ### Fresh installation on Proxmox VE
 
