@@ -24,6 +24,7 @@
   <a href="#what-is-valetkey">What it is</a> ·
   <a href="#key-highlights">Key highlights</a> ·
   <a href="#how-it-works">How it works</a> ·
+  <a href="#screenshots">Screenshots</a> ·
   <a href="#quick-start">Quick start</a> ·
   <a href="#prerequisites">Prerequisites</a> ·
   <a href="#updating-procedure">Updating</a> ·
@@ -96,6 +97,39 @@ can grant one VM its own Claude setup-token. Any process on that VM can copy it,
 grant cannot recall a copy. Native Claude web login is also available. For subscriptions, Codex uses
 its own ChatGPT sign-in and has no corresponding valetkey grant.
 [Why the subscription terms shaped this choice](docs/security-boundaries.md#should-an-agent-machine-hold-its-own-model-credential)
+
+## Screenshots
+
+The pages you use on your approver device, shown at phone size. The services in them are made up.
+
+<table>
+  <tr>
+    <td width="33%" valign="top" align="center">
+      <b>Enter a key, or sign in</b><br>
+      <sub>An agent asked for these by name. You paste the key, or sign in at the service.</sub><br><br>
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/images/page-entry-dark.png">
+        <img src="docs/images/page-entry-light.png" width="260" alt="The entry page on a phone. Two requests are waiting. The first, paperplane-api-key, asked by the machine devbox, has a field for the value, an expiry date set one year ahead, and a Store secret button. The second, notehive-oauth, has no field: it names the host you sign in at and has a Sign in button.">
+      </picture>
+    </td>
+    <td width="33%" valign="top" align="center">
+      <b>See what the key opens</b><br>
+      <sub>After storing: which machines can use it, and the MCP server's tools by what they do.</sub><br><br>
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/images/page-stored-dark.png">
+        <img src="docs/images/page-stored-light.png" width="260" alt="The page shown after a key is stored. trackboard-api-key is in the vault. One route uses it: the machines devbox and ci-runner, the address, the method POST and the path. The MCP server accepted the key and lists six tools in three groups: read only, write, and can change or delete.">
+      </picture>
+    </td>
+    <td width="33%" valign="top" align="center">
+      <b>Approve a route</b><br>
+      <sub>Which machine, which key, which address and tools; how long it lasts; then your authenticator code.</sub><br><br>
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/images/page-approve-dark.png">
+        <img src="docs/images/page-approve-light.png" width="260" alt="The route approval page. The machine devbox asks to use the key local/trackboard-api-key on an address. Below are the route name, the method, the path, a limit to the tools the server labels read-only, how the key is sent, a choice of how long the access lasts, six boxes for an authenticator code and an Approve this route button.">
+      </picture>
+    </td>
+  </tr>
+</table>
 
 ## Quick start
 

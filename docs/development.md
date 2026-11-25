@@ -39,7 +39,7 @@ valetkey/
 │   ├── credential-rules.md     instruction section for AI agents
 │   ├── claude-setup.py         asks what to block; updates Claude Code's CLAUDE.md and settings.json
 │   └── token-cost.py           measures what the setup adds to a Claude Code session, in tokens and time
-├── docs/images/                icon, the how-it-works animation (SVG) and its motion spec
+├── docs/images/                icon, the how-it-works animation (SVG) and its motion spec, page screenshots
 └── docs/                       secure setup, architecture, threat model, fnox vault-provider notes, git through the broker,
                                 keyless tool standard, recipe for adding a tool, several keys for one service
 ```
@@ -76,6 +76,20 @@ values in the spec, then run the two commands again. The checker gives two warni
 capitals because valetkey, bellhop, vault and broker are written in lower case. And the broker box
 is 2 px taller than the 4 px grid gives, so the gap under its inner box equals the gap above its
 name.
+
+### Retaking the README screenshots
+
+`docs/images/page-*.png` show the entry page, the page after a key is stored, and the route approval
+page, with made-up services. `docs/images/pages.py` writes those three pages as HTML files from the
+real page code, with no vault and no network:
+
+```sh
+python3 docs/images/pages.py /tmp/pages      # entry.html, stored.html, approve.html
+```
+
+Open each file in a browser window 390 px wide, once in light and once in dark mode, and save a
+full-page screenshot as `page-<name>-<light|dark>.png`. The README picks the one that matches the
+reader's theme.
 
 The icon (`valetkey-icon.png`, `valetkey-icon-512.png`) was generated with ChatGPT's image tool
 from the brief "a close-up robotic valet in a cap, holding a key beside its head", then cut out of
