@@ -159,7 +159,7 @@
   <circle cx="46" cy="333.5" r="2.5" fill="#4CF490" class="tick" style="animation-delay:0s"/>
   <text class="t-name" x="56" y="336.5">agent</text>
   <text class="t-desc" x="44" y="352.5">agent machine</text>
-  <text class="t-desc" x="44" y="364.5">holds no keys and no logins</text>
+  <text class="t-desc" x="44" y="364.5">holds no keys/credentials</text>
   <rect x="236" y="144" width="140" height="64" rx="7" fill="#141416" stroke="#363840"/>
   <circle cx="250" cy="161.5" r="2.5" fill="#4CF490" class="tick" style="animation-delay:-0.35s"/>
   <text class="t-name" x="260" y="164.5">vault</text>
