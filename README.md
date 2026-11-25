@@ -30,8 +30,6 @@
 
 <p align="center">
   <img src="docs/images/how-it-works.svg" width="860" alt="Animated diagram with a legend: a green dot is a request, a yellow dot is a master key (the real credential), a blue dot is a credential a tool keeps for itself. An agent machine that holds no keys or credentials sends the broker a request with no key in it. The broker checks the calling machine and takes that route's master key from the vault; fnox adds the key and forwards the request to a service API or CLI. The answer comes back to the agent without the key. For a tool with its own credential, the agent calls the bellhop, which runs the MCP server or tool with that credential and returns only the output. The vault, the broker and the bellhop sit in an area marked: no agent runs here.">
-  <br>
-  <sub>Agents send requests, never keys. The broker adds the master key on the way out; the bellhop runs tools that keep their own credentials.</sub>
 </p>
 
 > [!WARNING]
