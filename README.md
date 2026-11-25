@@ -29,9 +29,9 @@
 <br>
 
 <p align="center">
-  <img src="docs/images/how-it-works.svg" width="860" alt="Animated diagram with a legend: a green dot is a key request (a request with no key in it), a yellow dot is a master key (the real credential), a violet dot is a valet key (which routes a machine may use, kept on the broker), a blue dot is a credential a tool keeps for itself. An agent machine that holds no keys or credentials sends the broker a key request. The broker checks that the machine's valet key fits the route and takes that route's master key from the vault; fnox adds the key and forwards the request to a service API or CLI. The answer comes back to the agent without the key. For a tool with its own login, the agent calls the bellhop, which runs the MCP server or tool with that credential and returns only the output. The vault, the broker and the bellhop sit in an area marked: no agent runs here.">
+  <img src="docs/images/how-it-works.svg" width="860" alt="Animated diagram with a legend: a green dot is a key request (a request with no key in it), a yellow dot is a master key (the real credential), a violet dot is a valet key (which routes a machine may use, kept on the broker), a blue dot is a credential a tool keeps for itself. An agent machine that holds no keys or credentials sends the broker a key request. The broker checks that the machine's valet key fits the route and takes that route's master key from the vault; fnox adds the key and forwards the request to a service API or CLI. The answer comes back to the agent without the key. For a tool with its own credential, the agent calls the bellhop, which runs the MCP server or tool with that credential and returns only the output. The vault, the broker and the bellhop sit in an area marked: no agent runs here.">
   <br>
-  <sub>Agents send key requests, never keys. The broker adds the master key on the way out; the bellhop runs tools that keep their own login.</sub>
+  <sub>Agents send key requests, never keys. The broker adds the master key on the way out; the bellhop runs tools that keep their own credentials.</sub>
 </p>
 
 > [!WARNING]

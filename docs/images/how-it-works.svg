@@ -177,7 +177,7 @@
   <circle cx="250" cy="389.5" r="2.5" fill="#4CF490" class="tick" style="animation-delay:-1.05s"/>
   <text class="t-name" x="260" y="392.5">bellhop</text>
   <text class="t-desc" x="248" y="408.5">Proxmox VM</text>
-  <text class="t-desc" x="248" y="420.5">runs tools, keeps their login</text>
+  <text class="t-desc" x="248" y="420.5">runs tools, keeps credentials</text>
   <rect x="500" y="284" width="128" height="64" rx="7" fill="#0D0D0E" stroke="#363840"/>
   <text class="t-name" x="512" y="304.5">service API/CLI</text>
   <text class="t-desc" x="512" y="320.5">gets the request</text>
@@ -185,7 +185,7 @@
   <rect x="500" y="372" width="128" height="64" rx="7" fill="#0D0D0E" stroke="#363840"/>
   <text class="t-name" x="512" y="392.5">service MCP/tool</text>
   <text class="t-desc" x="512" y="408.5">run by the bellhop</text>
-  <text class="t-desc" x="512" y="420.5">with the tool's own login</text>
+  <text class="t-desc" x="512" y="420.5">with the tool's credential</text>
 
   <!-- @motion:elements -->
   <text class="t-tag story" x="28" y="66" text-anchor="start" fill="#4CF490" style="animation-name:ph1;opacity:0">1 · the agent asks, with no key</text>
