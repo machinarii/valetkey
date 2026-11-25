@@ -141,7 +141,8 @@ brokered API routes. [Secure setup](docs/secure-setup.md)
 
 1. **Install valetkey on each machine**, with the package manager of its system.
 
-   **macOS: Homebrew.** One package per role. On every Mac, add the tap first:
+   **macOS: Homebrew.** For an agent machine or an approver device only. On the Mac, add the tap
+   first:
 
    ```sh
    brew tap machinarii/valetkey https://github.com/machinarii/valetkey
@@ -163,16 +164,9 @@ brokered API routes. [Secure setup](docs/secure-setup.md)
    valetkey-broker set-url https://broker.<tailnet>.ts.net
    ```
 
-   On a **trusted server** (optional; its application reads a key itself):
-
-   ```sh
-   brew install valetkey-trusted-server
-   valetkey-broker set-url https://broker.<tailnet>.ts.net
-   ```
-
-   **Linux: apt** (Debian and Ubuntu). One signed package covers every machine: agent machine,
-   approver device, trusted server, and the three servers (the vault, the broker and the optional
-   bellhop). On every Linux machine, add the repository and install the package:
+   **Linux: apt** (Debian and Ubuntu). For every machine: agent machine, approver device, trusted
+   server, and the three servers (the vault, the broker and the optional bellhop). One signed
+   package covers them all. On each Linux machine, add the repository and install the package:
 
    ```sh
    curl -fsSL https://machinarii.github.io/valetkey/apt/valetkey.gpg | sudo tee /usr/share/keyrings/valetkey.gpg >/dev/null
