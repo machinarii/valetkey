@@ -1,4 +1,5 @@
-"""Broker-side TOTP pairing and immutable, expiring bearer-route proposals."""
+"""Broker-side TOTP pairing and immutable, expiring route proposals: a new bearer route, or a machine
+joining an existing route (nothing else about that route changes)."""
 import base64
 import hmac
 import json
@@ -11,7 +12,8 @@ import tempfile
 import time
 import urllib.parse
 
-from .routes import load_entry_config, load_routes, proposed_api, ROUTE_NAME_RE, RoutesError
+from .routes import (BINDING, join_binding, load_entry_config, load_routes, proposed_api, ROUTE_NAME_RE,
+                     RoutesError)
 
 
 class Refused(Exception):
@@ -101,13 +103,16 @@ class Approvals:
         routes, _ = self.policy()
         if who not in routes.agent_nodes:
             raise Refused(403, "only configured agent machines can propose routes")
-        try:
-            route = proposed_api(spec, who)
-        except RoutesError as exc:
-            raise Refused(400, str(exc)) from None
-        if route.name in routes.api or (self.grants / (route.name + ".json")).exists():
-            raise Refused(409, "route name already exists")
-        spec = dict(spec, methods=route.methods, paths=route.paths)
+        if isinstance(spec, dict) and set(spec) == {"join"}:
+            spec = self.join_spec(routes, who, spec["join"])
+        else:
+            try:
+                route = proposed_api(spec, who)
+            except RoutesError as exc:
+                raise Refused(400, str(exc)) from None
+            if route.name in routes.api or (self.grants / (route.name + ".json")).exists():
+                raise Refused(409, "route name already exists")
+            spec = dict(spec, methods=route.methods, paths=route.paths)
         now = int(self.clock())
         self.db.execute("DELETE FROM proposal WHERE expires<=? AND state NOT IN ('installing','recovery')",
                         (now,))
@@ -122,6 +127,16 @@ class Approvals:
         self.db.execute("INSERT INTO proposal VALUES(?,?,?,?,?,NULL)", (rid, who, encoded, now + 900, "pending"))
         return rid
 
+    def join_spec(self, routes, who, name):
+        """What the owner approves when a machine joins an existing route: the route as it is now."""
+        route = routes.api.get(name) if isinstance(name, str) and ROUTE_NAME_RE.fullmatch(name) else None
+        if not route or route.model:
+            raise Refused(404, "no API route with that name")
+        if who in route.nodes or (self.grants / f"{name}+{who}.json").exists():
+            raise Refused(409, "this machine already uses that route")
+        return dict(join_binding(route), join=name, methods=list(route.methods), paths=list(route.paths),
+                    nodes=list(route.nodes))
+
     def review(self, who, rid):
         _, conf = self.policy()
         if who not in conf.owner_nodes:
@@ -132,6 +147,9 @@ class Approvals:
         return dict(node=row["node"], spec=json.loads(row["spec"]), state=row["state"])
 
     def grant_file(self, rid, node, spec):
+        if "join" in spec:
+            obj = {"request": rid, "node": node, "join": spec["join"], "bind": {k: spec[k] for k in BINDING}}
+            return self.grants / f"{spec['join']}+{node}.json", json.dumps(obj, sort_keys=True).encode()
         obj = {"request": rid, "node": node, "spec": spec}
         return self.grants / (spec["name"] + ".json"), json.dumps(obj, sort_keys=True).encode()
 
@@ -164,11 +182,17 @@ class Approvals:
         if proposal["state"] != "pending":
             raise Refused(409, "proposal can no longer be approved")
         spec, node = proposal["spec"], proposal["node"]
-        route = proposed_api(spec, node)
         routes, _ = self.policy()
         path, data = self.grant_file(rid, node, spec)
-        if node not in routes.agent_nodes or route.name in routes.api or path.exists():
-            raise Refused(409, "agent or route policy changed; proposal cannot be applied")
+        if "join" in spec:
+            route = routes.api.get(spec["join"])
+            if (node not in routes.agent_nodes or not route or route.model or node in route.nodes
+                    or join_binding(route) != {k: spec[k] for k in BINDING} or path.exists()):
+                raise Refused(409, "agent or route policy changed; proposal cannot be applied")
+        else:
+            route = proposed_api(spec, node)
+            if node not in routes.agent_nodes or route.name in routes.api or path.exists():
+                raise Refused(409, "agent or route policy changed; proposal cannot be applied")
         owner = self.db.execute("SELECT active FROM owner WHERE name=?", (who,)).fetchone()
         if not owner or not owner["active"]:
             raise Refused(403, "pair this approver device from the broker console first")
@@ -188,7 +212,7 @@ class Approvals:
                 finally:
                     tmp.unlink(missing_ok=True)
             self.sync_grants()
-            if not self.install(route.org, route):
+            if not self.install(spec["org"], route):
                 raise Refused(503, "route installation failed; previous configuration restored")
         except Exception:
             self.db.execute("UPDATE proposal SET state='recovery' WHERE id=?", (rid,))

@@ -225,6 +225,24 @@ class RelayEntryTest(unittest.TestCase):
         self.assertNotIn(rid, self.audit.getvalue())
         self.assertNotIn("123456", self.audit.getvalue())
 
+    def test_join_review_page_names_the_route_and_its_machines(self):
+        self.start()
+        ctx = self.srv.ctx
+        rpc = relay_entry.approval_rpc
+        key = b"synthetic front key"
+        ctx["approval_front"] = key
+        spec = {"join": "motion", "org": "local", "item": "motion-api-key", "upstream": "https://motion.example.com",
+                "auth": "Basic {}", "auth_header": "Authorization", "methods": ["POST"], "paths": ["/graphql"],
+                "nodes": ["devbox"]}
+        ctx["approval_rpc"] = mock.Mock(return_value=(200, {"node": "kls5", "spec": spec, "state": "pending"}))
+        path = "/approve/" + "b" * 40
+        page = self.req(path, peer=OWNER_IP, headers={rpc.HEADER: rpc.proof(key, "GET", path, OWNER_IP)})[2].decode()
+        for text in ("asks to join route", "local/motion-api-key", "Already used by", "Basic (stored value)",
+                     "Nothing else about the route changes", 'name="code"'):
+            self.assertIn(text, page)
+        self.assertEqual(relay_entry.auth_label("X-Api-Key", "{}"), "X-Api-Key header")
+        self.assertEqual(relay_entry.auth_label("Authorization", "Bearer {}"), "Bearer token")
+
     def test_owner_approves_exact_agent_proposal(self):
         from pathlib import Path
         from relay import approval_worker

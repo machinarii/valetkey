@@ -53,6 +53,14 @@ bundled JS/CSS and escaped server-rendered request descriptions.
   declared agents denied (`relaylib/routes.py:80`, `relay_read.py:183`).
 - Owner → entry → vault: private terminal/TLS form, untagged owner identity, HTML escaping/form
   token/CSP, per-write unlock and verification (`client/vault-entry`, `relay_entry.py:278`).
+- Entry → upstream (access check): after a store, the new key goes only to the upstream of each
+  `[api.*]` route that names that item, and an MCP handshake only to routes that look like MCP
+  servers; no tool is run. Server text reaches the owner's page escaped, never an agent; agents get
+  route names and counts only, and an echoed key is replaced (`relaylib/access_check.py`).
+- Owner → approval worker: authenticator pairing at the console; route approvals with a code
+  through the entry service's bounded operations (`approval_worker.py`).
+- Agent → desk: listed commands only, run with the desk's own logins; the agent gets output, never
+  the login (`bellhop/desk.py`).
 - Operator → deployment: reviewed source and metadata policy; administration is trusted.
   CI/tests use synthetic secrets and do not prove production isolation (`.github/workflows/test.yml`).
 
@@ -60,15 +68,19 @@ bundled JS/CSS and escaped server-rendered request descriptions.
 
 ```mermaid
 flowchart LR
-  A["Untrusted agent VM"] -->|HTTPS metadata and API| F["Broker front"]
+  A["Untrusted agent VM"] -->|HTTPS metadata, API and MCP routes| F["Broker front (relay)"]
   C["Trusted server VM"] -->|HTTPS raw route| F
-  O["Separate approver device"] -->|HTTPS private entry| F
+  O["Separate approver device"] -->|HTTPS private entry and approvals| F
   F --> R["Read relay"]
   F --> E["Entry relay"]
+  E --> W["Approval worker"]
   R --> V["Vaultwarden"]
   E --> V
   R --> P["Broker fnox proxy"]
-  P --> U["Trusted upstream API"]
+  P --> U["Trusted upstream API or MCP server"]
+  E -->|access check after a store| U
+  A -->|HTTPS listed commands| D["Desk (bellhop)"]
+  D --> S["Tool's own service"]
 ```
 
 ## Assets and security objectives

@@ -436,19 +436,29 @@ class Handler(RelayHandler):
             else:
                 spec, state, e = data["spec"], data["state"], html.escape
                 show_form = state == "pending"
-                card = (f'<p class="lead"><b class="id">{e(data["node"])}</b> asks to use the key '
-                        f'<b class="id">{e(spec["org"] + "/" + spec["item"])}</b> on '
-                        f'<b class="id">{e(spec["upstream"])}</b>.</p>')
+                key = e(spec["org"] + "/" + spec["item"])
+                if "join" in spec:
+                    card = (f'<p class="lead"><b class="id">{e(data["node"])}</b> asks to join route '
+                            f'<b class="id">{e(spec["join"])}</b>, which sends the key <b class="id">{key}</b> '
+                            f'to <b class="id">{e(spec["upstream"])}</b>.</p>')
+                    check = ('Approve only if this machine should use that key the way the machines below '
+                             'already do. Nothing else about the route changes.')
+                else:
+                    card = (f'<p class="lead"><b class="id">{e(data["node"])}</b> asks to use the key '
+                            f'<b class="id">{key}</b> on <b class="id">{e(spec["upstream"])}</b>.</p>')
+                    check = 'Approve only if this address belongs to the provider that issued the key.'
                 if show_form:
-                    card += ('<p class="check">Approve only if this address belongs to the provider '
-                             'that issued the key.</p>')
+                    card += f'<p class="check">{check}</p>'
                 pill = {"pending": ("pending", "Waiting for approval"), "active": ("active", "Active")}.get(
                     state, ("", state.capitalize()))
-                rows = [("Route", f'<code>{e(spec["name"])}</code>'),
+                rows = [("Route", f'<code>{e(spec.get("join") or spec["name"])}</code>'),
                         ("Methods", "".join(f'<span class="chip">{e(m)}</span>' for m in spec["methods"])),
                         ("Paths", "".join(f"<code>{e(p)}</code><br>" for p in spec["paths"])
                          + '<span class="hint">and everything under them</span>'),
-                        ("Key sent as", "Bearer token"),
+                        *([("Already used by", "".join(f'<span class="chip">{e(n)}</span>' for n in spec["nodes"]))]
+                          if "join" in spec else []),
+                        ("Key sent as", e(auth_label(spec.get("auth_header", "Authorization"),
+                                                     spec.get("auth", "Bearer {}")))),
                         ("Status", f'<span class="pill {pill[0]}">{e(pill[1])}</span>')]
                 card += ('<dl class="spec">' + "".join(f"<div><dt>{k}</dt><dd>{v}</dd></div>" for k, v in rows)
                          + "</dl>")
@@ -677,6 +687,15 @@ class Handler(RelayHandler):
         text = re.sub(r"\{\{(pending|result)\}\}", lambda m: parts[m.group(1)], ctx["template"])
         self.send_bytes(200, text.encode(), "text/html; charset=utf-8")
         self.audit(who, "entry", 200)
+
+
+def auth_label(header, auth):
+    """How a route sends its key, in words: "Bearer token", "Basic (stored value)", "X-Api-Key header"."""
+    if header.lower() == "authorization":
+        scheme = auth.replace("{}", "").strip()
+        return {"Bearer": "Bearer token", "Basic": "Basic (stored value)", "": "Authorization header"}.get(
+            scheme, f"{scheme} token")
+    return f"{header} header"
 
 
 GROUPS = (("read", "Read only"), ("change", "Write"),

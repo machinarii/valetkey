@@ -202,6 +202,15 @@ def proposed_api(spec, node):
     return ApiRoute(name, org, item, origin, "Bearer {}", sorted(set(methods)), sorted(set(paths)), [node])
 
 
+# What decides where a route's key goes. A machine that joins a route keeps it only while these
+# stay as they were when the owner approved the join.
+BINDING = ("org", "item", "upstream", "auth", "auth_header")
+
+
+def join_binding(route):
+    return {k: getattr(route, k) for k in BINDING}
+
+
 # Fixed upstream origins and protocols for API-billed model traffic.
 MODEL_ORIGINS = {
     "anthropic": "https://api.anthropic.com",
@@ -300,7 +309,8 @@ def load_routes(path):
         if set(r.nodes) & set(routes.agent_nodes):
             raise RoutesError(f"route {r.name}: agent_nodes cannot be granted raw-value routes")
     grants = Path(path).parent / "approved-routes.d"
-    for file in sorted(grants.glob("*.json")):
+    files = sorted(grants.glob("*.json"))
+    for file in (f for f in files if "+" not in f.stem):  # new routes: <route>.json
         grant = json.loads(file.read_bytes())
         if not isinstance(grant, dict) or set(grant) != {"spec", "node", "request"}:
             raise RoutesError("invalid web-approved grant")
@@ -309,6 +319,17 @@ def load_routes(path):
             raise RoutesError("web-approved route name conflicts with another route")
         if grant["node"] in routes.agent_nodes:
             routes.api[route.name] = route
+    for file in (f for f in files if "+" in f.stem):  # joins: <route>+<machine>.json
+        grant = json.loads(file.read_bytes())
+        if (not isinstance(grant, dict) or set(grant) != {"join", "node", "request", "bind"}
+                or not all(isinstance(grant[k], str) and ROUTE_NAME_RE.fullmatch(grant[k]) for k in ("join", "node"))
+                or file.stem != f"{grant['join']}+{grant['node']}"):
+            raise RoutesError("invalid web-approved join")
+        route = routes.api.get(grant["join"])
+        # A join follows the route only while its key, address and auth stay as approved.
+        if (route and not route.model and grant["node"] in routes.agent_nodes
+                and grant["node"] not in route.nodes and join_binding(route) == grant["bind"]):
+            route.nodes = [*route.nodes, grant["node"]]
     return routes
 
 

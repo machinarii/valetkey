@@ -21,21 +21,27 @@ Two sides:
 
 ## Components
 
-```
-clients                                broker (Linux VM, TPM)                         Vaultwarden
-┌──────────────────────┐  tailnet     ┌────────────────────────────────────────┐   ┌───────────┐
-│ fnox → vault shim    │ ───HTTPS───▶ │ relay-front :443  (user relay-front)   │   │           │
-│ relay CLI            │              │   /local → relay-local  :8441 ─────────┼──▶│ local-org │
-│ vault-entry (owner)  │              │   /infra → relay-infra  :8442 ─────────┼──▶│ infra-org │
-│ API calls via routes │              │   /entry → relay-entry  :8443 ─────────┼──▶│ (writes)  │
-└──────────────────────┘              └────────────────────────────────────────┘   └───────────┘
+```text
+ callers, over the tailnet            broker (Linux VM, TPM)
+┌───────────────────────────┐        ┌──────────────────────────────────────────────┐
+│ agent machine             │        │ relay-front :443 (Tailscale certificate)     │       ┌─────────────────────┐
+│   relay CLI; API and MCP  │───────▶│   /local → relay-local  :8441 ─┐             │──────▶│ Vaultwarden         │
+│   calls, never a key      │        │   /infra → relay-infra  :8442 ─┼─ read       │       │   local-org         │
+├───────────────────────────┤        │   /entry → relay-entry  :8443 ─┘  and write  │       │   infra-org         │
+│ trusted server            │───────▶│                                              │       └─────────────────────┘
+│   fnox → vault shim       │        │ fnox proxy: adds the key to [api.*] calls    │       ┌─────────────────────┐
+├───────────────────────────┤        │ relay-approval: authenticator, route grants  │──────▶│ service APIs and    │
+│ approver device           │───────▶│ relay-entry: key entry; checks what a stored │       │ MCP servers         │
+│   vault-entry, browser    │        │   key opens on its MCP routes                │       └─────────────────────┘
+└───────────────────────────┘        └──────────────────────────────────────────────┘
 ```
 
 | Piece | File | Runs as | Notes |
 |---|---|---|---|
 | Front door | `relay/relay_front.py` | `relay-front` | TLS with the Tailscale certificate (`relay-cert`, renewed weekly). Strips the `/local`, `/infra` or `/entry` prefix and sets `X-Relay-Peer` to the TCP peer. Answers loopback-only paths with 404. Has no vault access. |
 | Read relay | `relay/relay_read.py --org local\|infra` | `relay-local`, `relay-infra` | Started by `with-bw-session`, which unlocks with the `systemd-creds` credential, writes `BW_SESSION` to a 600 file under `/run`, and wraps the relay in `fnox proxy run` when the org has `[api.*]` routes. The relay process's own environment never contains `BW_SESSION`. |
-| Entry service | `relay/relay_entry.py` | `relay-entry` | Holds no session. Unlocks → writes → verifies → locks per owner submission. Requests are kept in `/var/lib/relay-entry/requests.json` (names, never values) and expire after 24 h. |
+| Entry service | `relay/relay_entry.py` | `relay-entry` | Holds no session. Unlocks → writes → verifies → locks per owner submission. Requests are kept in `/var/lib/relay-entry/requests.json` (names, never values) and expire after 24 h. After a value is stored, it checks the routes that use it (`relaylib/access_check.py`): for an MCP server it signs in with the new key at that route's own upstream and lists the tools, never running one. |
+| Approval worker | `relay/approval_worker.py` | `relay-approval` | Pairs the owner's authenticator (console only) and approves proposed `[api.*]` routes with its codes. Reached by the entry service over a local socket. |
 | Shared libs | `relay/relaylib/` | | `bwclient` (the only module that runs `bw`; 5-minute item cache), `routes` (parse and validate), `identity` (`tailscale whois`, cached 5 min), `requests_store`, `httpbase`. |
 | Broker CLIs | `broker/bin/` | root | `relay-login`, `relay-check`, `relay-routes`, `relay-update`, `relay-cert`, `with-bw-session`. |
 | Clients | `client/` | user | `relay` (check/request/status/backups), `vault` (fnox shim), `vault-entry` (owner). Stdlib Python ≥ 3.9; no proxies from the environment; redirects are errors. |

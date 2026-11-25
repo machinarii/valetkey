@@ -29,7 +29,7 @@
 <br>
 
 <p align="center">
-  <img src="docs/images/how-it-works.gif" width="860" alt="Animation in eleven steps, with a legend: a keyhole is a request with no key in it, a gold key is a master key (the real credential), a silver key with one tooth is a valet key (which routes a machine may use, kept on the broker), a white card is a tool's own login. An agent machine that holds no keys sends the broker a request with an empty keyhole. The broker checks which machine is calling and that its valet key fits the route, takes that route's master key from the vault, puts it in the keyhole and forwards the request to the service. The answer comes back without the master key. For a tool with its own login, the agent calls the desk, which runs the real tool with that login. A command that would print the login is refused.">
+  <img src="docs/images/how-it-works.gif" width="860" alt="Animation in eleven steps, with a legend: a keyhole is a request with no key in it, a gold key is a master key (the real credential), a silver key with one tooth is a valet key (which routes a machine may use, kept on the broker), a white card is a tool's own login. An agent machine that holds no keys sends the broker a request with an empty keyhole. The broker's relay checks which machine is calling and whether its valet key fits the route. fnox puts the route's master key from Vaultwarden into the request and forwards it to a service API or MCP server. The answer comes back without the master key. For a tool with its own login, the agent calls the desk (bellhop), which runs the tool with that login. A command that would print the login is refused.">
   <br>
   <sub>Agents send keyholes, never keys. The broker puts the master key in a request on its way out; the desk runs tools that keep their own login.</sub>
 </p>
@@ -81,12 +81,14 @@ valetkey is a **credential broker for AI agents**, a kind of agent security infr
 with the agent harness you already use, such as Claude Code, Codex and/or T3 Code, and does not
 replace it.
 
-| Part | What it does | Also known as |
+| Part | Role | What it does |
 |---|---|---|
-| Broker | Agents call a service through it with no key; it checks the calling machine and adds the key on the way out. | Credential-injecting proxy, "secretless" access |
-| Broker routes to MCP servers | Agents reach MCP servers that need a fixed key through the broker, and you see which tools the key opens. | MCP gateway |
-| Desk | Runs command-line tools and MCP servers that keep their own login on a separate machine. | Remote tool runner |
-| Rules, sweep and policy | Teach agents the workflow, report logins that appear on agent machines and limit MCP servers. | Agent guardrails |
+| Broker (`relay`) | Credential-injecting proxy, "secretless" access | Agents call a service through it with no key; it checks the calling machine and adds the key on the way out. It also serves the key entry page and route approvals. On agent machines, the `relay` command calls it, requests keys and reports their status. |
+| fnox | Secret injector | Runs inside the broker and puts the key into each outgoing request. |
+| Vaultwarden | Secrets manager (vault) | Keeps every key, encrypted, on its own machine. Agents never reach it; the broker reads from it. |
+| MCP routes | MCP gateway | Broker routes to MCP servers that need a fixed key: agents connect with no key, and you see which tools the key opens. |
+| Desk (`bellhop`) | Remote tool runner | Runs command-line tools and MCP servers that keep their own login, on a separate machine. |
+| Rules, policy & sweep | Agent guardrails | Teach agents the workflow, limit MCP servers and report logins that appear on agent machines. |
 
 It is not an **agent harness or framework**: it runs no models and no agents. It is not a **secrets
 manager** either: Vaultwarden stores the keys, and valetkey makes sure agents never hold them.

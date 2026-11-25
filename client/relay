@@ -227,9 +227,25 @@ def cmd_request_route(a):
         "name": a.name, "org": a.org, "item": a.item, "upstream": a.upstream,
         "methods": a.method, "paths": a.path})
     if status != 201:
-        errors = {400: "invalid route specification", 403: "device not authorized", 409: "route exists",
+        errors = {400: "invalid route specification", 403: "device not authorized", 409: "route exists; to use it from this machine, run relay join-route NAME",
                   429: "too many requests", 503: "check broker approval service and enrollment"}
         sys.exit(f"relay: route request failed ({status}): {errors.get(status, 'broker unavailable')}")
+    try:
+        rid = json.loads(text)["id"]
+        if not isinstance(rid, str) or not re.fullmatch("[0-9a-f]{40}", rid):
+            raise ValueError
+    except (ValueError, KeyError, TypeError):
+        sys.exit("relay: invalid route request response")
+    print(f"{BASE}/entry/approve/{rid}")
+
+
+def cmd_join_route(a):
+    status, text = call("POST", "/entry/v1/route-requests", {"join": a.name})
+    if status != 201:
+        errors = {400: "invalid request", 403: "device not authorized", 404: "no API route with that name",
+                  409: "this machine already uses that route", 429: "too many requests",
+                  503: "check broker approval service and enrollment"}
+        sys.exit(f"relay: join request failed ({status}): {errors.get(status, 'broker unavailable')}")
     try:
         rid = json.loads(text)["id"]
         if not isinstance(rid, str) or not re.fullmatch("[0-9a-f]{40}", rid):
@@ -337,6 +353,9 @@ def add_client_commands(sub):
     route.add_argument("--method", action="append", required=True)
     route.add_argument("--path", action="append", required=True)
     route.set_defaults(fn=cmd_request_route)
+    join = sub.add_parser("join-route", help="ask the owner to add this machine to an existing API route")
+    join.add_argument("name")
+    join.set_defaults(fn=cmd_join_route)
     s = sub.add_parser("status")
     s.add_argument("id")
     s.set_defaults(fn=cmd_status)

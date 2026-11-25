@@ -29,8 +29,28 @@ Open the printed approval link on a paired approver device within fifteen minute
 
 For a missing key, first file `relay request` and use the broker's separate entry page or `vault-entry <id>` in the owner's private terminal. When the route is active, check storage and access with `relay check local reports-api-key`. Verify upstream authentication with a harmless allowed call. MCP servers with native OAuth use their provider's sign-in from an approved client outside the agent VM.
 
+## Join a route another machine already uses
+
+When a route exists for one machine and another machine needs the same key on the same service,
+run this on the machine that needs it:
+
+```sh
+relay join-route reports
+```
+
+The approval page says which machine asks, which key the route sends to which address, how the key
+is sent and which machines already use it. Approving adds only that machine to the route. Its
+address, key, auth format, methods and paths stay as they are, so this also works for routes you
+wrote by hand with another auth format, such as Basic.
+
+The join is kept as `/etc/relay/approved-routes.d/<route>+<machine>.json`. It applies only while the
+route keeps the same org, key, address and auth format it had when you approved it. If you later
+point the route at another address or key, the joined machine loses it until it asks again. Paths
+and methods you change by hand apply to every machine on the route, joined ones included. A join
+cannot add a machine to a model route.
+
 ## Broker operations
 
-The worker installs new bearer API grants for the requesting machine only. It stores grants in `/etc/relay/approved-routes.d` and leaves the administrator's TOML in place. Manual routing remains available for other authentication schemes. To revoke a web grant, the administrator removes its JSON file and runs `sudo relay-routes install <org>` and verifies denial from the affected agent. Restrict root access to this directory and the broker. Keep the vault, hypervisor, broker and approver device outside agent control.
+The worker installs new bearer API grants, and joins to existing API routes, for the requesting machine only. It stores grants in `/etc/relay/approved-routes.d` and leaves the administrator's TOML in place. Manual routing remains available for other authentication schemes. To revoke a web grant or a join, the administrator removes its JSON file and runs `sudo relay-routes install <org>` and verifies denial from the affected agent. Restrict root access to this directory and the broker. Keep the vault, hypervisor, broker and approver device outside agent control.
 
 If activation fails, check `systemctl status relay-approval.service`, `systemctl status relay-activate@local.service` (or `infra`) and `sudo relay-check <org>` at the trusted broker console. An interrupted installation is rolled back when the worker starts. If recovery fails, resolve the reported broker or vault issue, restart the worker, then file a fresh request. The worker's private database and its encrypted master credential together protect authenticator enrollments. Protect both when backing up the broker.

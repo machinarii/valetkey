@@ -74,16 +74,21 @@ valetkey is several small tools, each with one job, and each belongs on a partic
 
 ## How it works
 
-```
- laptop / devbox / bots                    broker VM                                   Vaultwarden
-┌─────────────────────────┐  tailnet     ┌──────────────────────────────────────┐    ┌─────────────┐
-│ fnox exec -- npm start  │  HTTPS       │ relay-front  :443 (Tailscale cert)    │    │             │
-│   └ vault shim ─────────┼────────────▶ │   /local  → relay-local  127.0.0.1:8441 ──▶│ local-org   │
-│ relay check / request   │              │   /infra  → relay-infra  127.0.0.1:8442 ──▶│ infra-org   │
-│ curl …/local/stripe/v1  │              │   /entry  → relay-entry  127.0.0.1:8443 ──▶│ (writes)    │
-└─────────────────────────┘              └──────────────────────────────────────┘    └─────────────┘
- identity = Tailscale machine name         each relay: own Linux user, own Vaultwarden
- nothing stored on the client              account, own encrypted unlock, own audit log
+```text
+ callers, over the tailnet            broker (Linux VM, TPM)
+┌───────────────────────────┐        ┌──────────────────────────────────────────────┐
+│ agent machine             │        │ relay-front :443 (Tailscale certificate)     │       ┌─────────────────────┐
+│   relay CLI; API and MCP  │───────▶│   /local → relay-local  :8441 ─┐             │──────▶│ Vaultwarden         │
+│   calls, never a key      │        │   /infra → relay-infra  :8442 ─┼─ read       │       │   local-org         │
+├───────────────────────────┤        │   /entry → relay-entry  :8443 ─┘  and write  │       │   infra-org         │
+│ trusted server            │───────▶│                                              │       └─────────────────────┘
+│   fnox → vault shim       │        │ fnox proxy: adds the key to [api.*] calls    │       ┌─────────────────────┐
+├───────────────────────────┤        │ relay-approval: authenticator, route grants  │──────▶│ service APIs and    │
+│ approver device           │───────▶│ relay-entry: key entry; checks what a stored │       │ MCP servers         │
+│   vault-entry, browser    │        │   key opens on its MCP routes                │       └─────────────────────┘
+└───────────────────────────┘        └──────────────────────────────────────────────┘
+ identity = Tailscale machine name   each relay: own Linux user, own Vaultwarden account,
+ nothing stored on an agent machine  own encrypted unlock, own audit log
 ```
 
 **The vault.** Vaultwarden, published only on the tailnet with `tailscale serve`. Keys are sorted into two organizations by *where they are used*:
@@ -91,14 +96,15 @@ valetkey is several small tools, each with one job, and each belongs on a partic
 - **`local`**: your own machines and network (home lab, personal tools, push URLs).
 - **`infra`**: deployed and cloud services, with one nested collection per project (`infra-broker-collection/shop`).
 
-**The broker.** One small Linux VM, and the only machine that unlocks a vault. It runs four systemd services, each as its own system user:
+**The broker.** One small Linux VM, and the only machine that unlocks a vault. It runs five systemd services, each as its own system user:
 
 | Service | Vault access | Does |
 |---|---|---|
 | `relay-front` | none | TLS on the broker's Tailscale address, port 443. Routes `/local`, `/infra` and `/entry` to the loopback services and stamps each request with the caller's tailnet IP. |
 | `relay-local` | reads `local-org` (view-only account) | Serves `local` values, checks and API routes. |
 | `relay-infra` | reads `infra-org` (view-only account) | The same for `infra`. |
-| `relay-entry` | writes both (edit account) | Creates and replaces items, only when the owner submits a value. Unlocks for one write, then locks again. |
+| `relay-entry` | writes both (edit account) | Creates and replaces items, only when the owner submits a value. Unlocks for one write, then locks again. Then checks what the new key opens on its MCP routes and shows the owner. |
+| `relay-approval` | none | Pairs your authenticator at the console and approves proposed `[api.*]` routes with its codes. |
 
 Each unlock password is stored with `systemd-creds`, encrypted to the VM's TPM/vTPM and host key. Read relays keep a decrypted item cache in broker memory that refreshes every 5 minutes, and immediately after every write.
 
@@ -147,8 +153,8 @@ The rule is short: **a key lives only on a machine where no agent runs, and an a
 ```
  separate hardware                          one hypervisor host (Proxmox VE)
 ┌──────────────────────┐   tailnet 443    ┌───────────────────────────────────────────┐
-│ agent machines       │ ───────────────▶ │ VM   broker    vTPM, 2 vCPU, 2 GB         │──┐
-│  no keys, no sudo,   │ ───────────────▶ │ VM   desk      2 vCPU, 2 GB  (optional)   │  │ 443
+│ agent machines       │ ───────────────▶ │ VM   broker    relay + fnox, vTPM         │──┐
+│  no keys, no sudo,   │ ───────────────▶ │ VM   desk      bellhop (optional)         │  │ 443
 │  sandboxed commands  │                  │ LXC  vault     Vaultwarden in Docker      │◀─┘
 └──────────────────────┘                  └───────────────────────────────────────────┘
 ┌──────────────────────┐   tailnet 443            ▲ console or LAN SSH only

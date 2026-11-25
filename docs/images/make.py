@@ -97,10 +97,10 @@ ICONS = {"master": lambda d, x, y, bg, a=1: key(d, x, y, 24, mix(bg, GOLD, a), b
 
 BOXES = {  # name: (left, top, right, bottom, title, subtitle)
     "agent": (40, 282, 270, 482, "Agent machine", "runs your AI agents"),
-    "broker": (365, 172, 595, 332, "Broker", "checks the caller, adds the key"),
-    "desk": (365, 402, 595, 562, "Desk", "runs MCPs & other tools\nthat require sign in"),
-    "vault": (700, 142, 920, 222, "Vault", "every key, encrypted"),
-    "api": (700, 262, 920, 342, "Service API", ""),
+    "broker": (365, 172, 595, 332, "Broker", "relay checks the caller\nfnox adds the key"),
+    "desk": (365, 402, 595, 562, "Desk (bellhop)", "runs MCPs & other tools\nthat require sign in"),
+    "vault": (700, 142, 920, 222, "Vaultwarden", "every key, encrypted"),
+    "api": (684, 262, 920, 342, "Service API or MCP", ""),
     "svc": (700, 442, 920, 522, "Service tool", ""),
 }
 # Connections, with what the far end does. Requests and answers travel both ways.
@@ -142,7 +142,8 @@ def base(focus):
         (ax, ay), (bx, by) = edge(a, b)
         d.line(sc(ax, ay, bx, by), fill=colour, width=2 * S)  # no arrowhead: traffic goes both ways
         if label:
-            d.text(sc((ax + bx) / 2, (ay + by) / 2 - 20), label, font=font(13), anchor="ms",
+            label_offset = 28 if a == "broker" else 20
+            d.text(sc((ax + bx) / 2, (ay + by) / 2 - label_offset), label, font=font(13), anchor="ms",
                    fill=MUTED if lit(a) and lit(b) else mix(MUTED, NAVY, DIM))
     for name, (left, top, right, bottom, title, sub) in BOXES.items():
         d.rounded_rectangle(sc(left, top, right, bottom), radius=14 * S, fill=c(PANEL, name),
@@ -155,7 +156,7 @@ def base(focus):
     d.text(sc(left + 16, bottom - 39), label, font=f, fill=c(TEXT, "agent"))
     left, top, right, bottom = BOXES["vault"][:4]
     for i in range(3):
-        key(d, right - 92 + i * 30, top + 24, 26, c(GOLD, "vault"), c(PANEL, "vault"))
+        key(d, right - 92 + i * 30, top + 64, 26, c(GOLD, "vault"), c(PANEL, "vault"))
     left, top, right, bottom = BOXES["desk"][:4]                        # the tool's login lives on the desk
     d.text(sc(left + 16, bottom - 39), "the tool's login", font=font(13), fill=c(MUTED, "desk"))
     d.rectangle(sc(0, 0, W, TOP), fill=PANEL)
@@ -248,12 +249,12 @@ PHASES = [
     (1.6, None, "The agent's machine holds no keys and no logins.", {"agent"}, lambda d, t: None),
     (1.6, 1, "An agent calls the broker. Its request is an empty keyhole: no key.", {"agent", "broker"},
      lambda d, t: travel(d, "agent", "broker", t, "request", icon="keyhole")),
-    (1.6, 2, "The broker checks who is calling, and that its valet key fits this route.", {"broker"},
+    (1.6, 2, "relay checks who is calling, and that its valet key fits this route.", {"broker"},
      lambda d, t: note(d, "broker", CHECK[:1 + (t > 0.45)])),
-    (1.5, 3, "It takes that route's master key from the vault.", {"broker", "vault"},
+    (1.5, 3, "It takes that route's master key from Vaultwarden.", {"broker", "vault"},
      lambda d, t: (note(d, "broker", CHECK), travel(d, "broker", "vault", t, "", back=True, color=GOLD,
                                                     icon="master"))),
-    (1.6, 4, "It puts the master key in the keyhole and forwards the request.", {"broker", "api"},
+    (1.6, 4, "fnox puts the master key in the keyhole and forwards the request.", {"broker", "api"},
      lambda d, t: (note(d, "broker", CHECK), broker_key(d), travel(d, "broker", "api", t, "request", icon="master"))),
     (1.8, 5, "The answer comes back without the master key. The agent never sees it.", {"agent", "broker", "api"},
      lambda d, t: (broker_key(d), travel(d, "broker", "api", t * 2, "answer", back=True) if t < 0.5

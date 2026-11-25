@@ -229,6 +229,11 @@ class RelayTests(ClientCase):
         self.assertEqual(self.srv.log[0][2], dict(name="reports", org="local", item="reports-api-key",
                          upstream="https://api.example.com", methods=["GET"], paths=["/v1/reports"]))
 
+    def test_join_route_sends_only_the_route_name(self):
+        p = self.run_tool("relay", "join-route", "reports")
+        self.assertEqual((p.returncode, self.out(p)), (0, (self.base + "/entry/approve/" + "a" * 40 + "\n", "")))
+        self.assertEqual(self.srv.log[0][1:3], ("/entry/v1/route-requests", {"join": "reports"}))
+
     def test_check_prints_per_name_and_exit_code(self):
         p = self.run_tool("relay", "check", "infra", "a", "b", "c")
         out, err = self.out(p)
