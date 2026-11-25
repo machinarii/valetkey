@@ -188,7 +188,7 @@
    "note": "for a tool with its own login the agent calls the bellhop",
    "at": 7.3,
    "travel": 1.1,
-   "label": "tool call",
+   "label": "request",
    "from": [
     160,
     360

@@ -214,7 +214,7 @@
   <text class="t-tag story" x="28" y="66" text-anchor="start" fill="#02BEFA" style="animation-name:ph4;opacity:0">4 · tools with a login run on the bellhop</text>
   <g class="pkt" style="animation-name:m6">
     <circle cx="160" cy="360" r="4" fill="#4CF490"/>
-    <text class="t-tag" x="160" y="348" text-anchor="middle" fill="#4CF490">tool call</text>
+    <text class="t-tag" x="160" y="348" text-anchor="middle" fill="#4CF490">request</text>
   </g>
   <circle cx="228" cy="404" r="10" fill="none" stroke="#4CF490" stroke-width="1.5" class="ring" style="animation-name:m6-ring"/>
   <rect x="228" y="372" width="160" height="64" rx="7" fill="#4CF490" class="glow" style="animation-name:m6-glow"/>
