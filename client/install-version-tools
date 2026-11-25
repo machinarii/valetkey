@@ -35,4 +35,8 @@ mv -f -- "$tmp" "$target"
 if [ "$target" != "$link" ] && [ ! -L "$link" ]; then
   ln -s relay-version "$link"
 fi
+# valetkey-relay: the same command under the project's name. An unrelated file there is left alone.
+if [ -L "$bin/valetkey-relay" ] || [ ! -e "$bin/valetkey-relay" ]; then
+  ln -sfn "$(basename "$target")" "$bin/valetkey-relay"
+fi
 echo "Installed Valetkey version commands in $bin."

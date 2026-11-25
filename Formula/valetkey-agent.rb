@@ -14,6 +14,7 @@ class ValetkeyAgent < Formula
 
   def install
     bin.install "client/relay"
+    bin.install_symlink bin/"relay" => "valetkey-relay"  # the same command under the project's name
     # Claude Code and Codex rules and settings; the same step as `./install.sh claude`.
     (libexec/"agents").install "agents/claude-setup.py", "agents/credential-rules.md"
     (share/"valetkey").install_symlink libexec/"agents/credential-rules.md"  # `relay guide` reads it here

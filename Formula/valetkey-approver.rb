@@ -15,6 +15,7 @@ class ValetkeyApprover < Formula
   def install
     bin.install "client/relay", "client/vault", "client/vault-entry"
     bin.install "relay/tools/fnox-to-relay.py" => "fnox-to-relay"
+    bin.install_symlink bin/"relay" => "valetkey-relay"  # the same command under the project's name
     (share/"valetkey").install "agents/credential-rules.md"
   end
 

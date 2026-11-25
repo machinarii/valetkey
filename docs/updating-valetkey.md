@@ -1,6 +1,6 @@
 # Updating valetkey
 
-Both version commands use Python 3.9+ and its standard library. `relay version` works offline. `relay update` (available since 0.2.1) checks public GitHub tags anonymously and prints the newest stable version. It needs DNS, direct outbound HTTPS to `api.github.com` on TCP 443 and a working TLS trust store. It bypasses environment proxy settings. The check runs independently of Git, the broker and the vault.
+Both version commands use Python 3.9+ and its standard library. `relay version` works offline. `relay update` (available since 0.2.1) checks public GitHub tags anonymously and prints the newest stable version. It needs DNS, direct outbound HTTPS to `api.github.com` on TCP 443 and a working TLS trust store. It bypasses environment proxy settings. The check runs independently of Git, the broker and the vault. `valetkey-relay` is a second name for `relay` on every machine, so `valetkey-relay version` and `valetkey-relay update` do the same. On the broker with `sudo`, `valetkey-relay update` (or `relay update`) goes further and installs the broker's own update; it shows what changes and asks first.
 
 To update the version commands on an existing broker, vault, desk, desk-only agent or Proxmox
 host, run `sudo ./install.sh update` from the reviewed Valetkey checkout on that
@@ -38,7 +38,7 @@ After a one-time setup the broker fetches its own code, so nothing has to be cop
 
 ```sh
 sudo relay-update setup https://github.com/machinarii/valetkey.git   # once
-sudo relay-update install                                            # each update
+sudo valetkey-relay update                                           # each update (same as: sudo relay-update install)
 ```
 
 Point `setup` at this repository or at your own fork. A public repository is read over https and

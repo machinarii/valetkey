@@ -153,7 +153,7 @@ give an agent the key because an API proxy is inconvenient.
 ## Install without widening roles
 
 Use reviewed source pinned to a release or commit. Avoid piping a moving remote script into a
-privileged shell. `sudo relay-update install` on the broker console fetches the repository (over
+privileged shell. `sudo valetkey-relay update` (the same as `sudo relay-update install`) on the broker console fetches the repository (over
 https when it is public, with a read-only deploy key when it is private) and installs only after
 you type `y` to the commit it shows; review the linked diff first, because everyone who can
 push chooses what that commit contains. Do not wrap it in a timer, a webhook or anything an agent

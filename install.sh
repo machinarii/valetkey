@@ -110,6 +110,7 @@ sys.exit(0 if good else 1)
   for t in $tools; do
     install -m 755 "$repo/client/$t" "$prefix/$t"
   done
+  ln -sfn relay "$prefix/valetkey-relay"  # the same command under the project's name
   if [ "$agent" = no ]; then
     install -m 755 "$repo/relay/tools/fnox-to-relay.py" "$prefix/fnox-to-relay"
   fi
@@ -177,6 +178,7 @@ client_deps() {  # prefix agent
 cmd_uninstall_client() {
   local prefix="$HOME/.local/bin"
   [ "${1:-}" = --prefix ] && prefix=${2:?--prefix needs a directory}
+  if [ -L "$prefix/valetkey-relay" ]; then rm -f "$prefix/valetkey-relay"; fi
   for t in relay vault vault-entry fnox-to-relay; do
     # Only our Python scripts: never a real HashiCorp vault binary of the same name.
     if [ -f "$prefix/$t" ] && head -n 3 "$prefix/$t" | grep -q 'python3'; then rm -f "$prefix/$t"; ok "removed $prefix/$t"; fi

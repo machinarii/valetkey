@@ -46,6 +46,8 @@ class InstallClientTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
         relay = self.prefix / "relay"
         self.assertTrue(relay.is_symlink())
+        self.assertEqual(subprocess.check_output([self.prefix / "valetkey-relay", "version"], text=True),
+                         (ROOT / "VERSION").read_text())
         for cmd in ("version", "--version"):
             self.assertEqual(subprocess.check_output([relay, cmd], text=True), (ROOT / "VERSION").read_text())
         help_text = subprocess.check_output([relay, "--help"], text=True)
@@ -76,6 +78,10 @@ class InstallClientTests(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stderr)
         for t in ("relay", "vault", "fnox-to-relay"):
             self.assertTrue(os.access(self.prefix / t, os.X_OK), t)
+        # The same command under the project's name, and it says so in its help.
+        named = subprocess.run([str(self.prefix / "valetkey-relay"), "--help"], capture_output=True, text=True,
+                               env={"HOME": str(self.home), "PATH": os.environ["PATH"]}, timeout=10)
+        self.assertIn("usage: valetkey-relay", named.stdout)
         self.assertFalse((self.prefix / "vault-entry").exists())  # owner tool only with --owner
         url = (self.home / ".config" / "valetkey" / "relay-url").read_text()
         self.assertEqual(url, "https://broker.example.ts.net\n")
@@ -177,6 +183,7 @@ class InstallClientTests(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertTrue((self.prefix / "vault").exists())
         self.assertFalse((self.prefix / "relay").exists())
+        self.assertFalse((self.prefix / "valetkey-relay").is_symlink())
         self.assertFalse((self.home / ".config" / "valetkey").exists())
 
     def test_broker_refuses_without_root(self):

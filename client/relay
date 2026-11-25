@@ -103,6 +103,19 @@ def cmd_version(a):
     print(CLIENT_VERSION)
 
 
+BROKER_UPDATE = "/usr/local/sbin/relay-update"  # installed on the broker only
+
+
+def cmd_update(a):
+    """On the broker with sudo: install the broker's own update, which shows the changes and asks
+    first. Anywhere else, and without sudo: only report the latest public version."""
+    if os.access(BROKER_UPDATE, os.X_OK):
+        if os.geteuid() == 0:
+            os.execv(BROKER_UPDATE, [BROKER_UPDATE, "install"])
+        print("relay: this is the broker; `sudo valetkey-relay update` installs its update", file=sys.stderr)
+    return cmd_latest_version(a)
+
+
 def cmd_latest_version(a):
     latest = None
     page = 1
@@ -368,13 +381,14 @@ def add_client_commands(sub):
 
 def main():
     global BASE
-    p = argparse.ArgumentParser(prog="relay")
+    p = argparse.ArgumentParser(prog="valetkey-relay" if os.path.basename(sys.argv[0]) == "valetkey-relay" else "relay")
     p.add_argument("--version", action="version", version=CLIENT_VERSION)
     sub = p.add_subparsers(dest="cmd", required=True)
     sub.add_parser("version", help="print the installed client version offline").set_defaults(fn=cmd_version)
-    update = sub.add_parser("update", aliases=["latest-version"],
-                            help="check for updates and print the latest stable public version")
-    update.set_defaults(cmd="update", fn=cmd_latest_version)
+    sub.add_parser("update", help="print the latest stable public version; on the broker with sudo, "
+                   "install the broker's update").set_defaults(fn=cmd_update)
+    sub.add_parser("latest-version", help="print the latest stable public version").set_defaults(
+        cmd="update", fn=cmd_latest_version)
     # Infrastructure installs point relay at the relay-version executable.
     if Path(__file__).resolve().name != "relay-version":
         add_client_commands(sub)

@@ -146,6 +146,8 @@ brokered API routes. [Secure setup](docs/secure-setup.md)
 ## Updating valetkey
 
 Run `relay version` for the installed CLI version and `relay update` for the latest public release.
+`valetkey-relay` is the same command under the project's name; on the broker, `sudo valetkey-relay update`
+installs the broker's update.
 The broker, vault, desk and clients have different update procedures.
 [Update by role](docs/updating-valetkey.md)
 

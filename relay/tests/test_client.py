@@ -237,6 +237,28 @@ class RelayTests(ClientCase):
         posts = [x[2] for x in self.srv.log if x[0] == "POST"]
         self.assertEqual((posts[0]["encode"], posts[1]["auth"]), ("basic", "basic"))
 
+    def test_update_installs_on_the_broker_only_with_root(self):
+        from importlib.machinery import SourceFileLoader
+        from unittest import mock
+        relay = SourceFileLoader("relay_client_under_test", os.path.join(CLIENT, "relay")).load_module()
+        with mock.patch.object(relay, "cmd_latest_version", return_value=0) as check, \
+                mock.patch.object(relay.os, "execv") as execv:
+            for on_broker, uid, installs in ((True, 0, True), (True, 1000, False), (False, 0, False)):
+                execv.reset_mock()
+                with mock.patch.object(relay.os, "access", return_value=on_broker), \
+                        mock.patch.object(relay.os, "geteuid", return_value=uid):
+                    relay.cmd_update(None)
+                self.assertEqual(execv.called, installs, (on_broker, uid))
+            execv.reset_mock()
+            self.assertEqual(check.call_count, 3)  # execv is mocked, so the check also ran after it
+        with mock.patch.object(relay.os, "access", return_value=True), \
+                mock.patch.object(relay.os, "geteuid", return_value=0), \
+                mock.patch.object(relay.os, "execv") as execv:
+            execv.side_effect = SystemExit(0)
+            with self.assertRaises(SystemExit):
+                relay.cmd_update(None)
+            execv.assert_called_once_with("/usr/local/sbin/relay-update", ["/usr/local/sbin/relay-update", "install"])
+
     def test_join_route_sends_only_the_route_name(self):
         p = self.run_tool("relay", "join-route", "reports")
         self.assertEqual((p.returncode, self.out(p)), (0, (self.base + "/entry/approve/" + "a" * 40 + "\n", "")))
