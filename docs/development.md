@@ -72,10 +72,11 @@ python3 ~/.agents/skills/animdiagram/scripts/check.py docs/images/how-it-works.s
 ```
 
 To move a box, edit its coordinates in the SVG and the matching `from`, `via`, `to` and `glow`
-values in the spec, then run the two commands again. The checker gives two warnings, both deliberate. The title is not in
-capitals because valetkey, bellhop, vault and broker are written in lower case. And there are four
-dot colours where the skill's style allows three, because the legend keeps valetkey's four terms:
-key request, master key, valet key and credential.
+values in the spec, then run the two commands again. The checker gives three warnings, all deliberate. The title is not in
+capitals because valetkey, bellhop, vault and broker are written in lower case. There are four dot
+colours where the skill's style allows three, because the legend keeps valetkey's four terms: key
+request, master key, valet key and credential. And the broker box is 2 px taller than the 4 px
+grid gives, so the gap under its inner box equals the gap above its name.
 
 The icon (`valetkey-icon.png`, `valetkey-icon-512.png`) was generated with ChatGPT's image tool
 from the brief "a close-up robotic valet in a cap, holding a key beside its head", then cut out of
