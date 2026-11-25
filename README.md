@@ -142,7 +142,7 @@ brokered API routes. [Secure setup](docs/secure-setup.md)
 
 1. **Install valetkey on each machine.** Pick the setup that matches your machines.
 
-   **Setup A: macOS for the agent machine and approver machine, Linux for the servers**
+   **Setup A: macOS for the agent and approver machines, Linux for the servers**
 
    **On each Mac** (Homebrew), add valetkey's packages:
 
