@@ -17,7 +17,7 @@ elif args[:1] == ["make"] and len(args) == 2:
         f.write("made by fakefield\n")
     print("made " + args[1])
 elif args[:2] == ["auth", "token"]:
-    print(login)  # the dangerous subcommand: the desk must never let a caller reach it
+    print(login)  # the dangerous subcommand: the bellhop must never let a caller reach it
 elif args[:1] == ["fail"]:
     print("something went wrong", file=sys.stderr)
     sys.exit(3)

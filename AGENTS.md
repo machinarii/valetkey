@@ -8,7 +8,7 @@ For Claude Code’s own subscription, follow the [subscription authentication gu
 
 Use synthetic fixtures for all tests. Never read a deployed credential, unlock a vault, inspect
 process environments, or contact live broker/vault services from an agent session. On Linux,
-`bash relay/run-security-tests` isolates tests from the host home and external network.
+`bash broker/run-security-tests` isolates tests from the host home and external network.
 
 `bellhop/` is the bellhop: it runs login-holding command-line tools for agent machines. Its rules
 for agents are in [bellhop/agent-rules.md](bellhop/agent-rules.md); its tests are

@@ -6,7 +6,7 @@
 set -euo pipefail
 app=$(cd "$(dirname "$0")/.." && pwd)
 repo=$(cd "$app/.." && pwd)
-DRILL=bellhop-drill AGENT=bellhop-agent NAME=desk.test.ts.net
+DRILL=bellhop-drill AGENT=bellhop-agent NAME=bellhop.test.ts.net
 
 orb() { if [ "$(uname)" = Linux ]; then mac orb "$@"; else command orb "$@"; fi; }
 as_root() { orb -m "$1" -u root bash -s; }
@@ -19,34 +19,34 @@ drill_ip=$(address "$DRILL") agent_ip=$(address "$AGENT")
 
 echo "== drill machine: fake tailscale, then the real installer"
 { echo 'rm -rf /tmp/valetkey; mkdir -p /tmp/valetkey; base64 -d <<"B64" | tar -xz -C /tmp/valetkey'
-  tar -C "$repo" --exclude __pycache__ -cz bellhop relay/relaylib relay/relay_front.py broker/bin/relay-cert \
+  tar -C "$repo" --exclude __pycache__ -cz bellhop broker/brokerlib broker/broker_front.py broker/bin/broker-cert \
     broker/systemd | base64
   echo B64; } | as_root "$DRILL"
 as_root "$DRILL" <<EOF
 set -eu
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq && apt-get install -y -qq python3 jq curl openssl ca-certificates >/dev/null
-printf 'NAME=$NAME\nIP=$drill_ip\nPEERS="$drill_ip=desk $agent_ip=$AGENT"\n' > /etc/bellhop-drill.env
+printf 'NAME=$NAME\nIP=$drill_ip\nPEERS="$drill_ip=bellhop $agent_ip=$AGENT"\n' > /etc/bellhop-drill.env
 install -m 755 /tmp/valetkey/bellhop/fakes/tailscale-drill /usr/local/bin/tailscale
 printf '[Service]\nExecStart=/bin/sleep infinity\n[Install]\nWantedBy=multi-user.target\n' > /etc/systemd/system/tailscaled.service
 grep -q "$NAME" /etc/hosts || echo "$drill_ip $NAME" >> /etc/hosts
 bash /tmp/valetkey/bellhop/install-bellhop.sh | sed 's/^/  /'
 # A fake tool with a synthetic login, listed for the agent machine by its machine name.
 install -m 755 /tmp/valetkey/bellhop/fakes/fakefield /usr/local/bin/fakefield
-deskhome=\$(getent passwd desk | cut -d: -f6)
-install -d -o desk -g desk -m 700 \$deskhome/.config \$deskhome/.config/fakefield
-(umask 077; echo "synthetic-login-drill" > \$deskhome/.config/fakefield/credentials.json)
-chown desk:desk \$deskhome/.config/fakefield/credentials.json
-grep -q fakefield /etc/bellhop/desk.toml || cat >> /etc/bellhop/desk.toml <<TOML
+bellhophome=\$(getent passwd bellhop | cut -d: -f6)
+install -d -o bellhop -g bellhop -m 700 \$bellhophome/.config \$bellhophome/.config/fakefield
+(umask 077; echo "synthetic-login-drill" > \$bellhophome/.config/fakefield/credentials.json)
+chown bellhop:bellhop \$bellhophome/.config/fakefield/credentials.json
+grep -q fakefield /etc/bellhop/bellhop.toml || cat >> /etc/bellhop/bellhop.toml <<TOML
 
 [tool.fakefield]
 command = "/usr/local/bin/fakefield"
 callers = ["$AGENT"]
 allow = ["whoami", "upload"]
 TOML
-systemctl restart bellhop-desk
+systemctl restart bellhop
 sleep 1
-echo "  as itself (machine name desk, not a listed caller): \$(curl -s -m 10 -X POST -d '{"args":["whoami"]}' https://$NAME/desk/run/fakefield)"
+echo "  as itself (machine name bellhop, not a listed caller): \$(curl -s -m 10 -X POST -d '{"args":["whoami"]}' https://$NAME/bellhop/run/fakefield)"
 EOF
 
 echo "== agent machine: trust the drill certificate, then use the tool over HTTPS"
@@ -60,7 +60,7 @@ update-ca-certificates >/dev/null 2>&1
 EOF
 as_user "$AGENT" <<EOF
 cd ~/bellhop-test
-export BELLHOP_URL=https://$NAME/desk
+export BELLHOP_URL=https://$NAME/bellhop
 show() { printf '  %-44s %s\n' "\$1" "\$2"; }
 show "tool over HTTPS, caller named by machine:"  "\$(bellhop fakefield whoami 2>&1)"
 show "file sent over HTTPS:"                      "\$(bellhop fakefield upload scene.png 2>&1 | cut -c1-40)"

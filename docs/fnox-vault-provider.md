@@ -3,7 +3,7 @@
 Historical integration notes. Raw-key injection is now restricted to separate trusted servers
 in `[security].trusted_value_nodes`; it must never run on an agent machine. See [secure setup](secure-setup.md).
 
-Run on a Debian dev machine (`fnox 1.35.3`) in a scratch dir with `relay/tools/vault-stub.py` and a logging `vault` shim. No real secrets involved; stub values only.
+Run on a Debian dev machine (`fnox 1.35.3`) in a scratch dir with `broker/tools/vault-stub.py` and a logging `vault` shim. No real secrets involved; stub values only.
 
 ## Finding 1: the provider shells out to the HashiCorp `vault` CLI, it does not speak HTTP
 
@@ -20,15 +20,15 @@ The stub received no request at all. So a Vault-compatible HTTP API on the broke
 Config used:
 
 ```toml
-[providers.relay]
+[providers.broker]
 type = "vault"
 address = "https://broker.example.ts.net/infra"
 token = "tailscale"
 path = "shop"
 
 [secrets]
-X = { provider = "relay", value = "database-url-shop-qa" }
-N = { provider = "relay", value = "pem-shop-qa/notes" }
+X = { provider = "broker", value = "database-url-shop-qa" }
+N = { provider = "broker", value = "pem-shop-qa/notes" }
 ```
 
 Calls made (one per secret, stdin empty, output read from stdout, trailing newline stripped):

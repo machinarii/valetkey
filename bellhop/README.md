@@ -10,7 +10,7 @@ risk in a home agentic setup: it stops a login being copied, not an allowed tool
 
 ```
 agent machine                         bellhop machine (no agent)
-  higgsfield upload scene.png           desk.py
+  higgsfield upload scene.png           server.py
     -> bellhop (stand-in)   -- HTTPS -->   checks who is calling and what they ask
        sends the command                   runs the real tool with its own login
        and the file                        in an empty folder, then cleans up
@@ -22,9 +22,9 @@ agent machine                         bellhop machine (no agent)
 
 | File | Runs on | Purpose |
 |---|---|---|
-| `desk.py` | bellhop machine | The service: runs listed tools, forwards listed MCP servers |
+| `server.py` | bellhop machine | The service: runs listed tools, forwards listed MCP servers |
 | `bellhop` | agent machine | The stand-in command. Link it under each tool's name |
-| `desk.example.toml` | bellhop machine | Configuration with one tool and one local MCP server |
+| `bellhop.example.toml` | bellhop machine | Configuration with one tool and one local MCP server |
 | `sweep.py` | agent machine, as root | Hourly check for logins and new tools; reports names only |
 | `agent-rules.md` | agent machine | Standing instructions for the agent |
 | `test_bellhop.py`, `fakes/` | anywhere | Tests against a fake tool and a fake MCP server |
@@ -32,7 +32,7 @@ agent machine                         bellhop machine (no agent)
 | `install-bellhop.sh`, `proxmox-bellhop-vm.sh` | bellhop VM, Proxmox host | Installs the bellhop for real use |
 | `bellhop-tools.sh`, `proxmox-bellhop-run.sh` | bellhop VM, Proxmox host | Starter tools on the bellhop; run a script or open a shell in the VM |
 
-Python 3.11 or later, standard library only. `desk.py` reuses `relay/relaylib` from this
+Python 3.11 or later, standard library only. `server.py` reuses `broker/brokerlib` from this
 repository for caller identity and request handling.
 
 ## Rules the bellhop enforces
@@ -51,20 +51,20 @@ subcommand whose purpose is to read a file you name.
 
 ## Use
 
-Bellhop machine: copy `desk.py` and `relay/relaylib` to one folder, write `/etc/bellhop/desk.toml`
+Bellhop machine: copy `server.py` and `broker/brokerlib` to one folder, write `/etc/bellhop/bellhop.toml`
 from the example, and run it as a user that owns the logins and has no other job:
 
 ```sh
-python3 -I desk.py --config /etc/bellhop/desk.toml
+python3 -I server.py --config /etc/bellhop/bellhop.toml
 ```
 
-It listens on plain HTTP on loopback. For TLS on the tailnet, run valetkey's `relay_front.py`
-in front with `--backend desk=127.0.0.1:8460`; callers then use `https://<bellhop>/desk/...`.
+It listens on plain HTTP on loopback. For TLS on the tailnet, run valetkey's `broker_front.py`
+in front with `--backend bellhop=127.0.0.1:8460`; callers then use `https://<bellhop>/bellhop/...`.
 
 Agent machine, one command from the repository root:
 
 ```sh
-sudo ./install.sh agent --bellhop-url https://<bellhop>/desk --tools higgsfield   # add --broker-url for the broker
+sudo ./install.sh agent --bellhop-url https://<bellhop>/bellhop --tools higgsfield   # add --broker-url for the broker
 higgsfield upload scene.png                      # runs on the bellhop
 valetkey-bellhop --list
 ```
@@ -74,7 +74,7 @@ owned by root. By hand it is `install -m 755 bellhop /usr/local/bin/bellhop`, a 
 the bellhop's address in `/etc/bellhop/url` (or `BELLHOP_URL`).
 
 For an MCP server that runs on the bellhop, point the agent's MCP client at
-`https://<bellhop>/desk/mcp/<name>` with no key.
+`https://<bellhop>/bellhop/mcp/<name>` with no key.
 
 ## On Proxmox
 
@@ -82,14 +82,14 @@ The bellhop belongs on a machine no agent can reach into: a VM on the hypervisor
 broker, not a container or VM under a desktop account that also runs agents.
 
 ```sh
-bellhop/proxmox-bellhop-vm.sh        # on the Proxmox host as root: creates VM 212 "desk" and installs
+bellhop/proxmox-bellhop-vm.sh        # on the Proxmox host as root: creates VM 212 "bellhop" and installs
 bellhop/install-bellhop.sh           # what it runs inside the VM; safe to re-run there
 ```
 
-The installer joins the tailnet (it prints a login link, tag `tag:desk`), fetches the machine's
-HTTPS certificate, and starts two services: `bellhop-desk` (user `desk`, loopback only) and the
-broker's `relay-front` as the only listener, on the tailnet address, port 443. Callers use
-`https://desk.<tailnet>.ts.net/desk`. It installs no tool and no login, and refuses to run on a
+The installer joins the tailnet (it prints a login link, tag `tag:bellhop`), fetches the machine's
+HTTPS certificate, and starts two services: `bellhop` (user `bellhop`, loopback only) and the
+broker's `broker-front` as the only listener, on the tailnet address, port 443. Callers use
+`https://bellhop.<tailnet>.ts.net/bellhop`. It installs no tool and no login, and refuses to run on a
 machine that has an agent installed.
 
 After that, from the Proxmox host:
@@ -104,8 +104,8 @@ bellhop/proxmox-bellhop-run.sh bellhop/install-bellhop.sh          # later: upda
 them with cautious allow lists. It signs nothing in; it prints the sign-in steps. Use it as a
 pattern for your own tools.
 
-In the tailnet policy, add `"tag:desk": ["autogroup:admin"]` to `tagOwners` and one grant from
-each agent machine to `tag:desk` on `tcp:443`. Nothing else should reach the bellhop.
+In the tailnet policy, add `"tag:bellhop": ["autogroup:admin"]` to `tagOwners` and one grant from
+each agent machine to `tag:bellhop` on `tcp:443`. Nothing else should reach the bellhop.
 
 ## Adding a tool or MCP server
 
@@ -120,13 +120,13 @@ server that runs on the bellhop itself.
 
 For command-line tools:
 
-Installing something on the bellhop does nothing until it is listed in `desk.toml` and the bellhop is
+Installing something on the bellhop does nothing until it is listed in `bellhop.toml` and the bellhop is
 restarted. The agent cannot install on the bellhop. It asks, and the owner decides:
 
 ```sh
 valetkey-bellhop --request mcp buffer https://mcp.buffer.com/mcp "schedule posts"   # agent machine
-python3 -I desk.py --requests                                              # bellhop: what is waiting
-python3 -I desk.py --done <id>                                             # bellhop: handled
+python3 -I server.py --requests                                              # bellhop: what is waiting
+python3 -I server.py --done <id>                                             # bellhop: handled
 ```
 
 A request is a note with a name, a source and a reason. The bellhop never installs or runs
@@ -138,7 +138,7 @@ Three things on the agent machine, all owned by root so the agent's user cannot 
 `sudo ./install.sh agent` sets up all three:
 
 - **Policy.** `/etc/claude-code/managed-settings.json` with `allowManagedMcpServersOnly` and an
-  `allowedMcpServers` entry for the broker and for `https://<bellhop>/desk/mcp/*`. Claude Code then
+  `allowedMcpServers` entry for the broker and for `https://<bellhop>/bellhop/mcp/*`. Claude Code then
   refuses any MCP server elsewhere. Local MCP servers that need no key must be listed there by name.
 - **Instructions.** The same file's `claudeMd` holds `agent-rules.md`: tools that need a login
   are requested from the bellhop, not installed locally.
@@ -169,7 +169,7 @@ bellhop/testvm/setup.sh delete
 - **MCP servers must speak HTTP.** One that only talks over standard input needs a bridge on the
   bellhop's loopback first.
 - **Output arrives when the tool exits.** No live progress for long jobs.
-- **Uploads are capped** at `max_upload_mb` (50 by default, which is also `relay_front`'s cap).
+- **Uploads are capped** at `max_upload_mb` (50 by default, which is also `broker_front`'s cap).
 - **Result files come back from the top of the job folder only**, not from subfolders.
 - **The sweep detects; it does not prevent.** It looks six folders deep, skips dependency
   folders, and knows a fixed list of login locations. A login hidden elsewhere is missed.

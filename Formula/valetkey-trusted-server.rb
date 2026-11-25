@@ -5,7 +5,7 @@
 class ValetkeyTrustedServer < Formula
   desc "valetkey client for a trusted server whose application needs the key itself"
   homepage "https://github.com/machinarii/valetkey"
-  url "https://github.com/machinarii/valetkey.git", tag: "v0.4.0"
+  url "https://github.com/machinarii/valetkey.git", tag: "v0.5.0"
   license "MIT"
   head "https://github.com/machinarii/valetkey.git", branch: "main"
 
@@ -15,7 +15,7 @@ class ValetkeyTrustedServer < Formula
   def install
     bin.install "client/broker" => "valetkey-broker"
     bin.install "client/vault"  # fnox calls it by this name
-    bin.install "relay/tools/fnox-to-broker.py" => "valetkey-fnox-to-broker"
+    bin.install "broker/tools/fnox-to-broker.py" => "valetkey-fnox-to-broker"
     (share/"valetkey").install "agents/credential-rules.md"
   end
 

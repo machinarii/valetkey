@@ -36,7 +36,7 @@ self=${BASH_SOURCE[0]:-}
 repo=
 if [ -n "$self" ] && [ -f "$self" ]; then
   d=$(cd "$(dirname "$self")" && pwd)
-  [ -f "$d/relay/relay_read.py" ] && repo=$d
+  [ -f "$d/broker/broker_read.py" ] && repo=$d
 fi
 if [ -z "$repo" ]; then
   src=${VALETKEY_REPO:-https://github.com/machinarii/valetkey.git}
@@ -130,7 +130,7 @@ sys.exit(0 if good else 1)
     install -m 755 "$repo/client/$src" "$prefix/$t"
   done
   if [ "$agent" = no ]; then
-    install -m 755 "$repo/relay/tools/fnox-to-broker.py" "$prefix/valetkey-fnox-to-broker"
+    install -m 755 "$repo/broker/tools/fnox-to-broker.py" "$prefix/valetkey-fnox-to-broker"
   fi
   remove_old_names "$prefix"
   install -d -m 755 "$prefix/../share/valetkey"
@@ -423,9 +423,9 @@ cmd_doctor() {
       *) echo "broker       answered $code" ;;
     esac
   fi
-  if [ -d /usr/local/libexec/relay ]; then
-    printf '%-12s %s\n' "broker code" "$(cat /usr/local/libexec/relay/VERSION 2>/dev/null || echo 'installed, version unknown')"
-    for u in relay-local relay-infra relay-entry relay-front relay-cert.timer; do
+  if [ -d /usr/local/libexec/broker ]; then
+    printf '%-12s %s\n' "broker code" "$(cat /usr/local/libexec/broker/VERSION 2>/dev/null || echo 'installed, version unknown')"
+    for u in broker-local broker-infra broker-entry broker-front broker-cert.timer; do
       printf '  %-16s %s\n' "$u" "$(systemctl is-active "$u" 2>/dev/null || true)"
     done
   fi
@@ -551,7 +551,7 @@ cmd_menu() {
       if [ "$(uname -s)" = Darwin ]; then
         cmd_client --agent --broker-url "$broker"
       else
-        ask_url bellhop "Bellhop URL (if you have a bellhop)" "${suffix:+https://desk.$suffix/desk}" optional
+        ask_url bellhop "Bellhop URL (if you have a bellhop)" "${suffix:+https://bellhop.$suffix/bellhop}" optional
         [ -z "$bellhop" ] || ask tools "Bellhop tools to link here, comma-separated" "" optional
         args=(--user "${SUDO_USER:-$(id -un)}" --broker-url "$broker")
         [ -z "$bellhop" ] || args+=(--bellhop-url "$bellhop")

@@ -1,4 +1,4 @@
-"""Desk and client against synthetic fixtures only: a fake tool with a fake login, a fake MCP server.
+"""Bellhop and client against synthetic fixtures only: a fake tool with a fake login, a fake MCP server.
 
 Run from the repository root:  python3 -m unittest bellhop/test_bellhop.py
 """
@@ -19,15 +19,15 @@ import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-import desk  # noqa: E402
+import server as bellhop_server  # noqa: E402
 import sweep  # noqa: E402
 
 spec = importlib.util.spec_from_file_location("fakemcp", os.path.join(HERE, "fakes", "fakemcp.py"))
 fakemcp = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(fakemcp)
 
-LOGIN = "synthetic-login-must-not-leave-the-desk"
-MCP_KEY = "Bearer synthetic-mcp-key-must-not-leave-the-desk"
+LOGIN = "synthetic-login-must-not-leave-the-bellhop"
+MCP_KEY = "Bearer synthetic-mcp-key-must-not-leave-the-bellhop"
 OPEN = urllib.request.build_opener(urllib.request.ProxyHandler({})).open
 
 
@@ -48,10 +48,10 @@ class Bellhop(unittest.TestCase):
             f.write(MCP_KEY + "\n")
         cls.mcp = fakemcp.make_server(("127.0.0.1", 0), MCP_KEY)
         mcp_url = serve(cls.mcp)
-        cls.config = os.path.join(cls.tmp, "desk.toml")
+        cls.config = os.path.join(cls.tmp, "bellhop.toml")
         with open(cls.config, "w") as f:
             f.write(f"""
-[desk]
+[bellhop]
 identity = "address"
 spool = "{cls.tmp}/spool"
 max_upload_mb = 1
@@ -76,12 +76,12 @@ upstream = "{mcp_url}/mcp"
 callers = ["someone-else"]
 """)
         cls.audit = io.StringIO()
-        cls.desk = desk.build_server(cls.config, "127.0.0.1:0", audit_out=cls.audit)
-        cls.url = serve(cls.desk)
+        cls.bellhop = bellhop_server.build_server(cls.config, "127.0.0.1:0", audit_out=cls.audit)
+        cls.url = serve(cls.bellhop)
 
     @classmethod
     def tearDownClass(cls):
-        for server in (cls.desk, cls.mcp):
+        for server in (cls.bellhop, cls.mcp):
             server.shutdown()
             server.server_close()
         os.environ["HOME"] = cls.home or "/"
@@ -99,12 +99,12 @@ callers = ["someone-else"]
         status, body = self.http("POST", "/run/" + tool, json.dumps({"args": args, "files": list(files)}).encode())
         return status, (json.loads(body) if status == 200 else body.decode())
 
-    def test_tool_runs_with_the_desk_login_and_never_shows_it(self):
+    def test_tool_runs_with_the_bellhop_login_and_never_shows_it(self):
         status, out = self.run_tool("fakefield", ["whoami"])
         self.assertEqual((status, out["exit"], out["stdout"]), (200, 0, "signed in\n"))
         self.assertNotIn(LOGIN, json.dumps(out))
 
-    def test_uploaded_file_reaches_the_tool_under_the_desk_name(self):
+    def test_uploaded_file_reaches_the_tool_under_the_bellhop_name(self):
         data = b"scene bytes" * 1000
         status, fid = self.http("PUT", "/file?ext=png", data)
         self.assertEqual(status, 200)
@@ -147,17 +147,17 @@ callers = ["someone-else"]
         self.assertEqual(self.run_tool("nosuch", ["whoami"])[0], 403)
         self.assertEqual(self.http("POST", "/run/fakefield", b"not json")[0], 400)
         self.assertEqual(self.run_tool("fakefield", ["upload", "0" * 32], ["0" * 32])[0], 400)  # never uploaded
-        conn = http.client.HTTPConnection("127.0.0.1", self.desk.server_address[1], timeout=20)
+        conn = http.client.HTTPConnection("127.0.0.1", self.bellhop.server_address[1], timeout=20)
         conn.putrequest("PUT", "/file?ext=png")   # announce more than the limit; refused before any byte
         conn.putheader("Content-Length", str(1024 * 1024 + 1))
         conn.endheaders()
         self.assertEqual(conn.getresponse().status, 413)
         conn.close()
         self.assertEqual(self.http("PUT", "/file?ext=../x", b"x")[0], 400)
-        self.assertEqual(self.http("GET", "/file/..%2F..%2Fdesk.toml")[0], 404)
+        self.assertEqual(self.http("GET", "/file/..%2F..%2Fbellhop.toml")[0], 404)
 
     def test_unknown_caller_gets_nothing(self):
-        cfg = self.desk.ctx["cfg"]
+        cfg = self.bellhop.ctx["cfg"]
         saved, cfg["addresses"] = cfg["addresses"], {}
         try:
             self.assertEqual(self.http("GET", "/tools")[0], 403)
@@ -166,7 +166,7 @@ callers = ["someone-else"]
         finally:
             cfg["addresses"] = saved
 
-    def test_mcp_gets_the_key_from_the_desk_only(self):
+    def test_mcp_gets_the_key_from_the_bellhop_only(self):
         ask = json.dumps({"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "whoami"}}).encode()
         status, body = self.http("POST", "/mcp/fakemcp", ask, {"Content-Type": "application/json"})
         self.assertEqual(status, 200)
@@ -228,21 +228,21 @@ callers = ["someone-else"]
         ask = {"kind": "mcp", "name": "buffer", "source": "https://mcp.buffer.com/mcp", "note": "post\x1b[2Jdrafts"}
         status, rid = self.http("POST", "/request", json.dumps(ask).encode())
         self.assertEqual(status, 200)
-        cfg = self.desk.ctx["cfg"]
-        filed = [r for r in desk.waiting(cfg) if r["id"] == rid.decode().strip()]
+        cfg = self.bellhop.ctx["cfg"]
+        filed = [r for r in bellhop_server.waiting(cfg) if r["id"] == rid.decode().strip()]
         self.assertEqual((filed[0]["who"], filed[0]["kind"], filed[0]["name"]), ("agent", "mcp", "buffer"))
         self.assertEqual(filed[0]["note"], "post?[2Jdrafts")   # no control characters reach the owner's terminal
-        out = subprocess.run([sys.executable, os.path.join(HERE, "desk.py"), "--config", self.config,
+        out = subprocess.run([sys.executable, os.path.join(HERE, "server.py"), "--config", self.config,
                               "--done", filed[0]["id"]], capture_output=True, text=True)
         self.assertEqual(out.returncode, 0, out.stderr)
-        self.assertEqual([r for r in desk.waiting(cfg) if r["id"] == filed[0]["id"]], [])
+        self.assertEqual([r for r in bellhop_server.waiting(cfg) if r["id"] == filed[0]["id"]], [])
 
     def test_bad_requests_are_refused(self):
         for ask in ({"kind": "run", "name": "x"}, {"kind": "cli", "name": "x; rm -rf /"},
                     {"kind": "cli", "name": "x", "note": "n" * 501}, ["cli"]):
             with self.subTest(ask=ask):
                 self.assertEqual(self.http("POST", "/request", json.dumps(ask).encode())[0], 400)
-        cfg = self.desk.ctx["cfg"]
+        cfg = self.bellhop.ctx["cfg"]
         saved, cfg["requesters"] = cfg["requesters"], set()
         try:
             self.assertEqual(self.http("POST", "/request", b'{"kind":"cli","name":"x"}')[0], 403)
@@ -251,7 +251,7 @@ callers = ["someone-else"]
 
 
 class TailscaleNames(unittest.TestCase):
-    """The production path: relay_front on loopback reports the real peer; whois names it."""
+    """The production path: broker_front on loopback reports the real peer; whois names it."""
 
     def test_caller_is_the_machine_the_front_door_reports(self):
         class Whois:
@@ -259,11 +259,11 @@ class TailscaleNames(unittest.TestCase):
                 return {"100.64.0.5": "agent"}.get(ip, "")
 
         with tempfile.TemporaryDirectory() as tmp:
-            config = os.path.join(tmp, "desk.toml")
+            config = os.path.join(tmp, "bellhop.toml")
             with open(config, "w") as f:
-                f.write(f'[desk]\nspool = "{tmp}/spool"\n[tool.fakefield]\n'
+                f.write(f'[bellhop]\nspool = "{tmp}/spool"\n[tool.fakefield]\n'
                         f'command = "{HERE}/fakes/fakefield"\ncallers = ["agent"]\nallow = ["whoami"]\n')
-            server = desk.build_server(config, "127.0.0.1:0", audit_out=io.StringIO(), whois=Whois())
+            server = bellhop_server.build_server(config, "127.0.0.1:0", audit_out=io.StringIO(), whois=Whois())
             url = serve(server)
             try:
                 def tools(headers):
@@ -272,8 +272,8 @@ class TailscaleNames(unittest.TestCase):
                             return r.status
                     except urllib.error.HTTPError as e:
                         return e.code
-                self.assertEqual(tools({"X-Relay-Peer": "100.64.0.5"}), 200)
-                self.assertEqual(tools({"X-Relay-Peer": "100.64.0.9"}), 403)   # a machine nobody listed
+                self.assertEqual(tools({"X-Broker-Peer": "100.64.0.5"}), 200)
+                self.assertEqual(tools({"X-Broker-Peer": "100.64.0.9"}), 403)   # a machine nobody listed
                 self.assertEqual(tools({}), 403)                               # no front door, no name
             finally:
                 server.shutdown()
@@ -288,7 +288,7 @@ class Sweep(unittest.TestCase):
         self.tmp = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, self.tmp)
         self.home = os.path.join(self.tmp, "home", "agent")
-        self.desk = "http://desk.test:8460"
+        self.bellhop = "http://bellhop.test:8460"
 
     def put(self, rel, text):
         path = os.path.join(self.home, rel)
@@ -298,7 +298,7 @@ class Sweep(unittest.TestCase):
         return path
 
     def run_sweep(self, **kw):
-        return sweep.sweep([self.home], self.desk, state=os.path.join(self.tmp, "state"),
+        return sweep.sweep([self.home], self.bellhop, state=os.path.join(self.tmp, "state"),
                            mcp_prefixes=["https://broker.test"], **kw)
 
     def test_finds_logins_and_keys_by_name_only(self):
@@ -309,10 +309,10 @@ class Sweep(unittest.TestCase):
         self.put(".npmrc", "registry=https://registry.npmjs.org/\n")          # no token: fine
         self.put(".claude/.credentials.json", self.SECRET)                      # the agent's own login: fine
         self.put("projects/app/.mcp.json", json.dumps({"mcpServers": {
-            "viadesk": {"type": "http", "url": self.desk + "/mcp/buffer"},
+            "viabellhop": {"type": "http", "url": self.bellhop + "/mcp/buffer"},
             "viabroker": {"type": "http", "url": "https://broker.test/local/acme/mcp"},
-            "byreference": {"type": "http", "url": self.desk + "/mcp/x", "headers": {"Authorization": "Bearer ${KEY}"}},
-            "holdskey": {"type": "http", "url": self.desk + "/mcp/y", "headers": {"Authorization": "Bearer " + self.SECRET}},
+            "byreference": {"type": "http", "url": self.bellhop + "/mcp/x", "headers": {"Authorization": "Bearer ${KEY}"}},
+            "holdskey": {"type": "http", "url": self.bellhop + "/mcp/y", "headers": {"Authorization": "Bearer " + self.SECRET}},
             "direct": {"type": "http", "url": "https://mcp.example.com/mcp"},
             "local": {"command": "npx", "args": ["some-server"]}}}))
         # A plugin's bundled server list: only an entry that holds a key is worth a line.
@@ -327,7 +327,7 @@ class Sweep(unittest.TestCase):
                          ".ssh/id_ed25519: private key", "mcp holdskey", "holds a key in headers",
                          "mcp direct", "does not go through the broker or the bellhop", "mcp local", "runs on this machine"):
             self.assertIn(expected, text)
-        for fine in (".env.example", ".npmrc", ".claude/.credentials.json", "viadesk", "viabroker", "byreference"):
+        for fine in (".env.example", ".npmrc", ".claude/.credentials.json", "viabellhop", "viabroker", "byreference"):
             self.assertNotIn(fine, text)
         self.assertNotIn(self.SECRET, text)
         self.assertEqual(len(lines), 7, text)
@@ -350,7 +350,7 @@ class Config(unittest.TestCase):
         with tempfile.NamedTemporaryFile("w", suffix=".toml") as f:
             f.write(text)
             f.flush()
-            return desk.load(f.name)
+            return bellhop_server.load(f.name)
 
     def test_unclear_configuration_is_refused(self):
         bad = {
@@ -359,14 +359,14 @@ class Config(unittest.TestCase):
             "tool nobody may call": '[tool.x]\ncommand="/bin/true"\ncallers=[]\nallow=["go"]',
             "mcp over plain http to another machine": '[mcp.x]\nupstream="http://example.com/mcp"\ncallers=["a"]',
             "mcp header without a key file": '[mcp.x]\nupstream="https://example.com/mcp"\nheader="X"\ncallers=["a"]',
-            "unknown identity mode": '[desk]\nidentity="trust-me"',
+            "unknown identity mode": '[bellhop]\nidentity="trust-me"',
         }
         for what, text in bad.items():
             with self.subTest(what):
                 self.assertRaises(ValueError, self.check, text)
 
     def test_example_configuration_loads(self):
-        cfg = desk.load(os.path.join(HERE, "desk.example.toml"))
+        cfg = bellhop_server.load(os.path.join(HERE, "bellhop.example.toml"))
         self.assertEqual(sorted(cfg["tools"]), ["higgsfield"])
         self.assertEqual(sorted(cfg["mcp"]), ["local-tool"])
 

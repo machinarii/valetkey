@@ -2,12 +2,12 @@
 # Run as root on the bellhop machine, from a copy of this repo. Installs the bellhop behind
 # valetkey's TLS front door (same front door and certificate renewal as the broker). Safe to
 # re-run. It installs no tool and no login: the owner adds those afterwards.
-# Override with env vars: BELLHOP_HOSTNAME (default desk), BELLHOP_TAGS (default tag:desk).
+# Override with env vars: BELLHOP_HOSTNAME (default bellhop), BELLHOP_TAGS (default tag:bellhop).
 set -euo pipefail
 repo=$(cd "$(dirname "$0")/.." && pwd)
-lib=/usr/local/libexec/relay
-BELLHOP_HOSTNAME=${BELLHOP_HOSTNAME:-desk}
-BELLHOP_TAGS=${BELLHOP_TAGS:-tag:desk}
+lib=/usr/local/libexec/broker
+BELLHOP_HOSTNAME=${BELLHOP_HOSTNAME:-bellhop}
+BELLHOP_TAGS=${BELLHOP_TAGS:-tag:bellhop}
 ok() { echo "ok    $*"; }
 fail() { echo "FAIL  $*" >&2; exit 1; }
 
@@ -37,59 +37,103 @@ ok "tailnet name $dns"
 
 bash "$repo/client/install-version-tools"
 
-# desk: owns the tool logins and runs the tools. relay-front: holds only the TLS key.
-id desk >/dev/null 2>&1 || useradd --system --create-home --shell /usr/sbin/nologin desk
-id relay-front >/dev/null 2>&1 || useradd --system --no-create-home --shell /usr/sbin/nologin relay-front
-deskhome=$(getent passwd desk | cut -d: -f6)
+# A bellhop installed before 0.5 used the name "desk" (its user, service, configuration and address)
+# and the front door's earlier name "relay". Move them, once. The tool logins stay with the same
+# user id. There is no automatic way back: snapshot or back up the machine before updating.
+migrate_names() {
+  local old_home new_home f
+  if id desk >/dev/null 2>&1 && ! id bellhop >/dev/null 2>&1; then
+    old_home=$(getent passwd desk | cut -d: -f6)
+    new_home=$(dirname "$old_home")/bellhop
+    [ ! -e "$new_home" ] || fail "$new_home already exists; move it away and run this again"
+    systemctl stop bellhop-desk.service 2>/dev/null || true
+    usermod -l bellhop -d "$new_home" -m desk
+    if getent group desk >/dev/null; then groupmod -n bellhop desk; fi
+    ln -s "$new_home" "$old_home"  # a tool that recorded its old folder still finds it
+    ok "user desk is now bellhop (same id, same logins); its home is $new_home"
+  fi
+  if id relay-front >/dev/null 2>&1 && ! id broker-front >/dev/null 2>&1; then
+    systemctl stop relay-front.service 2>/dev/null || true
+    usermod -l broker-front relay-front
+    if getent group relay-front >/dev/null; then groupmod -n broker-front relay-front; fi
+    ok "user relay-front is now broker-front"
+  fi
+  if [ -f /etc/bellhop/desk.toml ] && [ ! -e /etc/bellhop/bellhop.toml ]; then
+    mv /etc/bellhop/desk.toml /etc/bellhop/bellhop.toml
+    sed -i 's/^\[desk\]/[bellhop]/' /etc/bellhop/bellhop.toml
+    # Agent machines set up before 0.5 still call https://<this machine>/desk.
+    echo "Delete this file and run install-bellhop.sh again once every agent machine uses .../bellhop" > /etc/bellhop/old-address
+    ok "/etc/bellhop/desk.toml is now /etc/bellhop/bellhop.toml"
+  fi
+  rm -f /etc/bellhop/desk.example.toml
+  if [ -d /var/lib/relay ] && [ ! -e /var/lib/broker ]; then mv /var/lib/relay /var/lib/broker; fi
+  for f in bellhop-desk.service relay-front.service relay-cert.service relay-cert.timer; do
+    if [ -e "/etc/systemd/system/$f" ]; then
+      systemctl disable --now "$f" 2>/dev/null || true
+      rm -f "/etc/systemd/system/$f"
+    fi
+  done
+  rm -rf /etc/systemd/system/relay-front.service.d /usr/local/libexec/relay
+}
+migrate_names
 
-install -d "$lib/relaylib" /etc/bellhop
-install -m 644 "$repo"/relay/relaylib/*.py "$lib/relaylib/"
-install -m 755 "$repo/relay/relay_front.py" "$repo/bellhop/desk.py" "$repo/broker/bin/relay-cert" "$lib/"
-install -m 644 "$repo/bellhop/desk.example.toml" /etc/bellhop/desk.example.toml
+# bellhop: owns the tool logins and runs the tools. broker-front: holds only the TLS key.
+id bellhop >/dev/null 2>&1 || useradd --system --create-home --shell /usr/sbin/nologin bellhop
+id broker-front >/dev/null 2>&1 || useradd --system --no-create-home --shell /usr/sbin/nologin broker-front
+bellhophome=$(getent passwd bellhop | cut -d: -f6)
+
+install -d "$lib/brokerlib" /etc/bellhop
+install -m 644 "$repo"/broker/brokerlib/*.py "$lib/brokerlib/"
+install -m 755 "$repo/broker/broker_front.py" "$repo/bellhop/server.py" "$repo/broker/bin/broker-cert" "$lib/"
+install -m 644 "$repo/bellhop/bellhop.example.toml" /etc/bellhop/bellhop.example.toml
 # valetkey-bellhop: the bellhop's own commands (--requests, --done ID) without the long path.
-printf '#!/bin/sh\nexec /usr/bin/python3 -I %s/desk.py --config /etc/bellhop/desk.toml "$@"\n' "$lib" > /usr/local/sbin/valetkey-bellhop
+printf '#!/bin/sh\nexec /usr/bin/python3 -I %s/server.py --config /etc/bellhop/bellhop.toml "$@"\n' "$lib" > /usr/local/sbin/valetkey-bellhop
 chmod 755 /usr/local/sbin/valetkey-bellhop
 rm -f /usr/local/sbin/valetkey-desk  # this command's name before 0.4
-install -d -o desk -g desk -m 700 /var/lib/bellhop /etc/bellhop/keys
-if [ ! -f /etc/bellhop/desk.toml ]; then
-  cat > /etc/bellhop/desk.toml <<'EOF'
-# bellhop. Nothing is listed yet, so nothing can be run. Copy entries from desk.example.toml,
-# then: systemctl restart bellhop-desk
-[desk]
+install -d -o bellhop -g bellhop -m 700 /var/lib/bellhop /etc/bellhop/keys
+if [ ! -f /etc/bellhop/bellhop.toml ]; then
+  cat > /etc/bellhop/bellhop.toml <<'EOF'
+# bellhop. Nothing is listed yet, so nothing can be run. Copy entries from bellhop.example.toml,
+# then: systemctl restart bellhop
+[bellhop]
 listen = "127.0.0.1:8460"
 identity = "tailscale"
 spool = "/var/lib/bellhop"
 EOF
 fi
-python3 -I "$lib/desk.py" --config /etc/bellhop/desk.toml --requests >/dev/null || fail "/etc/bellhop/desk.toml does not load"
+python3 -I "$lib/server.py" --config /etc/bellhop/bellhop.toml --requests >/dev/null || fail "/etc/bellhop/bellhop.toml does not load"
 ok "bellhop code and configuration"
 
-install -m 644 "$repo"/broker/systemd/relay-front.service "$repo"/broker/systemd/relay-cert.service \
-  "$repo"/broker/systemd/relay-cert.timer /etc/systemd/system/
-install -d /etc/systemd/system/relay-front.service.d
-cat > /etc/systemd/system/relay-front.service.d/desk.conf <<EOF
-# This front door has one backend: the bellhop. Callers use https://$dns/desk/...
+install -m 644 "$repo"/broker/systemd/broker-front.service "$repo"/broker/systemd/broker-cert.service \
+  "$repo"/broker/systemd/broker-cert.timer /etc/systemd/system/
+install -d /etc/systemd/system/broker-front.service.d
+backends="--backend bellhop=127.0.0.1:8460"
+if [ -f /etc/bellhop/old-address ]; then  # see migrate_names: the address before 0.5 still answers
+  backends="$backends --backend desk=127.0.0.1:8460"
+fi
+cat > /etc/systemd/system/broker-front.service.d/bellhop.conf <<EOF
+# This front door has one backend: the bellhop. Callers use https://$dns/bellhop/...
 [Unit]
-After=bellhop-desk.service
+After=bellhop.service
 [Service]
 ExecStart=
-ExecStart=/usr/bin/python3 -I $lib/relay_front.py --backend desk=127.0.0.1:8460 --tls-dir /var/lib/relay/tls
+ExecStart=/usr/bin/python3 -I $lib/broker_front.py $backends --tls-dir /var/lib/broker/tls
 EOF
-cat > /etc/systemd/system/bellhop-desk.service <<EOF
-# Installed by bellhop/install-bellhop.sh. Runs listed tools as the desk user, with that user's logins.
+cat > /etc/systemd/system/bellhop.service <<EOF
+# Installed by bellhop/install-bellhop.sh. Runs listed tools as the bellhop user, with that user's logins.
 [Unit]
 Description=bellhop: runs listed tools and forwards listed MCP servers
 After=network-online.target tailscaled.service
 Wants=network-online.target
 
 [Service]
-User=desk
-Group=desk
+User=bellhop
+Group=bellhop
 WorkingDirectory=$lib
-ExecStart=/usr/bin/python3 -I $lib/desk.py --config /etc/bellhop/desk.toml
+ExecStart=/usr/bin/python3 -I $lib/server.py --config /etc/bellhop/bellhop.toml
 NoNewPrivileges=yes
 ProtectSystem=strict
-ReadWritePaths=/var/lib/bellhop $deskhome
+ReadWritePaths=/var/lib/bellhop $bellhophome
 PrivateTmp=yes
 # Logins pass through this process and the tools it starts: never into a core file on disk.
 LimitCORE=0
@@ -101,26 +145,31 @@ RestartSec=10
 WantedBy=multi-user.target
 EOF
 systemctl daemon-reload
-"$lib/relay-cert" || fail "tailscale cert (turn on HTTPS Certificates in the tailnet admin console, then re-run)"
-systemctl enable -q bellhop-desk relay-front relay-cert.timer
-systemctl restart bellhop-desk relay-front
-systemctl start relay-cert.timer
+"$lib/broker-cert" || fail "tailscale cert (turn on HTTPS Certificates in the tailnet admin console, then re-run)"
+systemctl enable -q bellhop broker-front broker-cert.timer
+systemctl restart bellhop broker-front
+systemctl start broker-cert.timer
 sleep 2
-for u in bellhop-desk relay-front; do
+for u in bellhop broker-front; do
   [ "$(systemctl is-active "$u")" = active ] || fail "$u is not running: journalctl -u $u -n 20"
 done
-code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "https://$dns/desk/tools" || true)
-[ "$code" = 200 ] || fail "https://$dns/desk/tools answered ${code:-nothing}"
-ok "bellhop is up at https://$dns/desk (nothing listed yet)"
+code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "https://$dns/bellhop/tools" || true)
+[ "$code" = 200 ] || fail "https://$dns/bellhop/tools answered ${code:-nothing}"
+ok "bellhop is up at https://$dns/bellhop"
+if [ -f /etc/bellhop/old-address ]; then
+  echo "note  the address from before 0.5, https://$dns/desk, still answers. On each agent machine run the"
+  echo "      installer again with --bellhop-url https://$dns/bellhop, then delete /etc/bellhop/old-address"
+  echo "      here and run this script again."
+fi
 
 cat <<EOF
 
 Next, on this machine:
-  1. Install each tool that needs a login, then sign it in as the desk user:
-       sudo -u desk -H <tool> <its sign-in command>
-     Keys for MCP servers go in /etc/bellhop/keys/<name> (one line, owner desk, mode 600).
-  2. List each tool and MCP server in /etc/bellhop/desk.toml (see desk.example.toml), naming the
-     agent machines that may use it, then: systemctl restart bellhop-desk
+  1. Install each tool that needs a login, then sign it in as the bellhop user:
+       sudo -u bellhop -H <tool> <its sign-in command>
+     Keys for MCP servers go in /etc/bellhop/keys/<name> (one line, owner bellhop, mode 600).
+  2. List each tool and MCP server in /etc/bellhop/bellhop.toml (see bellhop.example.toml), naming the
+     agent machines that may use it, then: systemctl restart bellhop
   3. In the tailnet policy, let agent machines reach this machine on tcp:443 and nothing else.
 Requests from agents:  valetkey-bellhop --requests
 EOF

@@ -26,8 +26,8 @@ share=$pkg/usr/share/valetkey
 install -d -m 755 "$pkg/DEBIAN" "$share" "$pkg/usr/bin"
 
 # The installer and what it reads. Tests, the bellhop test VM, docs and images stay out.
-(cd "$repo" && git ls-files -z -- install.sh VERSION LICENSE NOTICE agents client bellhop broker relay config deploy \
-    ':!relay/tests' ':!bellhop/test_bellhop.py' ':!bellhop/testvm' ':!bellhop/fakes' | tar --null -T - -cf -) \
+(cd "$repo" && git ls-files -z -- install.sh VERSION LICENSE NOTICE agents client bellhop broker config deploy \
+    ':!broker/tests' ':!bellhop/test_bellhop.py' ':!bellhop/testvm' ':!bellhop/fakes' | tar --null -T - -cf -) \
   | tar -xf - -C "$share"
 
 cat > "$pkg/usr/bin/valetkey-setup" <<'SH'

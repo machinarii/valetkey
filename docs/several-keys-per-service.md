@@ -69,7 +69,7 @@ Why these lines are drawn where they are:
   for example DNS edit on one zone, rather than a global key.
 
 When a service offers only one all-powerful key, the route is the only limit. Keep its methods
-and paths as narrow as the job allows, or use the [desk](recipe-new-tool-with-credential.md#path-b-a-bellhop-entry)
+and paths as narrow as the job allows, or use the [bellhop](recipe-new-tool-with-credential.md#path-b-a-bellhop-entry)
 with an allow list of subcommands.
 
 ## Naming the items

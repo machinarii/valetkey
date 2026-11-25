@@ -1,8 +1,0 @@
-[Unit]
-Description=Restore previous Valetkey API routes for %i
-After=tailscaled.service
-
-[Service]
-Type=oneshot
-ExecStart=/usr/local/libexec/relay/bin/relay-routes install %i
-TimeoutStartSec=200

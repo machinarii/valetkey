@@ -1,10 +1,10 @@
 #!/bin/bash
-# Usage (systemd units, User=relay-<org>): with-bw-session <credential-name> <command> [args...]
+# Usage (systemd units, User=broker-<org>): with-bw-session <credential-name> <command> [args...]
 # Unlocks bw with $CREDENTIALS_DIRECTORY/<credential-name> (LoadCredentialEncrypted=), syncs, and
 # execs the command with BW_SESSION set. In a unit with RuntimeDirectory=, it also writes
 # $RUNTIME_DIRECTORY/bw.env (mode 600: BW_SESSION, BITWARDENCLI_APPDATA_DIR) for the broker's
 # --bw-env-file, so the broker itself can run without BW_SESSION in its environment:
-#   with-bw-session bw-unlock-infra fnox ... proxy run -- env -u BW_SESSION relay_read.py ...
+#   with-bw-session bw-unlock-infra fnox ... proxy run -- env -u BW_SESSION broker_read.py ...
 # With no [[proxy.rules]] in the fnox config it skips `fnox proxy run` (see below).
 # Never prints the session.
 set -euo pipefail

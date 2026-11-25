@@ -24,31 +24,31 @@ Two sides:
 ```text
  callers, over the tailnet            broker (Linux VM, TPM)
 ┌───────────────────────────┐        ┌──────────────────────────────────────────────┐
-│ agent machine             │        │ relay-front :443 (Tailscale certificate)     │       ┌─────────────────────┐
-│   valetkey-broker, API    │───────▶│   /local → relay-local  :8441 ─┐             │──────▶│ Vaultwarden         │
-│   and MCP: never a key    │        │   /infra → relay-infra  :8442 ─┼─ read       │       │   local-org         │
-├───────────────────────────┤        │   /entry → relay-entry  :8443 ─┘  and write  │       │   infra-org         │
+│ agent machine             │        │ broker-front :443 (Tailscale certificate)     │       ┌─────────────────────┐
+│   valetkey-broker, API    │───────▶│   /local → broker-local  :8441 ─┐             │──────▶│ Vaultwarden         │
+│   and MCP: never a key    │        │   /infra → broker-infra  :8442 ─┼─ read       │       │   local-org         │
+├───────────────────────────┤        │   /entry → broker-entry  :8443 ─┘  and write  │       │   infra-org         │
 │ trusted server            │───────▶│                                              │       └─────────────────────┘
 │   fnox → vault shim       │        │ fnox proxy: adds the key to [api.*] calls    │       ┌─────────────────────┐
-├───────────────────────────┤        │ relay-approval: authenticator, route grants  │──────▶│ service APIs and    │
-│ approver device           │───────▶│ relay-entry: key entry; checks what a stored │       │ MCP servers         │
+├───────────────────────────┤        │ broker-approval: authenticator, route grants  │──────▶│ service APIs and    │
+│ approver device           │───────▶│ broker-entry: key entry; checks what a stored │       │ MCP servers         │
 │   valetkey-entry, browser │        │   key opens on its MCP routes                │       └─────────────────────┘
 └───────────────────────────┘        └──────────────────────────────────────────────┘
 ```
 
 | Piece | File | Runs as | Notes |
 |---|---|---|---|
-| Front door | `relay/relay_front.py` | `relay-front` | TLS with the Tailscale certificate (`relay-cert`, renewed weekly). Strips the `/local`, `/infra` or `/entry` prefix and sets `X-Relay-Peer` to the TCP peer. Answers loopback-only paths with 404. Has no vault access. |
-| Read service | `relay/relay_read.py --org local\|infra` | `relay-local`, `relay-infra` | Started by `with-bw-session`, which unlocks with the `systemd-creds` credential, writes `BW_SESSION` to a 600 file under `/run`, and wraps the service in `fnox proxy run` when the org has `[api.*]` routes. The service's own environment never contains `BW_SESSION`. |
-| Entry service | `relay/relay_entry.py` | `relay-entry` | Holds no session. Unlocks → writes → verifies → locks per owner submission. Requests are kept in `/var/lib/relay-entry/requests.json` (names, never values) and expire after 24 h. After a value is stored, it checks the routes that use it (`relaylib/access_check.py`): for an MCP server it signs in with the new key at that route's own upstream and lists the tools, never running one. |
-| Approval worker | `relay/approval_worker.py` | `relay-approval` | Pairs the owner's authenticator (console only) and approves proposed `[api.*]` routes with its codes. Reached by the entry service over a local socket. |
-| Shared libs | `relay/relaylib/` | | `bwclient` (the only module that runs `bw`; 5-minute item cache), `routes` (parse and validate), `identity` (`tailscale whois`, cached 5 min), `requests_store`, `httpbase`. |
-| Broker CLIs | `broker/bin/` | root | `valetkey-broker login`, `valetkey-broker check`, `valetkey-broker routes`, `valetkey-broker update`, `relay-cert`, `with-bw-session`. |
+| Front door | `broker/broker_front.py` | `broker-front` | TLS with the Tailscale certificate (`broker-cert`, renewed weekly). Strips the `/local`, `/infra` or `/entry` prefix and sets `X-Broker-Peer` to the TCP peer. Answers loopback-only paths with 404. Has no vault access. |
+| Read service | `broker/broker_read.py --org local\|infra` | `broker-local`, `broker-infra` | Started by `with-bw-session`, which unlocks with the `systemd-creds` credential, writes `BW_SESSION` to a 600 file under `/run`, and wraps the service in `fnox proxy run` when the org has `[api.*]` routes. The service's own environment never contains `BW_SESSION`. |
+| Entry service | `broker/broker_entry.py` | `broker-entry` | Holds no session. Unlocks → writes → verifies → locks per owner submission. Requests are kept in `/var/lib/broker-entry/requests.json` (names, never values) and expire after 24 h. After a value is stored, it checks the routes that use it (`brokerlib/access_check.py`): for an MCP server it signs in with the new key at that route's own upstream and lists the tools, never running one. |
+| Approval worker | `broker/approval_worker.py` | `broker-approval` | Pairs the owner's authenticator (console only) and approves proposed `[api.*]` routes with its codes. Reached by the entry service over a local socket. |
+| Shared libs | `broker/brokerlib/` | | `bwclient` (the only module that runs `bw`; 5-minute item cache), `routes` (parse and validate), `identity` (`tailscale whois`, cached 5 min), `requests_store`, `httpbase`. |
+| Broker CLIs | `broker/bin/` | root | `valetkey-broker login`, `valetkey-broker check`, `valetkey-broker routes`, `valetkey-broker update`, `broker-cert`, `with-bw-session`. |
 | Clients | `client/` | user | `valetkey-broker` (check/request/status/backups), `vault` (fnox shim), `valetkey-entry` (owner). Stdlib Python ≥ 3.9; no proxies from the environment; redirects are errors. |
 
 ## Identity
 
-Caller = the first DNS label of `tailscale whois --json <peer-ip>`, lowercased and cached for 5 minutes. The label counts only when the rest of the name is the broker's own tailnet suffix (`tailscale status --json`, `Self.DNSName`): a device from another tailnet (node sharing) chooses its own short name, so it is an unknown caller. An unknown peer gets 403. Tagged nodes are never approver devices. Backends trust `X-Relay-Peer` only from 127.0.0.1, so a client cannot forge it through the front door.
+Caller = the first DNS label of `tailscale whois --json <peer-ip>`, lowercased and cached for 5 minutes. The label counts only when the rest of the name is the broker's own tailnet suffix (`tailscale status --json`, `Self.DNSName`): a device from another tailnet (node sharing) chooses its own short name, so it is an unknown caller. An unknown peer gets 403. Tagged nodes are never approver devices. Backends trust `X-Broker-Peer` only from 127.0.0.1, so a client cannot forge it through the front door.
 
 Identity uses `Node.Name`, not the display `ComputedName`. Trust the tailnet administrators and
 prevent renamed or newly enrolled devices from inheriting stale short-name grants; stable node
@@ -66,7 +66,7 @@ Read service (under `/local` or `/infra`):
 | `GET /check?names=a,b/notes` | any known machine | `{"a":"ok"\|"missing"\|"not-allowed"}` |
 | `GET /backups/<name>` | machines that may read `<name>` | `{"backups":["YYYYMMDD",…]}`, newest first |
 | `* /<route>/<path>` | `[api.<route>]` nodes | the upstream's response; the key is added by `fnox proxy` |
-| `POST /refresh`, `GET /names` | loopback secret only | for `relay-entry` |
+| `POST /refresh`, `GET /names` | loopback secret only | for `broker-entry` |
 
 A backup `<name>-backup-YYYYMMDD` requires the original item's raw-route permission and trusted
 consumer policy. API-only callers can check their exact API item reference but cannot read it
@@ -98,12 +98,12 @@ Names follow `^[a-z0-9]+(-[a-z0-9]+)*-(dev|qa|prod)$` with a project, or `^[a-z0
 
 | Path | Content | Mode |
 |---|---|---|
-| `/etc/relay/routes.toml`, `entry.toml`, `vault.env` | names, URLs | 644 |
+| `/etc/broker/routes.toml`, `entry.toml`, `vault.env` | names, URLs | 644 |
 | `/etc/credstore.encrypted/bw-unlock-{local,infra,entry}` | unlock passwords, `systemd-creds` (TPM + host key) | 600 |
-| `/etc/credstore.encrypted/relay-loopback` | shared loopback secret | 600 |
-| `/var/lib/relay-<name>/` | `bw` data dir, `org.json` (org and collection IDs), `api.toml` (fnox references only) | 700 |
-| `/var/lib/relay/tls/` | Tailscale certificate | 750, group `relay-front` |
-| `/run/relay-<org>/bw.env` | `BW_SESSION` of the running read service | 600, tmpfs |
+| `/etc/credstore.encrypted/broker-loopback` | shared loopback secret | 600 |
+| `/var/lib/broker-<name>/` | `bw` data dir, `org.json` (org and collection IDs), `api.toml` (fnox references only) | 700 |
+| `/var/lib/broker/tls/` | Tailscale certificate | 750, group `broker-front` |
+| `/run/broker-<org>/bw.env` | `BW_SESSION` of the running read service | 600, tmpfs |
 
 ## fnox integration
 

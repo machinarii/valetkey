@@ -1,7 +1,7 @@
 #!/bin/bash
 # Build two throwaway OrbStack machines that show bellhop working. Synthetic logins only.
 #
-#   bellhop-desk    holds a fake tool login and a fake MCP key, runs the bellhop, has no agent
+#   bellhop    holds a fake tool login and a fake MCP key, runs the bellhop, has no agent
 #   bellhop-agent   has the bellhop client (and Claude Code, not signed in); holds no key
 #
 # Both are isolated machines: no Mac files, no `mac` or `orb` command inside them.
@@ -11,7 +11,7 @@
 set -euo pipefail
 app=$(cd "$(dirname "$0")/.." && pwd)
 repo=$(cd "$app/.." && pwd)
-DESK=${DESK:-bellhop-desk} AGENT=${AGENT:-bellhop-agent} PORT=8460   # override the names to keep an existing pair
+BELLHOP=${BELLHOP:-bellhop} AGENT=${AGENT:-bellhop-agent} PORT=8460   # override the names to keep an existing pair
 
 orb() { if [ "$(uname)" = Linux ]; then mac orb "$@"; else command orb "$@"; fi; }
 as_root() { orb -m "$1" -u root bash -s; }   # script on stdin
@@ -24,38 +24,38 @@ unpack() {
 address() { orb list | awk -v n="$1" '$1 == n { print $NF }'; }
 
 if [ "${1:-}" = delete ]; then
-  orb delete -f "$DESK" "$AGENT"
+  orb delete -f "$BELLHOP" "$AGENT"
   exit 0
 fi
 
-address "$DESK" | grep -q . || orb create --isolated --cpus 1 --memory 1G debian:trixie "$DESK"
+address "$BELLHOP" | grep -q . || orb create --isolated --cpus 1 --memory 1G debian:trixie "$BELLHOP"
 address "$AGENT" | grep -q . || orb create --isolated --cpus 2 --memory 2G debian:trixie "$AGENT"
-desk_ip=$(address "$DESK") agent_ip=$(address "$AGENT")
-echo "bellhop $desk_ip, agent $agent_ip"
+bellhop_ip=$(address "$BELLHOP") agent_ip=$(address "$AGENT")
+echo "bellhop $bellhop_ip, agent $agent_ip"
 
 echo "== bellhop: the service, a fake tool and a fake MCP server, each with a synthetic login"
-tar -C "$repo" -c bellhop/desk.py bellhop/fakes relay/relaylib/__init__.py relay/relaylib/httpbase.py \
-  relay/relaylib/identity.py | unpack "$DESK"
-as_root "$DESK" <<EOF
+tar -C "$repo" -c bellhop/server.py bellhop/fakes broker/brokerlib/__init__.py broker/brokerlib/httpbase.py \
+  broker/brokerlib/identity.py | unpack "$BELLHOP"
+as_root "$BELLHOP" <<EOF
 set -eu
 export DEBIAN_FRONTEND=noninteractive
 command -v python3 >/dev/null || { apt-get update -qq && apt-get install -y -qq python3 >/dev/null; }
-id desk >/dev/null 2>&1 || useradd --system --create-home --shell /usr/sbin/nologin desk
+id bellhop >/dev/null 2>&1 || useradd --system --create-home --shell /usr/sbin/nologin bellhop
 src=/opt/bellhop-src
-install -d /opt/bellhop/relaylib /opt/bellhop/fakes /etc/bellhop
-install -m 755 \$src/bellhop/desk.py /opt/bellhop/desk.py
-install -m 644 \$src/relay/relaylib/*.py /opt/bellhop/relaylib/
+install -d /opt/bellhop/brokerlib /opt/bellhop/fakes /etc/bellhop
+install -m 755 \$src/bellhop/server.py /opt/bellhop/server.py
+install -m 644 \$src/broker/brokerlib/*.py /opt/bellhop/brokerlib/
 install -m 755 \$src/bellhop/fakes/fakemcp.py /opt/bellhop/fakes/fakemcp.py
 install -m 755 \$src/bellhop/fakes/fakefield /usr/local/bin/fakefield
 random() { head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n'; }
-deskhome=\$(getent passwd desk | cut -d: -f6)
-install -d -o desk -g desk -m 700 \$deskhome/.config \$deskhome/.config/fakefield /etc/bellhop/keys /var/lib/bellhop
-login=\$deskhome/.config/fakefield/credentials.json key=/etc/bellhop/keys/fakemcp
+bellhophome=\$(getent passwd bellhop | cut -d: -f6)
+install -d -o bellhop -g bellhop -m 700 \$bellhophome/.config \$bellhophome/.config/fakefield /etc/bellhop/keys /var/lib/bellhop
+login=\$bellhophome/.config/fakefield/credentials.json key=/etc/bellhop/keys/fakemcp
 [ -s \$login ] || (umask 077; echo "synthetic-login-\$(random)" > \$login)
 [ -s \$key ] || (umask 077; echo "Bearer synthetic-\$(random)" > \$key)
-chown desk:desk \$login \$key
-cat > /etc/bellhop/desk.toml <<TOML
-[desk]
+chown bellhop:bellhop \$login \$key
+cat > /etc/bellhop/bellhop.toml <<TOML
+[bellhop]
 listen = "0.0.0.0:$PORT"
 identity = "address"   # test network without Tailscale: callers are known by address
 spool = "/var/lib/bellhop"
@@ -75,17 +75,17 @@ header = "Authorization"
 value_file = "/etc/bellhop/keys/fakemcp"
 callers = ["$AGENT"]
 TOML
-cat > /etc/systemd/system/bellhop-desk.service <<UNIT
+cat > /etc/systemd/system/bellhop.service <<UNIT
 [Unit]
 Description=bellhop
 After=network-online.target bellhop-fakemcp.service
 [Service]
-User=desk
-ExecStart=/usr/bin/python3 -I /opt/bellhop/desk.py --config /etc/bellhop/desk.toml
+User=bellhop
+ExecStart=/usr/bin/python3 -I /opt/bellhop/server.py --config /etc/bellhop/bellhop.toml
 Restart=on-failure
 NoNewPrivileges=yes
 ProtectSystem=strict
-ReadWritePaths=/var/lib/bellhop \$deskhome
+ReadWritePaths=/var/lib/bellhop \$bellhophome
 PrivateTmp=yes
 [Install]
 WantedBy=multi-user.target
@@ -94,17 +94,17 @@ cat > /etc/systemd/system/bellhop-fakemcp.service <<UNIT
 [Unit]
 Description=fake MCP server that demands a key (test fixture)
 [Service]
-User=desk
+User=bellhop
 ExecStart=/usr/bin/python3 /opt/bellhop/fakes/fakemcp.py 127.0.0.1:8470 /etc/bellhop/keys/fakemcp
 Restart=on-failure
 [Install]
 WantedBy=multi-user.target
 UNIT
 systemctl daemon-reload
-systemctl enable -q bellhop-fakemcp bellhop-desk
-systemctl restart bellhop-fakemcp bellhop-desk
+systemctl enable -q bellhop-fakemcp bellhop
+systemctl restart bellhop-fakemcp bellhop
 sleep 1
-systemctl is-active bellhop-fakemcp bellhop-desk
+systemctl is-active bellhop-fakemcp bellhop
 EOF
 
 echo "== agent: the real installer (stand-in, sweep, MCP policy), a test project, Claude Code, no sudo"
@@ -116,15 +116,15 @@ export DEBIAN_FRONTEND=noninteractive
 command -v python3 >/dev/null || { apt-get update -qq && apt-get install -y -qq python3 ca-certificates >/dev/null; }
 user=\$(ls /home | head -1)
 rm -f /etc/claude-code/managed-settings.json   # a test machine: let the installer write a fresh policy
-bash /opt/bellhop-src/install.sh agent --bellhop-url "http://$desk_ip:$PORT" --tools fakefield --user \$user 2>&1 | grep -E '^(ok|FAIL)' | sed 's/^/  /'
+bash /opt/bellhop-src/install.sh agent --bellhop-url "http://$bellhop_ip:$PORT" --tools fakefield --user \$user 2>&1 | grep -E '^(ok|FAIL)' | sed 's/^/  /'
 project=\$(getent passwd \$user | cut -d: -f6)/bellhop-test
 install -d -o \$user -g \$user \$project
 cat > \$project/.mcp.json <<JSON
-{ "mcpServers": { "fakemcp": { "type": "http", "url": "http://$desk_ip:$PORT/mcp/fakemcp" } } }
+{ "mcpServers": { "fakemcp": { "type": "http", "url": "http://$bellhop_ip:$PORT/mcp/fakemcp" } } }
 JSON
 printf 'a local picture\n' > \$project/scene.png
 cat > \$project/README.txt <<TXT
-Try these here. The tool and its login live on $DESK; nothing on this machine holds a key.
+Try these here. The tool and its login live on $BELLHOP; nothing on this machine holds a key.
   fakefield whoami                 runs on the bellhop with the bellhop's login
   fakefield upload scene.png       the file is sent along with the command
   fakefield make result.txt        a file the tool writes comes back here
@@ -159,11 +159,11 @@ show "allowed here:"                         "\$(valetkey-bellhop --list 2>&1 | 
 ask='{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"whoami"}}'
 show "MCP through the bellhop, no key here:"    "\$(python3 -c "
 import urllib.request,json,sys
-r=urllib.request.urlopen(urllib.request.Request('http://$desk_ip:$PORT/mcp/fakemcp',data=sys.argv[1].encode()))
+r=urllib.request.urlopen(urllib.request.Request('http://$bellhop_ip:$PORT/mcp/fakemcp',data=sys.argv[1].encode()))
 print(json.load(r)['result']['content'][0]['text'])" "\$ask" 2>&1 | tail -1)"
 show "MCP server reached directly:"          "\$(python3 -c "
 import urllib.request
-try: urllib.request.urlopen('http://$desk_ip:8470/mcp', data=b'{}', timeout=5); print('REACHABLE')
+try: urllib.request.urlopen('http://$bellhop_ip:8470/mcp', data=b'{}', timeout=5); print('REACHABLE')
 except Exception as e: print('blocked (' + type(e).__name__ + ')')" 2>&1)"
 show "synthetic login anywhere on this machine:" "\$(grep -rIl 'synthetic-' /home /etc /opt /usr/local /tmp 2>/dev/null | grep -v bellhop-src | head -3 | tr '\n' ' ' | grep . || echo none)"
 show "install request filed with the bellhop:"  "\$(valetkey-bellhop --request mcp buffer https://mcp.buffer.com/mcp schedule posts 2>&1 | cut -c1-60)"
@@ -186,4 +186,4 @@ CLEAN
 echo '/usr/local/sbin/valetkey-sweep | sed "s/^/  after cleanup: /"' | as_root "$AGENT"
 
 echo "== bellhop: what the owner sees"
-echo 'python3 -I /opt/bellhop/desk.py --requests | sed "s/^/  /"; : > /var/lib/bellhop/requests.jsonl' | as_root "$DESK"   # shown, then cleared: it was a test
+echo 'python3 -I /opt/bellhop/server.py --requests | sed "s/^/  /"; : > /var/lib/bellhop/requests.jsonl' | as_root "$BELLHOP"   # shown, then cleared: it was a test

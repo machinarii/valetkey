@@ -1,6 +1,6 @@
 #!/bin/bash
 # Run as root on the bellhop machine, after install-bellhop.sh. Installs a starter set of tools that
-# hold a login and lists them in /etc/bellhop/desk.toml for the named agent machines. Safe to
+# hold a login and lists them in /etc/bellhop/bellhop.toml for the named agent machines. Safe to
 # re-run. It signs nothing in: the sign-in steps are printed at the end, for the owner.
 #
 #   bellhop-tools.sh CALLERS [TOOL ...]
@@ -13,8 +13,8 @@
 # The allow lists below are a cautious start: read and create, nothing that prints, exports or
 # changes a login. Read them before widening them.
 set -euo pipefail
-conf=/etc/bellhop/desk.toml
-lib=/usr/local/libexec/relay
+conf=/etc/bellhop/bellhop.toml
+lib=/usr/local/libexec/broker
 ok() { echo "ok    $*"; }
 fail() { echo "FAIL  $*" >&2; exit 1; }
 
@@ -46,8 +46,8 @@ npm_tool() {  # npm_tool COMMAND PACKAGE VERSION
   command -v "$1" >/dev/null || fail "$1 did not install"
 }
 
-# These machines may also file install requests (desk.py --requests).
-grep -q '^requesters' "$conf" || sed -i "/^\[desk\]/a requesters = $list" "$conf"
+# These machines may also file install requests (server.py --requests).
+grep -q '^requesters' "$conf" || sed -i "/^\[bellhop\]/a requesters = $list" "$conf"
 
 for tool in "${tools[@]}"; do
   case $tool in
@@ -66,11 +66,11 @@ allow = ["account", "generate", "model", "preset", "upload", "workflow", "voices
 timeout = 900
 EOF
       steps+=("higgsfield (browser sign-in in one terminal, then pick the billing workspace):
-      sudo -u desk -H higgsfield auth login --port 8765 & sleep 4; echo; read -rp \"Paste the localhost address here, then Enter: \" u; curl -s \"\$u\"; echo; wait
+      sudo -u bellhop -H higgsfield auth login --port 8765 & sleep 4; echo; read -rp \"Paste the localhost address here, then Enter: \" u; curl -s \"\$u\"; echo; wait
         Open the link it prints and approve. Your browser then fails to load a page at
         http://localhost:8765/...  Copy that whole address and paste it at the prompt.
-      sudo -u desk -H higgsfield workspace list
-      sudo -u desk -H higgsfield workspace set <workspace id>") ;;
+      sudo -u bellhop -H higgsfield workspace list
+      sudo -u bellhop -H higgsfield workspace set <workspace id>") ;;
     vercel)
       npm_tool vercel vercel 66.5.0
       add tool vercel <<EOF
@@ -84,7 +84,7 @@ allow = ["inspect", "list", "ls", "logs", "health", "whoami", "project ls", "pro
 deny = ["--token", "-t", "--debug", "-d", "--cwd", "--local-config", "-A", "--global-config", "-Q"]
 EOF
       steps+=("vercel (prints a link and a code to approve in your browser):
-      sudo -u desk -H vercel login") ;;
+      sudo -u bellhop -H vercel login") ;;
     stripe)
       npm_tool stripe @stripe/cli 1.55.14
       add tool stripe <<EOF
@@ -98,18 +98,18 @@ allow = ["customers list", "charges list", "payment_intents list", "products lis
 deny = ["--api-key", "--log-level", "--config", "--project-name"]
 EOF
       steps+=("stripe (prints a link and a pairing code to approve in your browser):
-      sudo -u desk -H stripe login") ;;
+      sudo -u bellhop -H stripe login") ;;
     *) fail "unknown tool: $tool (known: higgsfield vercel stripe)" ;;
   esac
 done
 
-if ! python3 -I "$lib/desk.py" --config "$conf" --requests >/dev/null; then
+if ! python3 -I "$lib/server.py" --config "$conf" --requests >/dev/null; then
   cp -p "$conf.before-tools" "$conf"
   fail "the new $conf did not load; the previous one is back in place"
 fi
-systemctl restart bellhop-desk
+systemctl restart bellhop
 sleep 1
-[ "$(systemctl is-active bellhop-desk)" = active ] || fail "bellhop-desk is not running: journalctl -u bellhop-desk -n 20"
+[ "$(systemctl is-active bellhop)" = active ] || fail "bellhop is not running: journalctl -u bellhop -n 20"
 ok "bellhop restarted; $conf.before-tools holds the previous configuration"
 
 echo

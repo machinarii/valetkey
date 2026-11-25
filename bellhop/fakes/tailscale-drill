@@ -1,6 +1,6 @@
 #!/bin/bash
 # Fake `tailscale` for testvm/drill.sh. Answers from /etc/bellhop-drill.env:
-#   NAME=desk.test.ts.net  IP=<this machine>  PEERS="<ip>=<machine name> ..."
+#   NAME=bellhop.test.ts.net  IP=<this machine>  PEERS="<ip>=<machine name> ..."
 # `cert` makes a two-day self-signed certificate and trusts it on this machine. Test fixture only.
 . /etc/bellhop-drill.env
 case "$1" in

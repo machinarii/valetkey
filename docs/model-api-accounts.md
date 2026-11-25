@@ -29,7 +29,7 @@ On a separate approver device, enter the provider API key in the broker entry pa
 
 ## 2. Authorize a model route
 
-On the broker, add a table to `/etc/relay/routes.toml` for each CLI you want to authorize. Replace `devbox` with the agent's Tailscale machine name. These two routes share one OpenRouter item:
+On the broker, add a table to `/etc/broker/routes.toml` for each CLI you want to authorize. Replace `devbox` with the agent's Tailscale machine name. These two routes share one OpenRouter item:
 
 ```toml
 [model.router-claude]

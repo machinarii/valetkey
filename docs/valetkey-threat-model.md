@@ -31,8 +31,8 @@ whether the remaining high-priority assumptions hold.
 
 ### Primary components
 
-Python stdlib services provide TLS routing (`relay_front.py`), per-org reads/API forwarding
-(`relay_read.py`) and owner entry (`relay_entry.py`). `relaylib/bwclient.py` wraps `bw` with values
+Python stdlib services provide TLS routing (`broker_front.py`), per-org reads/API forwarding
+(`broker_read.py`) and owner entry (`broker_entry.py`). `brokerlib/bwclient.py` wraps `bw` with values
 on stdin rather than argv; it caches decrypted items in broker memory. Bash tools provision
 systemd services and generate fnox policies. The `valetkey-broker` client handles metadata, `vault` is a
 raw-value shim for trusted servers, and `valetkey-entry` reads owner input. The entry page has
@@ -41,26 +41,26 @@ bundled JS/CSS and escaped server-rendered request descriptions.
 ### Data flows and trust boundaries
 
 - Agent → broker front: HTTPS metadata/API requests; Tailscale peer identity, no client bearer
-  token. The front overwrites peer headers and blocks internal endpoints (`relay_front.Handler`).
+  token. The front overwrites peer headers and blocks internal endpoints (`broker_front.Handler`).
 - Front → loopback services: HTTP with peer IP; service trust in the front and broker host.
-  Duplicate lengths/transfer encoding are rejected (`relaylib/httpbase.py:61`).
+  Duplicate lengths/transfer encoding are rejected (`brokerlib/httpbase.py:61`).
 - Read service → vault subprocess/cache: per-org account, values in broker memory; errors exclude
-  subprocess output (`relaylib/bwclient.py`, `broker/systemd/relay-{local,infra}.service`).
+  subprocess output (`brokerlib/bwclient.py`, `broker/systemd/broker-{local,infra}.service`).
 - API forwarding → fnox proxy → upstream: fixed HTTPS origin and permitted method/path; proxy injects
   the key. Responses stream back and remain a trusted confidentiality boundary
-  (`relay_read.py:287`, `relay/tools/gen-fnox-config.py:generate`).
+  (`broker_read.py:287`, `broker/tools/gen-fnox-config.py:generate`).
 - Trusted server → raw endpoint: explicit trusted-node policy **and** route permission;
-  declared agents denied (`relaylib/routes.py:80`, `relay_read.py:183`).
+  declared agents denied (`brokerlib/routes.py:80`, `broker_read.py:183`).
 - Owner → entry → vault: private terminal/TLS form, untagged owner identity, HTML escaping/form
-  token/CSP, per-write unlock and verification (`client/vault-entry`, `relay_entry.py:278`).
+  token/CSP, per-write unlock and verification (`client/vault-entry`, `broker_entry.py:278`).
 - Entry → upstream (access check): after a store, the new key goes only to the upstream of each
   `[api.*]` route that names that item, and an MCP handshake only to routes that look like MCP
   servers; no tool is run. Server text reaches the owner's page escaped, never an agent; agents get
-  route names and counts only, and an echoed key is replaced (`relaylib/access_check.py`).
+  route names and counts only, and an echoed key is replaced (`brokerlib/access_check.py`).
 - Owner → approval worker: authenticator pairing at the console; route approvals with a code
   through the entry service's bounded operations (`approval_worker.py`).
 - Agent → bellhop: listed commands only, run with the bellhop's own logins; the agent gets output, never
-  the login (`bellhop/desk.py`).
+  the login (`bellhop/server.py`).
 - Operator → deployment: reviewed source and metadata policy; administration is trusted.
   CI/tests use synthetic secrets and do not prove production isolation (`.github/workflows/test.yml`).
 
@@ -113,11 +113,11 @@ Tailnet administration and upstream APIs are trusted; their compromise breaks th
 
 | Surface | How reached | Trust boundary | Notes | Evidence |
 |---|---|---|---|---|
-| Front HTTP paths/headers | Tailnet TCP 443 | Network to front/backend | Spoofing and framing controls | `relay_front.Handler`, `httpbase.RelayHandler` |
-| Raw/notes/backup routes | Broker org paths | Agent to secret store | Default deny plus trusted-node and route checks | `relay_read.Handler.serve_value`, `.allowed` |
-| API routes | Broker route path | Agent to privileged API | Canonical path, methods, fixed origin; semantic limits remain | `relay_read.Handler.api`, `routes.api_path_allowed` |
-| Requests/status | Entry API | Agent to owner workflow | Names/purpose only; no value field in request state | `relay_entry.Handler.create`, `requests_store.py` |
-| Entry UI and submission | Owner CLI/browser | Owner to vault write | Tagged/agent owners denied, hidden input, TLS, form token/CSP | `relay_entry.Handler`, `client/vault-entry` |
+| Front HTTP paths/headers | Tailnet TCP 443 | Network to front/backend | Spoofing and framing controls | `broker_front.Handler`, `httpbase.BrokerHandler` |
+| Raw/notes/backup routes | Broker org paths | Agent to secret store | Default deny plus trusted-node and route checks | `broker_read.Handler.serve_value`, `.allowed` |
+| API routes | Broker route path | Agent to privileged API | Canonical path, methods, fixed origin; semantic limits remain | `broker_read.Handler.api`, `routes.api_path_allowed` |
+| Requests/status | Entry API | Agent to owner workflow | Names/purpose only; no value field in request state | `broker_entry.Handler.create`, `requests_store.py` |
+| Entry UI and submission | Owner CLI/browser | Owner to vault write | Tagged/agent owners denied, hidden input, TLS, form token/CSP | `broker_entry.Handler`, `client/vault-entry` |
 | Policy, installer, proxy generation | Operator CLI/files | Admin to enforcement | Operator-controlled names; no values belong here | `routes.load_routes`, `install.sh`, `gen-fnox-config.py` |
 
 ## Top abuse paths
@@ -175,14 +175,14 @@ that a deployed system is exploitable.
 
 | Path | Why it matters | Related threats |
 |---|---|---|
-| `relay/relay_read.py:183` | Last raw-value enforcement point, including notes/backups | TM-001 |
-| `relay/relaylib/routes.py:138` | Canonical path, origin and role validation | TM-001, TM-002 |
-| `relay/tools/gen-fnox-config.py` | Exact endpoint and child-path proxy rules must match installed fnox semantics | TM-002, TM-007 |
-| `relay/relaylib/identity.py:21` | Tagged owner exclusion and short-name identity assumption | TM-003 |
+| `broker/broker_read.py:183` | Last raw-value enforcement point, including notes/backups | TM-001 |
+| `broker/brokerlib/routes.py:138` | Canonical path, origin and role validation | TM-001, TM-002 |
+| `broker/tools/gen-fnox-config.py` | Exact endpoint and child-path proxy rules must match installed fnox semantics | TM-002, TM-007 |
+| `broker/brokerlib/identity.py:21` | Tagged owner exclusion and short-name identity assumption | TM-003 |
 | `client/vault-entry:67` | Response masking, TLS URL validation, hidden input | TM-004 |
-| `relay/relay_entry.py:232` | Backup preservation, owner checks and browser security | TM-003, TM-005 |
+| `broker/broker_entry.py:232` | Backup preservation, owner checks and browser security | TM-003, TM-005 |
 | `broker/systemd/`, `deploy/tailscale/acl.example.hujson:23` | Host isolation and network reachability | TM-006, TM-008 |
-| `relay/relaylib/httpbase.py:61`, `relay/relaylib/requests_store.py` | HTTP framing, resource limits, persistent metadata | TM-008 |
+| `broker/brokerlib/httpbase.py:61`, `broker/brokerlib/requests_store.py` | HTTP framing, resource limits, persistent metadata | TM-008 |
 
 ## Verification and remaining work
 
@@ -190,7 +190,7 @@ The regression suite covers denial and successful trusted-consumer/API/owner wor
 cross-org access, notes/backups, duplicate lengths, transfer encoding, hidden input, URL checks,
 no-secret responses/logs/argv, write verification/rollback and offline installed guidance.
 
-Tests run via `bash relay/run-security-tests`: Linux bubblewrap, unshared network/PID/user/etc.
+Tests run via `bash broker/run-security-tests`: Linux bubblewrap, unshared network/PID/user/etc.
 namespaces, only isolated loopback, empty allowlisted environment, synthetic localhost hosts file,
 no host home, read-only source and `/usr`, 256 MiB temporary filesystem, 2 GiB address-space limit,
 180 seconds CPU per process, 2048 per-user processes, 512 descriptors, 16 MiB file limit, no core
@@ -208,21 +208,21 @@ Changes since the first review, each with a regression test:
 
 - TM-003: a short name now counts only under the broker's own tailnet DNS suffix, so a device
   shared in from another tailnet cannot borrow an owner's or trusted server's name
-  (`relaylib/identity.py`). Renamed or newly enrolled devices in the same tailnet remain an
+  (`brokerlib/identity.py`). Renamed or newly enrolled devices in the same tailnet remain an
   administration matter. After updating valetkey, confirm that known machines are still recognised
   (`valetkey-broker check` from one of them).
 - TM-008: one machine may hold at most 20 pending entry requests (429 beyond); the owner's
-  listing and page name the machine that asked (`relay_entry.py`, `relaylib/requests_store.py`).
+  listing and page name the machine that asked (`broker_entry.py`, `brokerlib/requests_store.py`).
   API forwarding and connection counts are still unlimited.
 - Audit lines are reduced to printable ASCII: control bytes in a request target made
-  `journalctl` show the caller's own line as `[blob data]` (`relaylib/httpbase.py`).
+  `journalctl` show the caller's own line as `[blob data]` (`brokerlib/httpbase.py`).
 - The entry page shows result text only when it carries this process's signature, so a link
-  cannot put words in the page's own status box (`relay_entry.py`).
+  cannot put words in the page's own status box (`broker_entry.py`).
 - The four service units refuse core dumps (`LimitCORE=0`) and gain standard sandboxing
   directives.
 
 Left as is: any process on the broker host can name a caller to a loopback backend through
-`X-Relay-Peer`, including one service user towards the other org's read service. That stays inside the
+`X-Broker-Peer`, including one service user towards the other org's read service. That stays inside the
 "nothing else runs on the broker" assumption; closing it needs per-backend authentication of
 the front door.
 

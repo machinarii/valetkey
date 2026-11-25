@@ -5,7 +5,7 @@
 class ValetkeyApprover < Formula
   desc "valetkey client for an approver device: valetkey-broker and valetkey-entry"
   homepage "https://github.com/machinarii/valetkey"
-  url "https://github.com/machinarii/valetkey.git", tag: "v0.4.0"
+  url "https://github.com/machinarii/valetkey.git", tag: "v0.5.0"
   license "MIT"
   head "https://github.com/machinarii/valetkey.git", branch: "main"
 
@@ -16,7 +16,7 @@ class ValetkeyApprover < Formula
     bin.install "client/broker" => "valetkey-broker"
     bin.install "client/vault"  # fnox calls it by this name
     bin.install "client/vault-entry" => "valetkey-entry"
-    bin.install "relay/tools/fnox-to-broker.py" => "valetkey-fnox-to-broker"
+    bin.install "broker/tools/fnox-to-broker.py" => "valetkey-fnox-to-broker"
     (share/"valetkey").install "agents/credential-rules.md"
   end
 
@@ -26,7 +26,7 @@ class ValetkeyApprover < Formula
       Point it at your broker once (names only, never a key):
         valetkey-broker set-url https://broker.<tailnet>.ts.net
       Use valetkey-entry on an approver device to enter keys; never run agents on this machine.
-      List it in the broker's /etc/relay/entry.toml owner_nodes.
+      List it in the broker's /etc/broker/entry.toml owner_nodes.
     EOS
   end
 

@@ -1,0 +1,57 @@
+# Installed by valetkey (install.sh broker). Read service for local-org on 127.0.0.1:8441 (behind broker-front).
+# with-bw-session unlocks bw as broker-local and writes /run/broker-local/bw.env (BW_SESSION) for the
+# broker's --bw-env-file; fnox proxy run gets BW_SESSION for its bitwarden provider ([api.*]
+# routes in api.toml), and env -u keeps it out of the broker process's environment.
+[Unit]
+Description=Credential broker, local-org (read)
+After=network-online.target tailscaled.service
+Wants=network-online.target
+# Not configured yet (valetkey-broker login local, valetkey-broker routes install): stay inactive, don't crash-loop.
+ConditionPathExists=/etc/credstore.encrypted/bw-unlock-local
+ConditionPathExists=/var/lib/broker-local/api.toml
+ConditionPathExists=/var/lib/broker-local/org.json
+
+[Service]
+User=broker-local
+Group=broker-local
+WorkingDirectory=/usr/local/libexec/broker
+RuntimeDirectory=broker-local
+RuntimeDirectoryMode=0700
+LoadCredentialEncrypted=bw-unlock-local
+LoadCredentialEncrypted=broker-loopback
+Environment=HOME=/var/lib/broker-local BITWARDENCLI_APPDATA_DIR=/var/lib/broker-local/bw-cli
+Environment=FNOX_CONFIG_DIR=/var/lib/broker-local/fnox-global FNOX_DAEMON=off
+ExecStart=/usr/local/libexec/broker/with-bw-session bw-unlock-local \
+  /usr/local/bin/fnox --no-daemon -c /var/lib/broker-local/api.toml proxy run -- \
+  env -u BW_SESSION -u FNOX_BW_SESSION -u CREDENTIALS_DIRECTORY \
+  /usr/bin/python3 -I /usr/local/libexec/broker/broker_read.py --org local \
+  --routes /etc/broker/routes.toml --port 8441 --org-ids /var/lib/broker-local/org.json \
+  --loopback-secret-file %d/broker-loopback --entry-url http://127.0.0.1:8443 \
+  --bw-env-file /run/broker-local/bw.env
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+LockPersonality=yes
+# Decrypted items and the bw session live in this process: never in a core file on disk.
+LimitCORE=0
+UMask=0077
+ProtectProc=invisible
+ProtectKernelLogs=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+SystemCallArchitectures=native
+ReadWritePaths=/var/lib/broker-local
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

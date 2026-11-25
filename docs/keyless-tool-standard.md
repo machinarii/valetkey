@@ -110,10 +110,10 @@ allowed = ["read", "write", "spend"]
 
 ### Mapping to today's settings
 
-| Manifest | Broker `routes.toml` | Bellhop `desk.toml` |
+| Manifest | Broker `routes.toml` | Bellhop `bellhop.toml` |
 |---|---|---|
 | `tool.name` | `[api.NAME]` | `[tool.NAME]` |
-| `credential.item` | `item` | none; the login is in the desk user's home |
+| `credential.item` | `item` | none; the login is in the bellhop user's home |
 | `trusted.upstream`, `inject` | `upstream`, `auth` | none |
 | `trusted.paths`, `methods` | `paths`, `methods` | none |
 | operations in the allowed classes | none; narrow with `paths` and `methods` | `allow` |

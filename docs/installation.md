@@ -146,7 +146,7 @@ The [Installer reference](#installer-reference) is the map: each step below runs
 In the Tailscale admin console ([Tailscale: what valetkey relies on](system-design.md#tailscale-what-valetkey-relies-on) has the documentation links):
 
 1. **DNS:** turn on **MagicDNS** and **HTTPS Certificates**.
-2. **Access controls:** merge [`deploy/tailscale/acl.example.hujson`](../deploy/tailscale/acl.example.hujson) into your policy. Approver devices reach `tag:vault` and `tag:broker` on 443; workload machines reach only `tag:broker:443` (and `tag:desk:443` if you use the bellhop); the broker reaches `tag:vault:443`; nothing reaches the broker or bellhop over SSH. The `tests` block checks this every time you save.
+2. **Access controls:** merge [`deploy/tailscale/acl.example.hujson`](../deploy/tailscale/acl.example.hujson) into your policy. Approver devices reach `tag:vault` and `tag:broker` on 443; workload machines reach only `tag:broker:443` (and `tag:bellhop:443` if you use the bellhop); the broker reaches `tag:vault:443`; nothing reaches the broker or bellhop over SSH. The `tests` block checks this every time you save.
 
 ### 2. Run Vaultwarden
 
@@ -184,7 +184,7 @@ In the web vault, in your browser:
 3. As yourself, create the organizations `local-org` and `infra-org` with those collections, and invite the broker accounts. Log in once as each broker account to accept, then **Confirm** each member as yourself.
 4. Close sign-ups: `pct exec 210 -- /opt/vaultwarden/close-signups.sh` (or run the script inside the container).
 
-Vaultwarden grants access per collection: a parent does not include its children. Each new project collection (`infra-broker-collection/<project>`) needs the `-infra` and `-entry` accounts granted on it, and then `sudo valetkey-broker login infra …` and `sudo valetkey-broker login entry …` run again on the broker. The broker services record collection IDs at login (`/var/lib/relay-<name>/org.json`). Different org or collection names are fine; set them in `/etc/relay/vault.env` (step 4).
+Vaultwarden grants access per collection: a parent does not include its children. Each new project collection (`infra-broker-collection/<project>`) needs the `-infra` and `-entry` accounts granted on it, and then `sudo valetkey-broker login infra …` and `sudo valetkey-broker login entry …` run again on the broker. The broker services record collection IDs at login (`/var/lib/broker-<name>/org.json`). Different org or collection names are fine; set them in `/etc/broker/vault.env` (step 4).
 
 ### 4. Install the broker
 
@@ -201,14 +201,14 @@ git clone https://github.com/machinarii/valetkey && cd valetkey
 sudo ./install.sh broker --with-deps
 ```
 
-`--with-deps` installs Python, jq, Tailscale, the Bitwarden CLI and fnox (pinned version, via mise), then joins the tailnet as `broker` with `tag:broker`; open the login URL it prints. `install.sh broker` then creates the service users, installs the code to `/usr/local/libexec/relay`, writes `/etc/relay/{routes,entry}.toml` and `vault.env` from the examples, generates the loopback credential, fetches the Tailscale certificate and enables the units. It prints `ok`, `skip` or `FAIL` for each step. It is safe to re-run, and never overwrites your `/etc/relay` files.
+`--with-deps` installs Python, jq, Tailscale, the Bitwarden CLI and fnox (pinned version, via mise), then joins the tailnet as `broker` with `tag:broker`; open the login URL it prints. `install.sh broker` then creates the service users, installs the code to `/usr/local/libexec/broker`, writes `/etc/broker/{routes,entry}.toml` and `vault.env` from the examples, generates the loopback credential, fetches the Tailscale certificate and enables the units. It prints `ok`, `skip` or `FAIL` for each step. It is safe to re-run, and never overwrites your `/etc/broker` files.
 
 Edit the configs for your machines (see [Configuration](operations.md#configuration)):
 
 ```sh
-sudo nano /etc/relay/routes.toml   # who may use what
-sudo nano /etc/relay/entry.toml    # your own devices (owner_nodes)
-sudo nano /etc/relay/vault.env     # VAULT_URL and org/collection names, if not the defaults
+sudo nano /etc/broker/routes.toml   # who may use what
+sudo nano /etc/broker/entry.toml    # your own devices (owner_nodes)
+sudo nano /etc/broker/vault.env     # VAULT_URL and org/collection names, if not the defaults
 ```
 
 ### 5. Log the broker services in
@@ -231,7 +231,7 @@ git clone https://github.com/machinarii/valetkey && cd valetkey
 sudo ./install.sh agent --broker-url https://broker.<tailnet>.ts.net
 ```
 
-It installs `valetkey-broker` in agent mode, the hourly sweep and a policy that limits MCP servers to the broker, all as root-owned files, and prints what is left for you. With a bellhop, add `--bellhop-url https://desk.<tailnet>.ts.net/desk --tools tool1,tool2`; each tool name becomes a stand-in. `--user NAME` says which user the agent runs as, and `--no-policy` skips the MCP policy. If T3 Code is installed for that user, the policy also allows T3's own tools; `--no-t3` leaves them out. [T3 Code](t3-code.md)
+It installs `valetkey-broker` in agent mode, the hourly sweep and a policy that limits MCP servers to the broker, all as root-owned files, and prints what is left for you. With a bellhop, add `--bellhop-url https://bellhop.<tailnet>.ts.net/bellhop --tools tool1,tool2`; each tool name becomes a stand-in. `--user NAME` says which user the agent runs as, and `--no-policy` skips the MCP policy. If T3 Code is installed for that user, the policy also allows T3's own tools; `--no-t3` leaves them out. [T3 Code](t3-code.md)
 
 Then, as the user the agent runs as, set up Claude Code itself:
 
@@ -262,7 +262,7 @@ Client tools install in `~/.local/bin` by default. On an application server, put
 ### 7. Wire up a project
 
 On a separate trusted server with no agents or agent-controlled code, add the project to
-`/etc/relay/routes.toml` on the broker and reload. Merge the security lists with existing policy:
+`/etc/broker/routes.toml` on the broker and reload. Merge the security lists with existing policy:
 
 ```toml
 [security]
@@ -287,15 +287,15 @@ Point the project's `fnox.toml` at the broker. To generate it from your current 
 ```
 
 ```toml
-[providers.relay]
+[providers.broker]
 type    = "vault"
 address = "https://broker.<tailnet>.ts.net/infra"   # broker URL + org
 path    = "shop"                                    # project
 token   = "tailscale"                               # placeholder; identity is the machine
 
 [secrets]
-DATABASE_URL = { provider = "relay", value = "database-url-shop-qa", if_missing = "error" }
-TLS_KEY      = { provider = "relay", value = "tls-key-shop-qa/notes", if_missing = "error" }
+DATABASE_URL = { provider = "broker", value = "database-url-shop-qa", if_missing = "error" }
+TLS_KEY      = { provider = "broker", value = "tls-key-shop-qa/notes", if_missing = "error" }
 ```
 
 Check every item, then run as usual:
@@ -314,7 +314,7 @@ Only if agents need a command-line tool that keeps its own login. An HTTP API or
 **On Proxmox** (creates a Debian 13 VM and installs the bellhop in it):
 
 ```sh
-bash bellhop/proxmox-bellhop-vm.sh                # VMID=212 BELLHOP_HOSTNAME=desk by default
+bash bellhop/proxmox-bellhop-vm.sh                # VMID=212 BELLHOP_HOSTNAME=bellhop by default
 ```
 
 **On any Debian/Ubuntu VM that runs nothing else:**
@@ -324,7 +324,7 @@ git clone https://github.com/machinarii/valetkey && cd valetkey
 sudo ./install.sh bellhop
 ```
 
-Add `tag:desk` to the tailnet policy first; the installer joins the tailnet with that tag and prints a login URL. It installs no tool and no login. [bellhop/README.md](../bellhop/README.md) covers listing tools, signing them in and the stand-in command for agent machines.
+Add `tag:bellhop` to the tailnet policy first; the installer joins the tailnet with that tag and prints a login URL. It installs no tool and no login. [bellhop/README.md](../bellhop/README.md) covers listing tools, signing them in and the stand-in command for agent machines.
 
 ### 9. Verify
 

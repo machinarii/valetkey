@@ -1,7 +1,7 @@
 #!/bin/bash
 # valetkey broker dependencies. Run as root on a fresh Debian 12+/Ubuntu 24.04+ machine:
 #   sudo ./install.sh broker --with-deps     (or: sudo bash broker/deps.sh)
-# Installs: python3 (>= 3.11), jq, curl, unzip, gpg, git and ssh (for relay-update), Tailscale,
+# Installs: python3 (>= 3.11), jq, curl, unzip, gpg, git and ssh (for broker-update), Tailscale,
 # the Bitwarden CLI (official native build) and fnox (pinned, through mise, system-wide under
 # /opt/mise). Then brings the machine onto the tailnet as BROKER_HOSTNAME with tag:broker if it
 # is not on one yet.

@@ -1,7 +1,7 @@
 # valetkey developer tasks. Nothing here touches a secret.
 VERSION := $(shell cat VERSION)
 PREFIX  ?= $(HOME)/.local/bin
-SHELL_SCRIPTS := install.sh client/install-version-tools relay/run-tests relay/run-security-tests $(filter-out broker/bin/relay-approval,$(wildcard broker/*.sh broker/bin/relay-* broker/bin/with-bw-session deploy/*/*.sh \
+SHELL_SCRIPTS := install.sh client/install-version-tools broker/run-tests broker/run-security-tests $(filter-out broker/bin/broker-approval,$(wildcard broker/*.sh broker/bin/broker-* broker/bin/with-bw-session deploy/*/*.sh \
   bellhop/*.sh bellhop/testvm/*.sh bellhop/fakes/tailscale-drill))
 
 .PHONY: help test test-security lint install-client dist clean
@@ -13,17 +13,17 @@ help:
 	@echo "make dist             dist/valetkey-$(VERSION).tar.gz from HEAD (git archive)"
 
 test:
-	relay/run-tests
+	broker/run-tests
 	python3 -m unittest bellhop/test_bellhop.py
 
 test-security:
-	bash relay/run-security-tests
+	bash broker/run-security-tests
 
 lint:
 	@for f in $(SHELL_SCRIPTS); do bash -n $$f || exit 1; done; echo "ok    bash -n"
 	@if command -v shellcheck >/dev/null; then shellcheck -S warning $(SHELL_SCRIPTS) && echo "ok    shellcheck"; \
 	 else echo "skip  shellcheck (not installed)"; fi
-	@python3 -m py_compile broker/bin/relay-approval relay/*.py relay/relaylib/*.py relay/tools/*.py agents/*.py bellhop/*.py bellhop/bellhop bellhop/fakes/fakemcp.py \
+	@python3 -m py_compile broker/bin/broker-approval broker/*.py broker/brokerlib/*.py broker/tools/*.py agents/*.py bellhop/*.py bellhop/bellhop bellhop/fakes/fakemcp.py \
 	  && echo "ok    py_compile"
 	@# This repository is public: examples use example/test names, never a real tailnet or home directory.
 	@if git grep -nIoE '[a-z0-9-]+\.ts\.net|/(home|Users)/[a-z0-9_-]+' -- . ':!Makefile' \

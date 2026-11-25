@@ -26,11 +26,66 @@ changed by the source test suite.
 
 ```sh
 git pull
-sudo ./install.sh broker      # on the broker: replaces code and units, keeps /etc/relay and logins
+sudo ./install.sh broker      # on the broker: replaces code and units, keeps /etc/broker and logins
 ./install.sh client --agent   # on an agent, using its existing install prefix
 ```
 
-The broker reports its installed version in `/usr/local/libexec/relay/VERSION` and in `./install.sh doctor`.
+The broker reports its installed version in `/usr/local/libexec/broker/VERSION` and in `./install.sh doctor`.
+
+## Updating to 0.5: names on disk
+
+Before 0.5 the broker's files, users and services were named `relay` and the bellhop's were named
+`desk`. From 0.5 they are named `broker` and `bellhop`. Each machine's installer moves an existing
+installation over the first time it runs. The commands are the usual ones. What is different:
+**this update cannot be put back by `valetkey-broker rollback`.**
+
+**Take a snapshot or a backup of each machine before you update it.** On Proxmox:
+`qm snapshot <vmid> before-names`. If the services do not come back, return to the snapshot with
+`qm rollback <vmid> before-names` and keep what the update printed.
+
+| | Before 0.5 | From 0.5 |
+|---|---|---|
+| Broker configuration | `/etc/relay/` | `/etc/broker/` |
+| Broker services | `relay-front`, `relay-local`, `relay-infra`, `relay-entry`, `relay-approval`, `relay-cert.timer` | `broker-front`, `broker-local`, `broker-infra`, `broker-entry`, `broker-approval`, `broker-cert.timer` |
+| Broker users and their folders | `relay-<name>`, `/var/lib/relay-<name>` | `broker-<name>`, `/var/lib/broker-<name>` |
+| Broker code | `/usr/local/libexec/relay/` | `/usr/local/libexec/broker/` |
+| Bellhop configuration | `/etc/bellhop/desk.toml`, section `[desk]` | `/etc/bellhop/bellhop.toml`, section `[bellhop]` |
+| Bellhop user and service | `desk`, `bellhop-desk` | `bellhop`, `bellhop` |
+| Bellhop address | `https://<name>/desk` | `https://<name>/bellhop` |
+
+The move keeps the user ids, so every file keeps its owner. It keeps the vault logins, the routes
+and their approvals, the authenticator pairing, the repository deploy key and the bellhop's tool
+logins. The secret the broker's services share among themselves is made again.
+
+**Broker.** Run `sudo valetkey-broker update` as usual. It warns that this update needs a manual
+step first: that step is the snapshot. It then checks that everything can be moved, stops the
+services, moves the names, installs 0.5 and starts the services under their new names. Expect a
+minute or two without the broker. Then run `sudo valetkey-broker check`.
+
+- If a check fails before the move, nothing is changed and the old services keep running.
+- `/etc/relay` and `/var/lib/relay` stay behind as links until the next update removes them.
+- Settings you added beside a unit (a `relay-<name>.service.d` folder) move to the new unit's
+  name. Check any path in them that says `relay`.
+
+**Bellhop.** Run its installer again: `bellhop/proxmox-bellhop-run.sh bellhop/install-bellhop.sh`
+from the Proxmox host, or `sudo ./install.sh bellhop` on the machine. The old address, `.../desk`,
+keeps answering beside the new one, so agent machines keep working. Then:
+
+1. On each agent machine, run the installer again with `--bellhop-url https://<name>/bellhop`. If
+   it wrote a Claude Code policy before, remove `/etc/claude-code/managed-settings.json` first so
+   the policy is written with the new address.
+2. On the bellhop, delete `/etc/bellhop/old-address` and run its installer once more. The old
+   address stops answering.
+3. The `desk` user's old home folder stays as a link to the new one, which is the `bellhop`
+   folder beside it, for a tool that stored the old path. Remove the link once no file in the new
+   folder mentions the old one.
+
+**What the update does not change.** A bellhop that joined the tailnet as `desk` with `tag:desk`
+keeps that name and tag; new installations use `bellhop` and `tag:bellhop`. To rename an existing
+one: give the machine the new tag in the Tailscale admin console and in your tailnet policy, run
+`sudo tailscale set --hostname=bellhop` on it, run its installer again (for a certificate in the
+new name), and give each agent machine the new `--bellhop-url`. On trusted servers, a `fnox.toml`
+that calls its provider `relay` keeps working; files generated from 0.5 call it `broker`.
 
 ## Updating the broker in one command
 
@@ -51,7 +106,7 @@ prints GitHub's SSH host key fingerprint to compare with the published one.
 diff, and asks for confirmation. Enter `y` to install or `n` to cancel. The updater already
 on the broker handles this prompt, so an older installation may show its earlier wording.
 Code from the fetched revision runs only after approval. The updater then checks
-`/etc/relay` with the new parser, keeps a copy of the installed code, runs `install.sh broker`,
+`/etc/broker` with the new parser, keeps a copy of the installed code, runs `install.sh broker`,
 and waits until the broker ports that listened before listen again. If they do not, it puts the
 previous code back and says so. `sudo valetkey-broker rollback` does the same on request, for an
 update that starts but misbehaves.
@@ -61,8 +116,11 @@ to the repository decides what that command installs. There is deliberately no r
 automatic trigger.
 
 `broker/CONFIG_EPOCH` is a number that changes whenever an update needs you to do something
-first (edit `/etc/relay`, change the vault or the tailnet). `install` warns when it differs from
+first (edit `/etc/broker`, change the vault or the tailnet). `install` warns when it differs from
 the installed one; the steps are listed here, newest first:
 
+- **2** (0.5): take a snapshot or backup of the broker first. Its names on disk move from
+  `relay` to `broker`, and the updater cannot put that back. See
+  [Updating to 0.5](#updating-to-05-names-on-disk).
 - **1** (first numbered epoch): raw routes need `[security].trusted_value_nodes`, see the
   migration procedure above.

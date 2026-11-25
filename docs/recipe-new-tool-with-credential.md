@@ -22,7 +22,7 @@ If the tool needs no key or login, stop here and install it on the agent's machi
 | The service gives you | Path | Where the key lives |
 |---|---|---|
 | An HTTP API or a remote MCP server, with a fixed key | **A: broker route** | In the vault |
-| Only a program or SDK, or a login that renews itself | **B: bellhop entry** | In the desk user's home folder |
+| Only a program or SDK, or a login that renews itself | **B: bellhop entry** | In the bellhop user's home folder |
 | An MCP server with native OAuth sign-in | Provider’s MCP endpoint and native sign-in | OAuth tokens stay with an approved client outside the agent VM |
 
 For native OAuth, stop the Valetkey setup here. Skip the manifest, key request, broker route
@@ -105,13 +105,13 @@ deny_options = ["--debug", "--token"]
    ```sh
    valetkey-bellhop --request cli acme https://acme.example/cli "what it is for"
    ```
-2. **Owner installs the program on the bellhop** and signs it in as the desk user:
+2. **Owner installs the program on the bellhop** and signs it in as the bellhop user:
    ```sh
-   sudo -u desk -H acme auth login
+   sudo -u bellhop -H acme auth login
    ```
    If the sign-in wants a browser on the same machine, start it in the background and paste the
    failed `localhost` address at a prompt, as `bellhop/bellhop-tools.sh` prints for Higgsfield.
-3. **Owner lists it** in `/etc/bellhop/desk.toml` and restarts the bellhop:
+3. **Owner lists it** in `/etc/bellhop/bellhop.toml` and restarts the bellhop:
    ```toml
    [tool.acme]
    command = "/usr/local/bin/acme"
@@ -120,7 +120,7 @@ deny_options = ["--debug", "--token"]
    deny = ["--debug", "--token"]
    ```
    ```sh
-   sudo systemctl restart bellhop-desk
+   sudo systemctl restart bellhop
    ```
    `allow` holds the leading words a call must start with. Copy them from the manifest's allowed
    classes. Leave out every subcommand under the credential prefix.

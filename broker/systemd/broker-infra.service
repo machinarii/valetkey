@@ -1,0 +1,57 @@
+# Installed by valetkey (install.sh broker). Read service for infra-org on 127.0.0.1:8442 (behind broker-front).
+# with-bw-session unlocks bw as broker-infra and writes /run/broker-infra/bw.env (BW_SESSION) for the
+# broker's --bw-env-file; fnox proxy run gets BW_SESSION for its bitwarden provider ([api.*]
+# routes in api.toml), and env -u keeps it out of the broker process's environment.
+[Unit]
+Description=Credential broker, infra-org (read)
+After=network-online.target tailscaled.service
+Wants=network-online.target
+# Not configured yet (valetkey-broker login infra, valetkey-broker routes install): stay inactive, don't crash-loop.
+ConditionPathExists=/etc/credstore.encrypted/bw-unlock-infra
+ConditionPathExists=/var/lib/broker-infra/api.toml
+ConditionPathExists=/var/lib/broker-infra/org.json
+
+[Service]
+User=broker-infra
+Group=broker-infra
+WorkingDirectory=/usr/local/libexec/broker
+RuntimeDirectory=broker-infra
+RuntimeDirectoryMode=0700
+LoadCredentialEncrypted=bw-unlock-infra
+LoadCredentialEncrypted=broker-loopback
+Environment=HOME=/var/lib/broker-infra BITWARDENCLI_APPDATA_DIR=/var/lib/broker-infra/bw-cli
+Environment=FNOX_CONFIG_DIR=/var/lib/broker-infra/fnox-global FNOX_DAEMON=off
+ExecStart=/usr/local/libexec/broker/with-bw-session bw-unlock-infra \
+  /usr/local/bin/fnox --no-daemon -c /var/lib/broker-infra/api.toml proxy run -- \
+  env -u BW_SESSION -u FNOX_BW_SESSION -u CREDENTIALS_DIRECTORY \
+  /usr/bin/python3 -I /usr/local/libexec/broker/broker_read.py --org infra \
+  --routes /etc/broker/routes.toml --port 8442 --org-ids /var/lib/broker-infra/org.json \
+  --loopback-secret-file %d/broker-loopback --entry-url http://127.0.0.1:8443 \
+  --bw-env-file /run/broker-infra/bw.env
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+LockPersonality=yes
+# Decrypted items and the bw session live in this process: never in a core file on disk.
+LimitCORE=0
+UMask=0077
+ProtectProc=invisible
+ProtectKernelLogs=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+SystemCallArchitectures=native
+ReadWritePaths=/var/lib/broker-infra
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

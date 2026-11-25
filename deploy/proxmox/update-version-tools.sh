@@ -6,7 +6,7 @@ if [[ $# != 3 || $1 != +([0-9]) || $2 != +([0-9]) || $3 != +([0-9]) ||
   echo "Usage: update-version-tools.sh VAULT_CT_ID BROKER_VM_ID BELLHOP_VM_ID" >&2
   exit 2
 fi
-vault=$1 broker=$2 desk=$3
+vault=$1 broker=$2 bellhop=$3
 repo=$(cd "$(dirname "$0")/../.." && pwd)
 version=$(cat "$repo/VERSION")
 
@@ -21,8 +21,8 @@ if not result.get("exited") or result.get("exitcode") != 0:
 
 # Verify the selected roles before installing anywhere.
 pct exec "$vault" -- test -f /opt/vaultwarden/compose.yaml </dev/null
-guest "$broker" -- /bin/sh -c 'test -x /usr/local/libexec/relay/bin/relay-check || test -x /usr/local/sbin/relay-check'
-guest "$desk" -- /usr/bin/test -f /usr/local/libexec/relay/desk.py
+guest "$broker" -- /bin/sh -c 'test -x /usr/local/libexec/broker/bin/broker-check || test -x /usr/local/sbin/broker-check'
+guest "$bellhop" -- /usr/bin/test -f /usr/local/libexec/broker/server.py
 
 payload=$(tar -czf - -C "$repo/client" broker install-version-tools | base64 -w0)
 apply=$(cat <<'INSTALL'
@@ -38,7 +38,7 @@ bash -c "$apply" _ "$payload" "$version"
 echo "Proxmox host CLI $version"
 pct exec "$vault" -- /bin/bash -c "$apply" _ "$payload" "$version" </dev/null
 echo "Vault CT $vault CLI $version"
-for vm in "$broker" "$desk"; do
+for vm in "$broker" "$bellhop"; do
   guest "$vm" -- /bin/bash -c "$apply" _ "$payload" "$version"
   echo "VM $vm CLI $version"
 done

@@ -31,7 +31,7 @@ See [Claude Code subscription sign-in](docs/secure-setup.md#claude-code-subscrip
 | One org read through the other | Separate Linux users, `bw` data dirs, accounts and unlocks per org. A read account is a member of one org only. |
 | An agent directly fetches a key | Raw reads require explicit trusted server policy plus route authorization. API-only nodes can check presence without receiving values. |
 | An agent abuses an API route | Keys are injected by `fnox proxy` for a fixed HTTPS host, allowed methods and canonical path boundaries. Caller auth/cookies and common URL/method override headers are dropped. Upstream semantics and responses remain trusted. |
-| Spoofed caller identity | The front door overwrites `X-Relay-Peer` with the TCP peer, and backends trust it only from loopback. Loopback-only paths are 404 at the front door. |
+| Spoofed caller identity | The front door overwrites `X-Broker-Peer` with the TCP peer, and backends trust it only from loopback. Loopback-only paths are 404 at the front door. |
 | Values leaking through logs or errors | Audit lines carry names and outcomes only. Errors never echo response bodies or `bw` output. Tests check this. |
 | Unauthorized writes | Only untagged, non-agent `owner_nodes` may submit. The write account is unlocked per write. Replace preserves dated backups, including same-day collisions. Stored values are verified by SHA-256. |
 | Owner input echoes or travels over plaintext | Owner CLI refuses piped input and password-echo fallback; rejects remote HTTP, userinfo URLs, proxies and redirects; never prints submission response bodies. |

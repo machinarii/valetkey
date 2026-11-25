@@ -6,24 +6,25 @@
 valetkey/
 ├── install.sh                  vaultwarden / broker / client installer, doctor
 ├── VERSION, Makefile
-├── relay/                      broker services (Python stdlib)
-│   ├── relay_front.py          TLS front door, routes by path prefix
-│   ├── relay_read.py           read service (one per org): values, checks, backups, API forwarding
-│   ├── relay_entry.py          entry service: requests, owner writes, web page
+├── broker/                     the broker: services (Python stdlib) and its installer
+│   ├── broker_front.py         TLS front door, routes by path prefix
+│   ├── broker_read.py          read service (one per org): values, checks, backups, API forwarding
+│   ├── broker_entry.py         entry service: requests, owner writes, web page
 │   ├── entry-page.html
-│   ├── relaylib/               bw client and cache, routes, whois identity, request store
+│   ├── brokerlib/              bw client and cache, routes, whois identity, request store
 │   ├── tools/                  gen-fnox-config, vault-info, valetkey-fnox-to-broker, vault-stub
-│   └── tests/                  unit and policy tests with fake bw / tailscale / fnox
-├── broker/
+│   ├── tests/                  unit and policy tests with fake bw / tailscale / fnox
 │   ├── deps.sh                 apt packages, Tailscale, bw, fnox
 │   ├── setup.sh                users, code, configs, credentials, units
-│   ├── bin/                    relay-login, relay-check, relay-routes, relay-update (run as valetkey-broker <word>), relay-cert, with-bw-session
-│   └── systemd/                relay-{front,local,infra,entry}.service, relay-cert.{service,timer}
+│   ├── migrate-names.sh        moves a broker from before 0.5 from the name relay to broker
+│   ├── bin/                    broker-login, broker-check, broker-routes, broker-update (run as valetkey-broker <word>), broker-cert, with-bw-session
+│   └── systemd/                broker-{front,local,infra,entry}.service, broker-cert.{service,timer}
+├── relay/relaylib/             only so that the updater of 0.4 and earlier can check the configuration
 ├── client/                     broker (valetkey-broker), vault (fnox shim), vault-entry (valetkey-entry)
 ├── bellhop/                    the bellhop: tools with their own login
-│   ├── desk.py                 the bellhop's service: listed tools, install requests
+│   ├── server.py               the bellhop's service: listed tools, install requests
 │   ├── bellhop                 stand-in command for agent machines
-│   ├── install-bellhop.sh      installs the bellhop behind relay_front
+│   ├── install-bellhop.sh      installs the bellhop behind broker_front
 │   ├── bellhop-tools.sh        example tools with cautious allow lists
 │   ├── sweep.py                agent-machine check for logins and new tools
 │   ├── agent-rules.md          instruction section for AI agents

@@ -59,7 +59,7 @@ to the Claude process on each launch.
 
 For an owner-approved launcher that reads its setup token from Valetkey, keep the machine
 in `agent_nodes`. Any process on that machine can copy the token and use the subscription.
-In the broker's `/etc/relay/routes.toml`, configure the value route as shown. If the
+In the broker's `/etc/broker/routes.toml`, configure the value route as shown. If the
 table already exists, edit it in place.
 
 ```toml
@@ -106,7 +106,7 @@ HTTP loopback exception in client code exists for local fixtures only.
 
 ## Broker policy: fail closed
 
-Place names, never values, in `/etc/relay/routes.toml` on the separate broker:
+Place names, never values, in `/etc/broker/routes.toml` on the separate broker:
 
 ```toml
 [security]
@@ -198,7 +198,7 @@ deploy the new broker code blindly onto a running raw-value setup.
 4. Test the new consumers and route behavior with synthetic credentials first. The operator then
    verifies the actual service's storage and authentication status without disclosing values.
 5. In the operator's change window, install the reviewed broker code and policy. Run
-   `sudo valetkey-broker routes check`, `sudo valetkey-broker routes install`, and restart `relay-entry` so it loads
+   `sudo valetkey-broker routes check`, `sudo valetkey-broker routes install`, and restart `broker-entry` so it loads
    the new policy. Both read services and the entry service must use the same policy revision.
 6. Remove obsolete access only after the replacement works. Do not temporarily add an agent
    machine to `trusted_value_nodes` as a workaround. Maintain a recovery path through the

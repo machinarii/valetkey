@@ -1,8 +1,0 @@
-[Unit]
-Description=Validate and activate Valetkey API routes for %i
-After=tailscaled.service
-
-[Service]
-Type=oneshot
-ExecStart=/usr/local/libexec/relay/bin/relay-routes install-verified %i
-TimeoutStartSec=200
