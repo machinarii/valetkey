@@ -141,25 +141,50 @@ brokered API routes. [Secure setup](docs/secure-setup.md)
 
 1. **Install valetkey on each machine**, with the package manager of its system.
 
-   **macOS: Homebrew.** One package per role.
+   **macOS: Homebrew.** One package per role. On every Mac, add the tap first:
 
    ```sh
    brew tap machinarii/valetkey https://github.com/machinarii/valetkey
    brew trust machinarii/valetkey
-   brew install valetkey-agent      # machine where AI agents run; then: valetkey-agent-setup
-   brew install valetkey-approver   # trusted workstation w/o agent where you will enter keys
+   ```
+
+   Then, on an **agent machine** (where AI agents run):
+
+   ```sh
+   brew install valetkey-agent
+   valetkey-broker set-url https://broker.<tailnet>.ts.net
+   valetkey-agent-setup
+   ```
+
+   On an **approver device** (a trusted workstation without agents, where you enter keys):
+
+   ```sh
+   brew install valetkey-approver
    valetkey-broker set-url https://broker.<tailnet>.ts.net
    ```
 
-   **Linux: apt** (Debian and Ubuntu). One signed package for every role, including the three
-   servers: the vault, the broker and the optional bellhop.
+   On a **trusted server** (optional; its application reads a key itself):
+
+   ```sh
+   brew install valetkey-trusted-server
+   valetkey-broker set-url https://broker.<tailnet>.ts.net
+   ```
+
+   **Linux: apt** (Debian and Ubuntu). One signed package covers every machine: agent machine,
+   approver device, trusted server, and the three servers (the vault, the broker and the optional
+   bellhop). On every Linux machine, add the repository and install the package:
 
    ```sh
    curl -fsSL https://machinarii.github.io/valetkey/apt/valetkey.gpg | sudo tee /usr/share/keyrings/valetkey.gpg >/dev/null
    echo "deb [signed-by=/usr/share/keyrings/valetkey.gpg] https://machinarii.github.io/valetkey/apt ./" \
      | sudo tee /etc/apt/sources.list.d/valetkey.list
    sudo apt-get update && sudo apt-get install valetkey
-   valetkey-setup                   # asks which machine this is, then sets it up
+   ```
+
+   Then set the machine up. The command asks which machine this is:
+
+   ```sh
+   valetkey-setup
    ```
 
    On a Proxmox VE host, one command creates and installs the three servers; on another Linux
