@@ -229,6 +229,14 @@ class RelayTests(ClientCase):
         self.assertEqual(self.srv.log[0][2], dict(name="reports", org="local", item="reports-api-key",
                          upstream="https://api.example.com", methods=["GET"], paths=["/v1/reports"]))
 
+    def test_basic_request_and_route_send_their_format(self):
+        self.run_tool("relay", "request", "motion-api-basic", "--org", "local", "--purpose", "p", "--encode", "basic")
+        self.run_tool("relay", "request-route", "motion", "--org", "local", "--item", "motion-api-basic",
+                      "--upstream", "https://api.example.com", "--method", "POST", "--path", "/graphql",
+                      "--auth", "basic")
+        posts = [x[2] for x in self.srv.log if x[0] == "POST"]
+        self.assertEqual((posts[0]["encode"], posts[1]["auth"]), ("basic", "basic"))
+
     def test_join_route_sends_only_the_route_name(self):
         p = self.run_tool("relay", "join-route", "reports")
         self.assertEqual((p.returncode, self.out(p)), (0, (self.base + "/entry/approve/" + "a" * 40 + "\n", "")))

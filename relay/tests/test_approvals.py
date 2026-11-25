@@ -114,6 +114,16 @@ class ApprovalTests(unittest.TestCase):
         self.assertEqual(list((self.root / "approved-routes.d").iterdir()), [])
         self.install.assert_not_called()
 
+    def test_basic_route_by_approval(self):
+        seed = self.enroll()
+        for bad in ("digest", "Basic {}"):
+            with self.assertRaises(Refused):
+                self.store.propose("devbox", dict(SPEC, auth=bad))
+        rid = self.store.propose("devbox", dict(SPEC, auth="basic"))
+        self.now += 30
+        self.store.approve("laptop", rid, totp(seed, self.now // 30))
+        self.assertEqual(load_routes(self.routes).api["reports"].auth, "Basic {}")
+
     def test_failed_activation_and_restart_recovery(self):
         seed = self.enroll()
         rid = self.store.propose("devbox", SPEC)

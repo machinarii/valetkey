@@ -1,3 +1,4 @@
+import base64
 import datetime
 import io
 import json
@@ -242,6 +243,11 @@ class RelayEntryTest(unittest.TestCase):
             self.assertIn(text, page)
         self.assertEqual(relay_entry.auth_label("X-Api-Key", "{}"), "X-Api-Key header")
         self.assertEqual(relay_entry.auth_label("Authorization", "Bearer {}"), "Bearer token")
+        spec = dict(spec, auth="basic", name="motion")
+        del spec["join"], spec["auth_header"], spec["nodes"]
+        ctx["approval_rpc"].return_value = (200, {"node": "kls5", "spec": spec, "state": "pending"})
+        page = self.req(path, peer=OWNER_IP, headers={rpc.HEADER: rpc.proof(key, "GET", path, OWNER_IP)})[2].decode()
+        self.assertIn("Basic (stored value)", page)
 
     def test_owner_approves_exact_agent_proposal(self):
         from pathlib import Path
@@ -468,6 +474,22 @@ class RelayEntryTest(unittest.TestCase):
         stamp = lambda y, m, d: time.mktime((y, m, d, 12, 0, 0, 0, 0, -1))
         self.assertEqual(relay_entry.default_expiry(stamp(2026, 11, 24)), "2027-11-24")
         self.assertEqual(relay_entry.default_expiry(stamp(2028, 2, 29)), "2029-02-28")
+
+    def test_basic_encoding_stores_key_and_colon_in_base64(self):
+        self.start()
+        for bad in ({"encode": "rot13"}, {"encode": "basic", "field": "notes"}):
+            status, _, _ = self.req("/v1/requests", "POST", {"name": "x-api-key-b", "org": "local", "project": None,
+                                                              "purpose": "p", "replace": False, **bad})
+            self.assertEqual(status, 400, bad)
+        status, _, body = self.req("/v1/requests", "POST", {"name": "motion-api-basic", "org": "local",
+                                                             "project": None, "purpose": "p", "replace": False,
+                                                             "encode": "basic"})
+        r = json.loads(body)
+        self.assertEqual((status, r["encode"]), (201, "basic"))
+        self.assertIn("stored for Basic auth", self.req("/", peer=OWNER_IP)[2].decode())
+        self.assertEqual(self.submit(r["id"], "k-123456\n")[0], 200)
+        self.assertEqual(self.items_named("motion-api-basic")[0]["login"]["password"],
+                         base64.b64encode(b"k-123456:").decode())
 
     def test_local_notes_item(self):
         self.start()

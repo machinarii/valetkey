@@ -212,7 +212,8 @@ def cmd_backups(a):
 def cmd_request(a):
     status, text = call("POST", "/entry/v1/requests", {
         "name": a.name, "org": a.org, "project": a.project,
-        "field": "notes" if a.notes else "password", "purpose": a.purpose, "replace": a.replace})
+        "field": "notes" if a.notes else "password", "purpose": a.purpose, "replace": a.replace,
+        **({"encode": a.encode} if a.encode else {})})
     if status != 201:
         print(one_line(text) if status in (400, 409, 429) else f"relay: request failed ({status})")
         return 1
@@ -225,7 +226,7 @@ def cmd_request(a):
 def cmd_request_route(a):
     status, text = call("POST", "/entry/v1/route-requests", {
         "name": a.name, "org": a.org, "item": a.item, "upstream": a.upstream,
-        "methods": a.method, "paths": a.path})
+        "methods": a.method, "paths": a.path, **({"auth": a.auth} if a.auth != "bearer" else {})})
     if status != 201:
         errors = {400: "invalid route specification", 403: "device not authorized", 409: "route exists; to use it from this machine, run relay join-route NAME",
                   429: "too many requests", 503: "check broker approval service and enrollment"}
@@ -344,14 +345,18 @@ def add_client_commands(sub):
     r.add_argument("--purpose", required=True)
     r.add_argument("--notes", action="store_true")
     r.add_argument("--replace", action="store_true")
+    r.add_argument("--encode", choices=["basic"], help="the service uses HTTP Basic: the owner pastes the key "
+                   "and the vault stores base64 of the key and a colon")
     r.set_defaults(fn=cmd_request)
-    route = sub.add_parser("request-route", help="request owner approval for a new bearer API route")
+    route = sub.add_parser("request-route", help="request owner approval for a new API route (Bearer or Basic)")
     route.add_argument("name")
     route.add_argument("--org", choices=("local", "infra"), required=True)
     route.add_argument("--item", required=True)
     route.add_argument("--upstream", required=True)
     route.add_argument("--method", action="append", required=True)
     route.add_argument("--path", action="append", required=True)
+    route.add_argument("--auth", choices=["bearer", "basic"], default="bearer",
+                       help="basic: the item holds base64 of the key and a colon (see relay request --encode basic)")
     route.set_defaults(fn=cmd_request_route)
     join = sub.add_parser("join-route", help="ask the owner to add this machine to an existing API route")
     join.add_argument("name")

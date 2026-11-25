@@ -32,6 +32,7 @@ class EntryRequest:
     result: str = ""
     requester: str = ""  # machine that asked; empty in older state files
     access: dict = field(default_factory=dict)  # what the stored key opens; see access_check
+    encode: str = ""  # "basic": the owner pastes the key, the vault gets base64("<key>:") for Basic auth
 
 
 def new_id():
@@ -78,7 +79,7 @@ class RequestsStore:
             self._save()
 
     def create(self, name, org, project, field, purpose, replace, flags=None, requester="",
-               limit=None) -> EntryRequest | None:
+               limit=None, encode="") -> EntryRequest | None:
         """New pending request; None when `requester` already has `limit` pending ones."""
         with self._lock:
             self._expire()
@@ -89,7 +90,7 @@ class RequestsStore:
             while rid in self._requests:
                 rid = new_id()
             r = EntryRequest(rid, name, org, project, field, purpose, bool(replace), "pending",
-                             self._clock(), dict(flags or {}), "", requester)
+                             self._clock(), dict(flags or {}), "", requester, encode=encode)
             self._requests[rid] = r
             self._save()
             return dataclasses.replace(r, flags=dict(r.flags))

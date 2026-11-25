@@ -190,7 +190,8 @@
     var button = form.querySelector('button[type=submit]');
     if (!button) return;
     button.disabled = true;
-    if (button.classList.contains('submit')) button.lastChild.textContent = 'Saving…';
+    // The value form and the authenticator form both say what is happening; the spinner turns.
+    if (button.classList.contains('submit') || button.classList.contains('wide')) button.lastChild.textContent = 'Saving…';
   });
 </script>
 </body>

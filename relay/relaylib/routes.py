@@ -178,8 +178,12 @@ def api_path_allowed(path, paths):
 
 def proposed_api(spec, node):
     """Web grants can create a new bearer API for the authenticated agent only."""
-    if not isinstance(spec, dict) or set(spec) != {"name", "org", "item", "upstream", "methods", "paths"}:
+    if not isinstance(spec, dict) or set(spec) - {"auth"} != {"name", "org", "item", "upstream", "methods", "paths"}:
         raise RoutesError("expected route name, org, item, upstream, methods and paths")
+    # Bearer by default; Basic sends the item as stored, so it must already be base64("<key>:").
+    auth = {"bearer": "Bearer {}", "basic": "Basic {}"}.get(spec.get("auth", "bearer"))
+    if auth is None:
+        raise RoutesError("auth must be bearer or basic")
     name, org, item, origin = (spec[k] for k in ("name", "org", "item", "upstream"))
     if not all(isinstance(x, str) for x in (name, org, item, origin, node)):
         raise RoutesError("invalid route fields")
@@ -199,7 +203,7 @@ def proposed_api(spec, node):
             not isinstance(p, str) or not re.fullmatch(r"/[a-zA-Z0-9_~./-]{1,255}", p)
             or canonical_api_path(p) != p for p in paths):
         raise RoutesError("use explicit canonical path prefixes")
-    return ApiRoute(name, org, item, origin, "Bearer {}", sorted(set(methods)), sorted(set(paths)), [node])
+    return ApiRoute(name, org, item, origin, auth, sorted(set(methods)), sorted(set(paths)), [node])
 
 
 # What decides where a route's key goes. A machine that joins a route keeps it only while these

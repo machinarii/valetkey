@@ -102,6 +102,8 @@ For a broker-managed credential, follow these steps.
    does not grant a route: broker configuration still controls who can use the item.
    If the route already exists for another machine, run `relay join-route <route>` instead and give
    the owner the approval link; nothing else about the route changes.
+   For a service that uses HTTP Basic with the key as user name, add `--encode basic` to
+   `relay request` and `--auth basic` to `relay request-route`; the owner still pastes the plain key.
    For a new fixed bearer API route, run `relay request-route --help` and submit the provider's
    origin, required methods and narrow path prefixes from the consuming agent. Give the owner
    the approval link. Only the owner scans pairing QR codes and enters authenticator codes.

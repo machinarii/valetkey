@@ -162,11 +162,13 @@ class Entry:
         except Exception:
             pass
 
-    def create(self, name, org, project, field, purpose, replace, requester=""):
+    def create(self, name, org, project, field, purpose, replace, requester="", encode=""):
         """(http status, request dict | reason)."""
         err = validate(name, org, project, field)
         if err:
             return 400, err
+        if encode not in ("", "basic") or (encode and field != "password"):
+            return 400, "encode must be basic, for a single-line key"
         flags = {}
         names = self.names(org)
         if names is None:
@@ -178,7 +180,7 @@ class Entry:
             if other:
                 flags["near_duplicate"] = other
         r = self.store.create(name, org, project, field, purpose, replace, flags=flags,
-                              requester=requester, limit=MAX_PENDING_PER_NODE)
+                              requester=requester, limit=MAX_PENDING_PER_NODE, encode=encode)
         if r is None:
             return 429, "too many pending requests from this machine"
         return 201, r
@@ -227,6 +229,8 @@ class Entry:
             if err or cerr:
                 self.store.set_status(req.id, "pending", err or cerr)
                 return err or cerr
+            if req.encode == "basic":  # HTTP Basic with the key as user name and no password
+                value = base64.b64encode((value + ":").encode()).decode()
             backup = f"{req.name}-backup-{time.strftime('%Y%m%d', time.localtime(self.clock()))}"
             session = None
             try:
@@ -306,7 +310,7 @@ def public(r, owner=False, who=None):
         flags["near_duplicate"] = True
     out = {"id": r.id, "name": r.name, "org": r.org, "project": r.project, "field": r.field,
            "purpose": r.purpose, "replace": r.replace, "status": r.status, "created": r.created,
-           "flags": flags, "result": r.result}
+           "flags": flags, "result": r.result, "encode": r.encode}
     if owner:  # who asked: the purpose text is the requester's own words
         out["requester"] = r.requester
     if who and r.access.get("routes"):
@@ -458,7 +462,8 @@ class Handler(RelayHandler):
                         *([("Already used by", "".join(f'<span class="chip">{e(n)}</span>' for n in spec["nodes"]))]
                           if "join" in spec else []),
                         ("Key sent as", e(auth_label(spec.get("auth_header", "Authorization"),
-                                                     spec.get("auth", "Bearer {}")))),
+                                                     AUTH_FORMATS.get(spec.get("auth"), spec.get("auth"))
+                                                     or "Bearer {}"))),
                         ("Status", f'<span class="pill {pill[0]}">{e(pill[1])}</span>')]
                 card += ('<dl class="spec">' + "".join(f"<div><dt>{k}</dt><dd>{v}</dd></div>" for k, v in rows)
                          + "</dl>")
@@ -469,7 +474,8 @@ class Handler(RelayHandler):
                          '<label id="code-label" for="code">Authenticator code</label>'
                          '<input id="code" class="code" type="password" '
                          'inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" '
-                         f'name="code" required><button class="wide" type="submit">{button}</button></form>')
+                         f'name="code" required><button class="wide" type="submit" aria-live="polite">'
+                         f'<span class="spin" aria-hidden="true"></span>{button}</button></form>')
         else:
             return self.deny(who, "approval", 405, "GET or POST required")
         page = ctx["template"].replace("Credential entry", title).replace("{{result}}", "").replace("{{pending}}", card)
@@ -539,14 +545,14 @@ class Handler(RelayHandler):
         b = self.json_body(who, "request")
         if b is None:
             return
-        purpose, replace = b.get("purpose") or "", b.get("replace", False)
+        purpose, replace, encode = b.get("purpose") or "", b.get("replace", False), b.get("encode", "")
         if not isinstance(purpose, str) or len(purpose) > MAX_PURPOSE:
             return self.deny(who, "request", 400, f"purpose must be text up to {MAX_PURPOSE} characters")
         if not isinstance(replace, bool):
             return self.deny(who, "request", 400, "replace must be true or false")
         status, r = self.server.ctx["entry"].create(
             b.get("name"), b.get("org"), b.get("project"), b.get("field", "password"), purpose, replace,
-            who)
+            who, encode)
         if status != 201:
             return self.deny(who, "request", status, r)
         self.send_json(201, public(r))
@@ -689,6 +695,9 @@ class Handler(RelayHandler):
         self.audit(who, "entry", 200)
 
 
+AUTH_FORMATS = {"bearer": "Bearer {}", "basic": "Basic {}"}  # a proposed route names its format
+
+
 def auth_label(header, auth):
     """How a route sends its key, in words: "Bearer token", "Basic (stored value)", "X-Api-Key header"."""
     if header.lower() == "authorization":
@@ -798,7 +807,8 @@ def render_lists(ctx, result="", rid=""):
             continue
         where = ((f"Asked by {r.requester}" if r.requester else "Requested") + f" for the {r.org} org"
                  + (f", project {r.project}" if r.project else "") + "."
-                 + (" Multi-line value." if r.field == "notes" else ""))
+                 + (" Multi-line value." if r.field == "notes" else "")
+                 + (" Paste the key as it is; it is stored for Basic auth." if r.encode == "basic" else ""))
         flags = ""
         if r.flags.get("near_duplicate"):
             flags += f'<p class="flag">Similar existing item: {e(r.flags["near_duplicate"])}</p>'
