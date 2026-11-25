@@ -21,7 +21,7 @@
 </p>
 
 <p align="center">
-  <a href="#get-started"><b>Install valetkey</b></a> ·
+  <a href="#quick-start"><b>Install valetkey</b></a> ·
   <a href="docs/secure-setup.md">Secure setup</a> ·
   <a href="#guides">Guides</a>
 </p>
@@ -42,7 +42,7 @@
   <a href="#what-valetkey-is">What it is</a> ·
   <a href="#how-it-works">How it works</a> ·
   <a href="#prerequisites">Prerequisites</a> ·
-  <a href="#get-started">Get started</a> ·
+  <a href="#quick-start">Quick start</a> ·
   <a href="#updating-valetkey">Updating</a> ·
   <a href="#guides">Guides</a> ·
   <a href="#status">Status</a> ·
@@ -140,7 +140,7 @@ Pi (arm64) is also not a tested path yet.
 Sizes and details for each role are in the
 [installation guide](docs/installation.md#requirements).
 
-## Get started
+## Quick start
 
 Use a private Tailscale network. Run agents on dedicated machines. Keep them separate from the
 broker, vault, bellhop, any machine where you enter keys or a service reads them, and the host that
