@@ -1,5 +1,5 @@
 {
- "loop": 13,
+ "loop": 14,
  "accent": "#4CF490",
  "events": [
   {
@@ -23,25 +23,25 @@
    "label": "request",
    "from": [
     160,
-    336
+    376
    ],
    "via": [
     [
      196,
-     336
+     376
     ],
     [
      196,
-     272
+     312
     ]
    ],
    "to": [
     228,
-    272
+    312
    ],
    "glow": {
     "x": 228,
-    "y": 240,
+    "y": 280,
     "w": 160,
     "h": 106,
     "rx": 7
@@ -52,7 +52,7 @@
    "kind": "phase",
    "note": "act 2",
    "at": 1.7,
-   "until": 4.1,
+   "until": 4.9,
    "text": "2 · the broker checks, fnox adds the key",
    "x": 28,
    "y": 66,
@@ -64,7 +64,7 @@
    "kind": "packet",
    "note": "the broker takes that route's master key from the vault",
    "after": "m1",
-   "travel": 0.7,
+   "travel": 1.5,
    "color": "#FBDC8E",
    "from": [
     308,
@@ -72,15 +72,16 @@
    ],
    "to": [
     308,
-    240
+    280
    ],
    "glow": {
     "x": 240,
-    "y": 300,
+    "y": 340,
     "w": 136,
     "h": 32,
     "rx": 6
-   }
+   },
+   "label": "master key"
   },
   {
    "id": "m3",
@@ -92,15 +93,15 @@
    "label": "+ key",
    "from": [
     388,
-    316
+    356
    ],
    "to": [
     500,
-    316
+    356
    ],
    "glow": {
     "x": 500,
-    "y": 284,
+    "y": 324,
     "w": 128,
     "h": 64,
     "rx": 7
@@ -110,8 +111,8 @@
    "id": "ph3",
    "kind": "phase",
    "note": "act 3",
-   "at": 4.2,
-   "until": 6.9,
+   "at": 5.0,
+   "until": 7.7,
    "text": "3 · the answer returns, the key does not",
    "x": 28,
    "y": 66,
@@ -127,11 +128,11 @@
    "travel": 1.1,
    "from": [
     500,
-    316
+    356
    ],
    "to": [
     388,
-    316
+    356
    ],
    "color": "#B6C0CF"
   },
@@ -145,25 +146,25 @@
    "label": "answer",
    "from": [
     228,
-    272
+    312
    ],
    "via": [
     [
      196,
-     272
+     312
     ],
     [
      196,
-     336
+     376
     ]
    ],
    "to": [
     160,
-    336
+    376
    ],
    "glow": {
     "x": 32,
-    "y": 316,
+    "y": 356,
     "w": 128,
     "h": 64,
     "rx": 7
@@ -174,8 +175,8 @@
    "id": "ph4",
    "kind": "phase",
    "note": "act 4",
-   "at": 7.2,
-   "until": 11.6,
+   "at": 8.0,
+   "until": 12.4,
    "text": "4 · tools with a login run on the bellhop",
    "x": 28,
    "y": 66,
@@ -186,30 +187,30 @@
    "id": "m6",
    "kind": "packet",
    "note": "for a tool with its own login the agent calls the bellhop",
-   "at": 7.3,
+   "at": 8.1,
    "travel": 1.1,
    "label": "request",
    "from": [
     160,
-    360
+    400
    ],
    "via": [
     [
      196,
-     360
+     400
     ],
     [
      196,
-     404
+     444
     ]
    ],
    "to": [
     228,
-    404
+    444
    ],
    "glow": {
     "x": 228,
-    "y": 372,
+    "y": 412,
     "w": 160,
     "h": 64,
     "rx": 7
@@ -225,15 +226,15 @@
    "label": "credential",
    "from": [
     388,
-    404
+    444
    ],
    "to": [
     500,
-    404
+    444
    ],
    "glow": {
     "x": 500,
-    "y": 372,
+    "y": 412,
     "w": 128,
     "h": 64,
     "rx": 7
@@ -249,25 +250,25 @@
    "label": "output",
    "from": [
     228,
-    404
+    444
    ],
    "via": [
     [
      196,
-     404
+     444
     ],
     [
      196,
-     360
+     400
     ]
    ],
    "to": [
     160,
-    360
+    400
    ],
    "glow": {
     "x": 32,
-    "y": 316,
+    "y": 356,
     "w": 128,
     "h": 64,
     "rx": 7
