@@ -158,8 +158,6 @@ def base(focus):
     left, top, right, bottom = BOXES["agent"][:4]                       # the agent holds nothing
     label, f = "holds no keys", font(14, True)
     d.text(sc(left + 16, bottom - 39), label, font=f, fill=c(TEXT, "agent"))
-    left, top, right, bottom = BOXES["bellhop"][:4]                        # the tool's login lives on the bellhop
-    d.text(sc(left + 16, bottom - 39), "the tool's login", font=font(13), fill=c(MUTED, "bellhop"))
     d.rectangle(sc(0, 0, W, TOP), fill=PANEL)
     d.line(sc(0, TOP, W, TOP), fill=EDGE, width=S)
     d.text(sc(40, 15), "valetkey", font=font(20, True), fill=TEXT)
