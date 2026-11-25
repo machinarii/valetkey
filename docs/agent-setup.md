@@ -66,6 +66,6 @@ Which goes where:
 |---|---|
 | An HTTP API or remote MCP server with a fixed key | A broker `[api.*]` route. The key stays in the vault |
 | Only a program or SDK, or a login that renews itself | A bellhop entry |
-| An MCP server with native OAuth sign-in | Use the provider’s endpoint directly from a policy-approved client that keeps tokens off agent machines. Skip valetkey routing. |
+| An MCP server with OAuth sign-in | A broker `[api.*]` route with the owner's sign-in: see [Services you sign in to](oauth-sign-in.md). The token stays in the vault and the broker renews it |
 
 Start with [bellhop/README.md](../bellhop/README.md). To add a tool step by step, follow [the recipe](recipe-new-tool-with-credential.md). [The keyless tool standard](keyless-tool-standard.md) is a draft of how a tool should be built so that either the broker or the bellhop can hold its credential.

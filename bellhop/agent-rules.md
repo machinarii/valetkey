@@ -16,9 +16,10 @@ credential safety rules. Only the owner handles that login.
   its approval link. The owner enters a missing key on the broker's entry page and approves
   the proposed route with their paired authenticator. Point the MCP client at the broker's
   address for that route, with no key.
-- For an MCP server with native OAuth sign-in, skip the key request and both the broker and bellhop
-  routes. Use the provider’s endpoint from an approved client that keeps tokens off agent machines.
-  If policy blocks the endpoint or the client would store tokens on the agent VM, stop setup.
+- For an MCP server with OAuth sign-in: it also goes through the broker. File
+  `valetkey-broker request NAME-oauth --org local --purpose "..." --oauth ADDRESS`; the owner signs in
+  on the broker's entry page. Then use `valetkey-broker request-route` with `--auth oauth`. Never
+  sign in to it from this machine. If the service cannot be used this way, stop setup.
 - Tools that need no login (compilers, linters, project dependencies) are installed here as usual.
 - MCP servers are only allowed at the addresses the owner's policy names. Others are blocked;
   do not try another way to add one.

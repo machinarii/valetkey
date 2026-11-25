@@ -244,13 +244,16 @@ def cmd_request(a):
     status, text = call("POST", "/entry/v1/requests", {
         "name": a.name, "org": a.org, "project": a.project,
         "field": "notes" if a.notes else "password", "purpose": a.purpose, "replace": a.replace,
-        **({"encode": a.encode} if a.encode else {})})
+        **({"encode": a.encode} if a.encode else {}), **({"oauth": a.oauth} if a.oauth else {})})
     if status != 201:
         print(one_line(text) if status in (400, 409, 429) else f"valetkey-broker: request failed ({status})")
         return 1
     r = json.loads(text)
     print(f"request {r['id']} ({r['status']})")
-    print(f"Enter it with: valetkey-entry {r['id']}   or   {BASE}/entry — your choice")
+    if a.oauth:  # a sign-in needs the owner's browser; there is nothing to type in a terminal
+        print(f"The owner signs in to the service at: {BASE}/entry")
+    else:
+        print(f"Enter it with: valetkey-entry {r['id']}   or   {BASE}/entry — your choice")
     return 0
 
 
@@ -379,6 +382,8 @@ def add_client_commands(sub):
     r.add_argument("--replace", action="store_true")
     r.add_argument("--encode", choices=["basic"], help="the service uses HTTP Basic: the owner pastes the key "
                    "and the vault stores base64 of the key and a colon")
+    r.add_argument("--oauth", metavar="ADDRESS", help="the service has no key to paste: the owner signs in "
+                   "at this https address (an MCP server with OAuth) and the broker keeps and renews the token")
     r.set_defaults(fn=cmd_request)
     route = sub.add_parser("request-route", help="request owner approval for a new API route (Bearer or Basic)")
     route.add_argument("name")
@@ -387,8 +392,9 @@ def add_client_commands(sub):
     route.add_argument("--upstream", required=True)
     route.add_argument("--method", action="append", required=True)
     route.add_argument("--path", action="append", required=True)
-    route.add_argument("--auth", choices=["bearer", "basic"], default="bearer",
-                       help="basic: the item holds base64 of the key and a colon (see valetkey-broker request --encode basic)")
+    route.add_argument("--auth", choices=["bearer", "basic", "oauth"], default="bearer",
+                       help="basic: the item holds base64 of the key and a colon (see valetkey-broker request --encode basic); "
+                       "oauth: the item is the owner's sign-in (see valetkey-broker request --oauth)")
     route.add_argument("--tools", metavar="read-only|NAME,NAME",
                        help="for an MCP server: the only tools this route may call, or read-only for "
                        "the tools the server labels read-only")

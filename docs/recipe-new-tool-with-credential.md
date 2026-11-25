@@ -23,11 +23,12 @@ If the tool needs no key or login, stop here and install it on the agent's machi
 |---|---|---|
 | An HTTP API or a remote MCP server, with a fixed key | **A: broker route** | In the vault |
 | Only a program or SDK, or a login that renews itself | **B: bellhop entry** | In the bellhop user's home folder |
-| An MCP server with native OAuth sign-in | Provider’s MCP endpoint and native sign-in | OAuth tokens stay with an approved client outside the agent VM |
+| An MCP server with OAuth sign-in | **A: broker route**, with the owner's sign-in in place of a key | In the vault; the broker renews it |
 
-For native OAuth, stop the valetkey setup here. Skip the manifest, key request, broker route
-and bellhop entry. If the owner’s MCP policy blocks the provider endpoint or the client would
-store tokens on an agent machine, leave the server unconfigured.
+For OAuth sign-in, follow [Services you sign in to](oauth-sign-in.md): the request names the
+server's address with `--oauth`, the owner signs in on the entry page, and the route uses
+`--auth oauth`. A service that wants an app registered by hand is not supported; leave such a
+server unconfigured rather than signing in from an agent machine.
 
 ## Step 2: write the manifest
 

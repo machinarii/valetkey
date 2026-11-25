@@ -775,6 +775,78 @@ class BrokerReadTest(unittest.TestCase):
         self.assertIn(b'"error"', self.rpc("tools/call", "search")[1])
         self.assertNotIn("tools/call", [c[0] for c in calls])
 
+    def test_oauth_route_sends_the_sign_in_token_and_renews_it_through_the_entry_service(self):
+        seen, asked, works = [], [], [True]
+        notes = lambda ends: json.dumps({"valetkey_oauth": 1, "expires_at": ends, "refresh_token": "synthetic-refresh"})  # noqa: E731
+        vault = lambda token, ends: self.state(items=base_items() + [  # noqa: E731
+            item("6", "stripe-api-key-shop-live", "org-local", ["c-local"], pw=token, notes=notes(ends))])
+        test = self
+
+        class Upstream(BaseHTTPRequestHandler):
+            protocol_version = "HTTP/1.1"
+
+            def log_message(self, *a):
+                pass
+
+            def do_GET(self):
+                seen.append(self.headers.get("Authorization"))
+                body = b'{"token": "%s"}' % seen[-1].encode()
+                self.send_response(200)
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+        class Entry(BaseHTTPRequestHandler):
+            def log_message(self, *a):
+                pass
+
+            def do_POST(self):
+                body = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)))
+                if self.path == "/v1/oauth-refresh":
+                    asked.append((self.headers.get("X-Broker-Loopback"), body))
+                    if works[0]:
+                        vault("synthetic-access-second", 9000)
+                self.send_response(200)
+                self.send_header("Content-Length", "2")
+                self.end_headers()
+                self.wfile.write(b"{}")
+
+        up, entry = serve(Upstream), serve(Entry)
+        for srv in (up, entry):
+            self.addCleanup(srv.server_close)
+            self.addCleanup(srv.shutdown)
+        self.start(org="local", machine="devbox", upstream_port=up.server_address[1],
+                   entry_url=f"http://127.0.0.1:{entry.server_address[1]}")
+        ctx = self.srv.ctx
+        ctx["routes"].api["stripe-shop"].oauth = True
+        ctx["now"] = lambda: test.clock
+        self.clock = 1000
+
+        status, _, body = self.get("/stripe-shop/v1/x")  # nobody signed in yet
+        self.assertEqual(status, 401)
+        self.assertIn(b"valetkey-broker request stripe-api-key-shop-live --org local --oauth", body)
+        self.assertTrue(self.audit_has("GET /stripe-shop/v1/x 401 sign-in needed"))
+
+        vault("synthetic-access-first", 5000)
+        ctx["cache"].invalidate()
+        status, _, body = self.get("/stripe-shop/v1/x", headers={"Authorization": "Bearer from-the-agent"})
+        self.assertEqual((status, seen), (200, ["Bearer synthetic-access-first"]))  # the token, no placeholder
+        self.assertEqual(body, b'{"token": "Bearer %s"}' % (b"*" * len("synthetic-access-first")))  # an echo is masked
+        self.assertEqual(asked, [])
+
+        self.clock = 4940  # a minute before it runs out: renewed first, by valetkey-broker-entry
+        self.assertEqual(self.get("/stripe-shop/v1/x")[0], 200)
+        self.assertEqual(seen[-1], "Bearer synthetic-access-second")
+        self.assertEqual(asked, [(SECRET, {"name": "stripe-api-key-shop-live", "org": "local"})])
+        self.assertEqual(self.get("/stripe-shop/v1/x")[0], 200)
+        self.assertEqual(len(asked), 1)
+
+        self.clock, works[0] = 9000, False  # the sign-in can no longer be renewed
+        self.assertEqual(self.get("/stripe-shop/v1/x")[0], 401)
+        self.assertEqual((len(asked), len(seen)), (2, 3))
+        for token in ("synthetic-access-first", "synthetic-access-second", "synthetic-refresh"):
+            self.assertNotIn(token, self.audit.getvalue())
+
     def test_model_inference_forwards_only_approved_operations_and_headers(self):
         seen = []
         class Provider(BaseHTTPRequestHandler):

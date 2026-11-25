@@ -79,6 +79,13 @@ class Bw:
         item["name"] = new_name
         self._run(["edit", "item", item_id], self._encode(item))
 
+    def set_item(self, item_id, password, notes):
+        """New value and notes for an item, in place (a renewed OAuth token keeps no backup)."""
+        item = self.get_item(item_id)
+        item["login"] = dict(item.get("login") or {}, password=password)
+        item["notes"] = notes
+        self._run(["edit", "item", item_id], self._encode(item))
+
     def delete_item(self, item_id):
         self._run(["delete", "item", item_id])
 

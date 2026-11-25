@@ -320,6 +320,89 @@ class BrokerEntryTest(unittest.TestCase):
         self.assertEqual((route.upstream, route.until), (SPEC["upstream"], {"*": int(self.now) + 3600}))
         install.assert_called_once()
 
+    def test_owner_signs_in_to_a_service_and_the_token_is_stored_then_renewed(self):
+        from broker.brokerlib import oauth
+        from broker.tests.fake_oauth import FakeOAuth, local_fetch
+        fake = FakeOAuth()
+        self.addCleanup(fake.close)
+        self.start()
+        ctx = self.srv.ctx
+        ctx["entry"].oauth = oauth.Client(local_fetch, ("http",))
+        ask = {"name": "notes-oauth", "org": "local", "purpose": "notes MCP server"}
+        for bad in ({"oauth": "ftp://x.example/mcp"}, {"oauth": 5}, {"oauth": fake.base + "/mcp", "encode": "basic"},
+                    {"oauth": fake.base + "/mcp", "field": "notes"}):
+            self.assertEqual(self.req("/v1/requests", "POST", dict(ask, **bad))[0], 400, bad)
+        strict = oauth.Client()  # what the broker runs with: public https names only
+        for address in ("http://mcp.example.com/mcp", "https://broker.test.ts.net/mcp", "https://10.0.0.1/mcp",
+                        "https://mcp.example.com:8443/mcp", "https://u@mcp.example.com/", "https://printer.local/"):
+            self.assertIsNotNone(strict.resource_problem(address), address)
+        self.assertIsNone(strict.resource_problem("https://mcp.example.com/mcp"))
+        status, _, body = self.req("/v1/requests", "POST", dict(ask, oauth=fake.base + "/mcp"))
+        rid = json.loads(body)["id"]
+        self.assertEqual((status, json.loads(body)["oauth"]), (201, fake.base + "/mcp"))
+        # a sign-in request takes no pasted value
+        self.assertEqual(self.req(f"/v1/requests/{rid}/value", "POST", {"value": "pasted"}, peer=OWNER_IP)[0], 409)
+        page = self.req("/", peer=OWNER_IP)[2].decode()
+        link = re.search(r'<a class="button" href="/entry(/oauth/start/%s\?sig=[0-9a-f]{64})">Sign in</a>' % rid, page)
+        self.assertTrue(link, page[-3000:])
+        self.assertIn("You sign in at <b class=\"id\">127.0.0.1</b>", page)
+        self.assertNotIn(f'name="id" value="{rid}"', page)  # no value field for it
+        self.assertEqual(self.req(link[1], peer=AGENT_IP)[0], 403)
+        self.assertEqual(self.req(f"/oauth/start/{rid}?sig={'0' * 64}", peer=OWNER_IP)[0], 403)
+        status, headers, _ = self.req(link[1], peer=OWNER_IP)
+        self.assertEqual((status, headers["Location"].split("?")[0]), (303, fake.base + "/authorize"))
+        back = urllib.parse.urlsplit(fake.sign_in(headers["Location"]))  # the owner's browser at the service
+        self.assertEqual((back.scheme, back.netloc, back.path), ("https", "broker.test.ts.net", "/entry/oauth/callback"))
+        callback = "/oauth/callback?" + back.query
+        self.assertEqual(self.req(callback, peer=AGENT_IP)[0], 403)
+        status, headers, _ = self.req(callback, peer=OWNER_IP)
+        self.assertEqual((status, headers["Location"]), (303, f"/entry/access/{rid}"))
+        self.assertEqual(self.req(callback, peer=OWNER_IP)[0], 400)  # a callback works once
+        stored = self.items_named("notes-oauth")[0]
+        state = json.loads(stored["notes"])
+        self.assertEqual(({stored["login"]["password"]}, state["expires_at"], state["resource"]),
+                         (fake.access, int(self.now) + 3600, fake.base + "/mcp"))
+        self.assertEqual(json.loads(self.req(f"/v1/requests/{rid}")[2])["status"], "stored")
+        for text in (stored["login"]["password"], state["refresh_token"], back.query):
+            self.assertNotIn(text, self.audit.getvalue())
+
+        def renew(name="notes-oauth", secret=SECRET):
+            return call(self.base + "/v1/oauth-refresh", "POST",
+                        {"X-Broker-Loopback": secret, "Content-Type": "application/json"},
+                        json.dumps({"name": name, "org": "local"}).encode())
+        self.assertEqual(renew(secret="wrong")[0], 403)
+        self.assertEqual(json.loads(renew()[2]), {"result": "fresh"})  # nothing to do yet
+        self.assertEqual({self.items_named("notes-oauth")[0]["login"]["password"]}, fake.access)
+        self.now += 3600
+        self.assertEqual(json.loads(renew()[2]), {"result": "ok"})
+        renewed = self.items_named("notes-oauth")
+        self.assertEqual(len(renewed), 1)  # in place: no backup of a token that no longer works
+        self.assertEqual(({renewed[0]["login"]["password"]}, json.loads(renewed[0]["notes"])["expires_at"]),
+                         (fake.access, int(self.now) + 3600))
+        self.assertNotEqual(renewed[0]["login"]["password"], stored["login"]["password"])
+        self.assertEqual(self.read_bw()["status"], "locked")
+        fake.refresh.clear()  # the service withdrew the sign-in
+        self.now += 3600
+        self.assertEqual(json.loads(renew()[2]), {"result": "the service did not give a token"})
+        self.assertIn(("notes-oauth", "local"), ctx["store"].suspects())
+        self.assertEqual(json.loads(renew("no-such-item")[2]), {"result": "not a sign-in"})
+
+    def test_a_sign_in_that_cannot_start_says_why_on_the_page(self):
+        from broker.brokerlib import oauth
+        from broker.tests.fake_oauth import FakeOAuth, local_fetch
+        fake = FakeOAuth(register=False)
+        self.addCleanup(fake.close)
+        self.start()
+        self.srv.ctx["entry"].oauth = oauth.Client(local_fetch, ("http",))
+        rid = json.loads(self.req("/v1/requests", "POST", {"name": "notes-oauth", "org": "local", "purpose": "p",
+                                                          "oauth": fake.base + "/mcp"})[2])["id"]
+        sig = broker_entry.oauth_sig(self.srv.ctx, rid)
+        status, headers, _ = self.req(f"/oauth/start/{rid}?sig={sig}", peer=OWNER_IP)
+        self.assertEqual(status, 303)
+        page = self.req(headers["Location"].removeprefix("/entry"), peer=OWNER_IP)[2].decode()
+        self.assertIn("this service wants an app registered by hand", page)
+        self.assertEqual(self.items_named("notes-oauth"), [])
+
     def request(self, name, org="infra", project=None, field="password", purpose="testing",
                 replace=False, peer=AGENT_IP):
         return self.req("/v1/requests", "POST", {"name": name, "org": org, "project": project,

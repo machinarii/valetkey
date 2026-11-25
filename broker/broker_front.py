@@ -31,7 +31,7 @@ DROP_IN = HOP | {"x-broker-peer", "x-broker-loopback", approval_rpc.HEADER.lower
 DROP_OUT = HOP | {"server", "date", "strict-transport-security", "x-frame-options",
                   "x-content-type-options"}
 LOOPBACK_SEGMENTS = {"refresh", "names"}
-LOOPBACK_PATHS = {"/v1/suspect", "/v1/unsuspect"}
+LOOPBACK_PATHS = {"/v1/suspect", "/v1/unsuspect", "/v1/oauth-refresh"}
 
 
 def loopback_only(prefix, rest):

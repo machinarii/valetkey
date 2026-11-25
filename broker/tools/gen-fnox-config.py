@@ -58,6 +58,8 @@ def generate(routes, org, org_id, collection_id=None):
     rules = []
     for name in sorted(api):
         r = api[name]
+        if r.oauth:  # the read service sends the current token itself; fnox reads a value only once
+            continue
         key = env_name(name)
         upstream = urllib.parse.urlsplit(r.upstream)
         paths = []

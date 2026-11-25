@@ -162,7 +162,8 @@ The broker, vault, bellhop and clients have different update procedures.
 |---|---|
 | Understand the broker, bellhop and network layout | [System design and containment](docs/system-design.md) |
 | Add a credential, update a route or diagnose a failure | [Operations and command reference](docs/operations.md) · [Troubleshooting](docs/operations.md#troubleshooting) |
-| Approve an API route with an authenticator | [Route approval](docs/route-approval.md) |
+| Approve an API route with an authenticator, limit it in time or to some tools | [Route approval](docs/route-approval.md) |
+| Use a service you sign in to (OAuth) | [Services you sign in to](docs/oauth-sign-in.md) |
 | Use API credits with Claude Code or Codex | [Model API accounts and OpenRouter](docs/model-api-accounts.md) |
 | Configure Claude Code, Codex or optional claude-mem capture | [Agent setup](docs/agent-setup.md) · Run `valetkey-broker guide claude-mem` for offline guidance |
 | Run your agents from T3 Code | [T3 Code](docs/t3-code.md) |

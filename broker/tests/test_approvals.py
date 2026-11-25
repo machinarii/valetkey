@@ -172,6 +172,11 @@ class ApprovalTests(unittest.TestCase):
         self.assertEqual(load_routes(self.routes, self.now + 10 ** 9).api["reports"].tools, ["fetch", "search"])
         join = self.store.propose("kls5", {"join": "reports"})
         self.assertEqual(self.store.review("laptop", join)["spec"]["tools"], ["fetch", "search"])
+        rid = self.store.propose("devbox", dict(SPEC, name="notes", auth="oauth"))  # a sign-in route: also 0.6 only
+        self.now += 30
+        self.store.approve("laptop", rid, totp(seed, self.now // 30))
+        self.assertTrue((self.root / "approved-routes.d" / "notes.grant").exists())
+        self.assertTrue(load_routes(self.routes, self.now).api["notes"].oauth)
         with self.assertRaises(Refused):
             self.store.propose("devbox", dict(SPEC, name="other", tools="anything"))
 

@@ -30,13 +30,13 @@ import urllib.parse
 import urllib.request
 
 if __package__:
-    from .brokerlib import access_check, routes as routes_mod
+    from .brokerlib import access_check, oauth, routes as routes_mod
     from .brokerlib.bwclient import Bw, BwError, ItemCache, split_ref
     from .brokerlib.httpbase import BrokerHandler, BrokerServer
     from .brokerlib.identity import Whois, peer_ip
 else:  # installed as a script next to brokerlib/
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    from brokerlib import access_check, routes as routes_mod
+    from brokerlib import access_check, oauth, routes as routes_mod
     from brokerlib.bwclient import Bw, BwError, ItemCache, split_ref
     from brokerlib.httpbase import BrokerHandler, BrokerServer
     from brokerlib.identity import Whois, peer_ip
@@ -44,6 +44,9 @@ else:  # installed as a script next to brokerlib/
 MAX_BODY = 50 * 1024 * 1024
 MAX_CHECK_NAMES = 500
 RATE_PER_MINUTE = 300
+# Under `fnox proxy run`, SSL_CERT_FILE names fnox's own CA. A connection that does not go through
+# fnox (an OAuth route) must check the service against the system's CAs instead.
+SYSTEM_CAS = next((p for p in ("/etc/ssl/certs/ca-certificates.crt", "/etc/ssl/cert.pem") if os.path.exists(p)), None)
 TOOLS_TTL = 600  # how long a server's list of read-only tools is trusted
 HOP = {"connection", "keep-alive", "proxy-authenticate", "proxy-authorization", "te", "trailer",
        "transfer-encoding", "upgrade", "host", "content-length"}
@@ -345,6 +348,37 @@ class Handler(BrokerHandler):
 
     # --- api routes (prototype forwarding through fnox proxy) ---
 
+    def oauth_token(self, r):
+        """The current access token of a route the owner signed in to, renewed first when it has
+        run out. None: nobody signed in yet, or the sign-in can no longer be renewed."""
+        ctx = self.server.ctx
+        cache, name = ctx["cache"], split_ref(r.item)[0]
+        try:
+            for asked in (False, True):
+                token, state = cache.peek(name), oauth.state_of(cache.peek(name + "/notes"))
+                if not token or state is None:
+                    return None
+                if not oauth.due(state, ctx["now"]()):
+                    return token
+                if asked:
+                    return None
+                with ctx["renewing"]:  # one request asks; the others wait and find it renewed
+                    state = oauth.state_of(cache.peek(name + "/notes"))
+                    if state and oauth.due(state, ctx["now"]()):
+                        req = urllib.request.Request(
+                            ctx["entry_url"].rstrip("/") + "/v1/oauth-refresh", method="POST",
+                            data=json.dumps({"name": name, "org": r.org}).encode(),
+                            headers={"X-Broker-Loopback": ctx["loopback_secret"], "Content-Type": "application/json"})
+                        try:  # valetkey-broker-entry holds the only vault account that can write
+                            with NO_PROXY.open(req, timeout=120) as reply:
+                                reply.read()
+                        except Exception:
+                            pass
+                        cache.invalidate()
+        except BwError:
+            pass
+        return None
+
     def read_only_tools(self, r):
         """Names the MCP server itself labels read-only, asked the way a forwarded call goes
         (fnox swaps the placeholder for the key). Empty when the list cannot be had."""
@@ -424,6 +458,11 @@ class Handler(BrokerHandler):
             return self.deny(who, route, 413, "body too large")
         if r.tools is not None and body and self.tool_refused(who, r, body):
             return
+        token = self.oauth_token(r) if r.oauth else None
+        if r.oauth and token is None:
+            return self.deny(who, route, 401, "the owner is not signed in to this service, or the sign-in can no "
+                             f"longer be renewed; ask with: valetkey-broker request {split_ref(r.item)[0]} --org {r.org} "
+                             "--oauth <the service's address> (add --replace to sign in again)", "sign-in needed")
 
         up = urllib.parse.urlsplit(r.upstream)
         if r.model:
@@ -432,11 +471,14 @@ class Handler(BrokerHandler):
         else:
             headers = {k: v for k, v in self.headers.items() if k.lower() not in DROP_IN}
         headers["Host"] = up.hostname
-        headers[r.auth_header] = r.auth.format(placeholder(route))
+        headers[r.auth_header] = r.auth.format(token or placeholder(route))
         target = up.path.rstrip("/") + rest + ("?" + query if query else "")
         try:
             if ctx["upstream_scheme"] == "http":  # tests only: plain HTTP, no proxy
                 conn = http.client.HTTPConnection(up.hostname, up.port or 80, timeout=600)
+            elif r.oauth:  # straight to the service: fnox reads a value once, a token changes hourly
+                conn = http.client.HTTPSConnection(up.hostname, up.port or 443, timeout=600,
+                                                   context=ssl.create_default_context(cafile=SYSTEM_CAS))
             else:
                 conn = upstream_conn(up.hostname, up.port or 443)
             conn.request(self.command, target, body=body or None, headers=headers)
@@ -459,7 +501,7 @@ class Handler(BrokerHandler):
             return self.deny(who, route, resp.status, "model provider rejected the request")
         note = ""
         try:
-            hide = Hider(ctx["cache"].peek(r.item))
+            hide = Hider(token or ctx["cache"].peek(r.item))
         except BwError:
             hide, note = Hider(None), "reply not checked: vault unavailable"
         if resp.getheader("Content-Encoding", "identity").lower() != "identity":
@@ -545,6 +587,7 @@ def build_server(args, **overrides):
         "whois": overrides.pop("whois", None) or Whois(),
         "limiter": RateLimiter(RATE_PER_MINUTE, clock),
         "clock": clock,
+        "renewing": threading.Lock(),
         "tools": {},  # route -> (when asked, the tools its server labels read-only)
         "now": time.time,  # approvals end by the calendar, not by this service's uptime
         "loopback_secret": secret,

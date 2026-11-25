@@ -68,6 +68,7 @@ class ApiRoute:
     model: bool = False
     # When an approval the owner limited in time ends: machine -> seconds, "*" for every machine.
     until: dict = field(default_factory=dict)
+    oauth: bool = False  # the key is a token from the owner's sign-in; the broker renews and sends it
     tools: object = None  # MCP tools the route may call: None (all), "read-only" or a list of names
 
     def allows(self, node, now):
@@ -200,9 +201,10 @@ def proposed_api(spec, node):
     if not isinstance(spec, dict) or set(spec) - {"auth", "tools"} != {"name", "org", "item", "upstream", "methods", "paths"}:
         raise RoutesError("expected route name, org, item, upstream, methods and paths")
     # Bearer by default; Basic sends the item as stored, so it must already be base64("<key>:").
-    auth = {"bearer": "Bearer {}", "basic": "Basic {}"}.get(spec.get("auth", "bearer"))
+    # OAuth sends the token of the owner's sign-in as a Bearer token.
+    auth = {"bearer": "Bearer {}", "basic": "Basic {}", "oauth": "Bearer {}"}.get(spec.get("auth", "bearer"))
     if auth is None:
-        raise RoutesError("auth must be bearer or basic")
+        raise RoutesError("auth must be bearer, basic or oauth")
     name, org, item, origin = (spec[k] for k in ("name", "org", "item", "upstream"))
     if not all(isinstance(x, str) for x in (name, org, item, origin, node)):
         raise RoutesError("invalid route fields")
@@ -223,7 +225,7 @@ def proposed_api(spec, node):
             or canonical_api_path(p) != p for p in paths):
         raise RoutesError("use explicit canonical path prefixes")
     return ApiRoute(name, org, item, origin, auth, sorted(set(methods)), sorted(set(paths)), [node],
-                    tools=tool_limit(spec.get("tools")))
+                    tools=tool_limit(spec.get("tools")), oauth=spec.get("auth") == "oauth")
 
 
 # What decides where a route's key goes. A machine that joins a route keeps it only while these
@@ -319,8 +321,10 @@ def load_routes(path, now=None):
             tools = tool_limit(e.get("tools"))
         except RoutesError as exc:
             _fail("api", name, str(exc))
+        if not isinstance(e.get("oauth", False), bool):
+            _fail("api", name, "oauth must be true or false")
         routes.api[name] = ApiRoute(name, org, _item("api", name, e), upstream, auth,
-                                    methods, paths, nodes, tools=tools)
+                                    methods, paths, nodes, tools=tools, oauth=e.get("oauth", False))
     models = conf.get("model", {})
     if not isinstance(models, dict):
         raise RoutesError("model: expected named route tables")
@@ -350,9 +354,9 @@ def load_routes(path, now=None):
         if set(r.nodes) & set(routes.agent_nodes):
             raise RoutesError(f"route {r.name}: agent_nodes cannot be granted raw-value routes")
     grants = Path(path).parent / "approved-routes.d"
-    # <name>.grant is an approval with a limit added in 0.6: an end ("until") or a tool list. A
-    # version from before reads only *.json, so after a rollback such an approval is gone, never
-    # permanent or wider.
+    # <name>.grant is an approval that needs 0.6: an end ("until"), a tool list or an OAuth
+    # sign-in. A version from before reads only *.json, so after a rollback such an approval is
+    # gone, never permanent or wider.
     files = sorted([*grants.glob("*.json"), *grants.glob("*.grant")])
     for file in (f for f in files if "+" not in f.stem):  # new routes: <route>.json
         grant = _grant(file, {"spec", "node", "request"}, now)

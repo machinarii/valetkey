@@ -166,7 +166,7 @@ class FrontTest(unittest.TestCase):
     def test_loopback_only_paths_are_blocked(self):
         for method, p in (("POST", "/local/refresh"), ("GET", "/infra/names"), ("POST", "/entry/v1/suspect"),
                           ("POST", "/entry/v1/unsuspect"), ("GET", "/infra/refresh/x"), ("GET", "/local/names?x=1"),
-                          ("POST", "/entry/v1/suspect/"),
+                          ("POST", "/entry/v1/suspect/"), ("POST", "/entry/v1/oauth-refresh"),
                           ("POST", "/entry//v1/suspect"), ("POST", "/entry/v1/unsuspect/?a=1")):
             status, _, _ = self.get(p, method, data=b"" if method == "POST" else None)
             self.assertEqual(status, 404, p)

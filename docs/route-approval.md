@@ -27,7 +27,7 @@ valetkey-broker request-route reports --org local --item reports-api-key \
 
 Open the printed approval link on a paired approver device within fifteen minutes. Verify the requesting machine, vault item, provider domain, methods and path prefixes, including their descendants. The provider receives the credential when the agent uses this route. Enter a fresh authenticator code and choose **Approve this route**. Wait for **Route active**. A code used for pairing or another approval cannot be reused.
 
-For a missing key, first file `valetkey-broker request` and use the broker's separate entry page or `valetkey-entry <id>` in the owner's private terminal. When the route is active, check storage and access with `valetkey-broker check local reports-api-key`. Verify upstream authentication with a harmless allowed call. MCP servers with native OAuth use their provider's sign-in from an approved client outside the agent VM.
+For a missing key, first file `valetkey-broker request` and use the broker's separate entry page or `valetkey-entry <id>` in the owner's private terminal. When the route is active, check storage and access with `valetkey-broker check local reports-api-key`. Verify upstream authentication with a harmless allowed call. For a service you sign in to instead of pasting a key, see [Services you sign in to](oauth-sign-in.md).
 
 ### Services that use HTTP Basic
 

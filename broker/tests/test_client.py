@@ -237,6 +237,13 @@ class BrokerTests(ClientCase):
         posts = [x[2] for x in self.srv.log if x[0] == "POST"]
         self.assertEqual((posts[0]["encode"], posts[1]["auth"]), ("basic", "basic"))
 
+    def test_a_sign_in_request_names_the_service_and_points_the_owner_to_the_page(self):
+        p = self.run_tool("broker", "request", "notes-oauth", "--org", "local", "--purpose", "p",
+                          "--oauth", "https://mcp.example.com/mcp")
+        self.assertEqual(self.srv.log[-1][2]["oauth"], "https://mcp.example.com/mcp")
+        self.assertIn("The owner signs in to the service at: " + self.base + "/entry", self.out(p)[0])
+        self.assertNotIn("valetkey-entry", self.out(p)[0])
+
     def test_route_request_can_limit_the_tools(self):
         for arg, sent in (("read-only", "read-only"), ("search,fetch", ["search", "fetch"])):
             self.run_tool("broker", "request-route", "notes", "--org", "local", "--item", "notes-api-key",

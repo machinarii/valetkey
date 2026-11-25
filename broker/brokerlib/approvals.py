@@ -176,7 +176,7 @@ class Approvals:
             obj = {"request": rid, "node": node, "spec": spec}
         if until:
             obj["until"] = until
-        limited = until or ("tools" in spec and "join" not in spec)
+        limited = until or ("join" not in spec and ("tools" in spec or spec.get("auth") == "oauth"))
         path = self.grants / (self.stem(node, spec) + (".grant" if limited else ".json"))
         return path, json.dumps(obj, sort_keys=True).encode()
 

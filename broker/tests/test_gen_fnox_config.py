@@ -59,6 +59,11 @@ class GenFnoxConfigTests(unittest.TestCase):
         text = self.gen.generate(self.routes, org, "org-id-123", None)
         return text, tomllib.loads(text)
 
+    def test_a_sign_in_route_gets_no_fnox_rule(self):
+        self.routes.api["stripe-shop"].oauth = True  # the read service sends its token itself
+        text, conf = self.generate("local")
+        self.assertEqual((conf["proxy"].get("rules", []), "stripe-api-key-shop-live" in text), ([], False))
+
     def test_generates_rules_for_org_only(self):
         text, conf = self.generate("infra")
         self.assertEqual(len(conf["proxy"]["rules"]), 1)

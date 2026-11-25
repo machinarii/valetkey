@@ -46,6 +46,11 @@
   textarea { min-height: 8rem; font-family: ui-monospace, Menlo, monospace; }
   button { min-height: 44px; margin-top: 10px; padding: 0 20px; font: inherit; font-weight: 600;
            color: #fff; background: var(--accent); border: 0; border-radius: 10px; }
+  /* A link that leaves for a service's own sign-in page, shown as the card's main button. */
+  a.button { display: block; box-sizing: border-box; min-height: 44px; margin-top: 12px; padding: 0 20px;
+             font-weight: 600; line-height: 44px; text-align: center; text-decoration: none;
+             color: #fff; background: var(--accent); border-radius: 10px; }
+  @media (min-width: 600px) { a.button { min-width: 11rem; } }
   button.secondary { color: var(--accent); background: transparent; border: 1px solid var(--accent); }
   /* Lesser choices beside or under the main one: put a mark aside, drop a duplicate. */
   button.quiet { color: var(--fg); background: transparent; border: 1px solid var(--line); }

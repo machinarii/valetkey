@@ -75,10 +75,13 @@ and observations.
 
 ## Allowed workflow
 
-For an MCP server with native OAuth sign-in, use the provider’s MCP endpoint and the client’s
-built-in sign-in flow only where owner policy permits it and tokens stay off agent machines.
-Skip the valetkey key request, broker route and bellhop setup. If the endpoint is blocked or
-the client would store tokens on the agent VM, leave the server unconfigured.
+For an MCP server with OAuth sign-in, the broker holds the sign-in. File
+`valetkey-broker request <name>-oauth --org local --purpose "service and use" --oauth <the server's https address>`
+and give the owner the entry link: the owner signs in there, in their own browser. Then run
+`valetkey-broker request-route` with `--auth oauth` and give the owner the approval link. Point the
+MCP client at the broker's address for the route, with no key. Never run a client's own sign-in on
+an agent machine: its tokens would be stored there. If the service cannot be used this way, leave
+the server unconfigured and tell the owner.
 
 For a broker-managed credential, follow these steps.
 

@@ -90,6 +90,18 @@ class LoadRoutesTests(unittest.TestCase):
         with self.assertRaises(routes.RoutesError):
             routes.proposed_api(dict(spec, tools="everything"), "devbox")
 
+    def test_a_route_can_use_the_owners_sign_in(self):
+        api = ('[api.notes]\norg = "local"\nitem = "notes-oauth"\nupstream = "https://mcp.x.example"\n'
+               'auth = "Bearer {}"\nmethods = ["POST"]\npaths = ["/mcp"]\nnodes = ["devbox"]\n')
+        self.assertEqual((self.load_text(api).api["notes"].oauth, self.load_text(api + "oauth = true\n").api["notes"].oauth),
+                         (False, True))
+        with self.assertRaises(routes.RoutesError):
+            self.load_text(api + 'oauth = "yes"\n')
+        spec = dict(name="notes", org="local", item="notes-oauth", upstream="https://mcp.x.example",
+                    methods=["POST"], paths=["/mcp"], auth="oauth")
+        route = routes.proposed_api(spec, "devbox")
+        self.assertEqual((route.oauth, route.auth), (True, "Bearer {}"))
+
     def test_reserved_route_names(self):
         self.assertIn("backups", routes.RESERVED_ROUTES)
         api = ('upstream = "https://x.example"\nauth = "Bearer {}"\n'

@@ -35,7 +35,7 @@ from pathlib import Path
 DEFAULT_COLLECTIONS = {"local": "local-broker-collection", "infra": "infra-broker-collection"}
 
 if __package__:
-    from .brokerlib import access_check, approval_rpc
+    from .brokerlib import access_check, approval_rpc, oauth
     from .brokerlib import routes as routes_mod
     from .brokerlib.bwclient import Bw, BwError, value_of
     from .brokerlib.httpbase import BrokerHandler, BrokerServer
@@ -44,7 +44,7 @@ if __package__:
     from .broker_read import read_env_file
 else:  # installed as a script next to brokerlib/
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    from brokerlib import access_check, approval_rpc
+    from brokerlib import access_check, approval_rpc, oauth
     from brokerlib import routes as routes_mod
     from brokerlib.bwclient import Bw, BwError, value_of
     from brokerlib.httpbase import BrokerHandler, BrokerServer
@@ -153,6 +153,7 @@ class Entry:
         self.store, self.org_ids, self.urls, self.secret = store, org_ids, urls, secret
         self.unlock_file, self.bw_env, self.clock = unlock_file, bw_env, clock
         self.write_lock = threading.Lock()
+        self.oauth = oauth.Client()
 
     def _loopback(self, org, path, method):
         req = urllib.request.Request(self.urls[org].rstrip("/") + path, method=method,
@@ -182,13 +183,18 @@ class Entry:
         except Exception:
             pass
 
-    def create(self, name, org, project, field, purpose, replace, requester="", encode=""):
+    def create(self, name, org, project, field, purpose, replace, requester="", encode="", sign_in=""):
         """(http status, request dict | reason)."""
         err = validate(name, org, project, field)
         if err:
             return 400, err
         if encode not in ("", "basic") or (encode and field != "password"):
             return 400, "encode must be basic, for a single-line key"
+        if sign_in:
+            err = "a sign-in stores a single token, as it is" if (encode or field != "password") else \
+                self.oauth.resource_problem(sign_in)
+            if err:
+                return 400, err
         flags = {}
         names = self.names(org)
         if names is None:
@@ -200,7 +206,7 @@ class Entry:
             if other:
                 flags["near_duplicate"] = other
         r = self.store.create(name, org, project, field, purpose, replace, flags=flags,
-                              requester=requester, limit=MAX_PENDING_PER_NODE, encode=encode)
+                              requester=requester, limit=MAX_PENDING_PER_NODE, encode=encode, oauth=sign_in)
         if r is None:
             return 429, "too many pending requests from this machine"
         return 201, r
@@ -269,7 +275,41 @@ class Entry:
                           else f"no collection {key}")
         return cols[key], None
 
-    def store_value(self, req, value, expires=None):
+    def oauth_refresh(self, name, org):
+        """Renew an OAuth item's token in place, for the read service. Returns "ok", "fresh"
+        (someone renewed it already) or why it could not be done; never token text."""
+        with self.write_lock:
+            session, result = None, "bw-error"
+            try:
+                session = Bw(env=self.bw_env).unlock(self.unlock_file)
+                bw = Bw(env={**self.bw_env, "BW_SESSION": session})
+                bw.sync()
+                item = next((i for i in bw.list_items(self.org_ids[org]["org_id"]) if i.get("name") == name), None)
+                state = oauth.state_of(item.get("notes")) if item else None
+                if state is None:
+                    result = "not a sign-in"
+                elif not oauth.due(state, self.clock()):
+                    result = "fresh"
+                else:
+                    token, state = self.oauth.refresh(state, self.clock())
+                    bw.set_item(item["id"], token, json.dumps(state))
+                    token, result = None, "ok"
+            except oauth.Failed as exc:
+                result = str(exc)
+            except Exception:
+                pass
+            finally:
+                try:
+                    Bw(env=dict(self.bw_env, **({"BW_SESSION": session} if session else {}))).lock()
+                except BwError:
+                    pass
+        if result in ("ok", "fresh"):
+            self.refresh(org)
+        elif result != "bw-error":  # shown on the entry page: the owner signs in again
+            self.store.mark_suspect(name, org, True)
+        return result
+
+    def store_value(self, req, value, expires=None, notes=None):
         """Write value for req and return the result text. Locks the vault on every path."""
         value = normalise(value)
         with self.write_lock:
@@ -292,7 +332,7 @@ class Entry:
             try:
                 session = Bw(env=self.bw_env).unlock(self.unlock_file)
                 bw = Bw(env={**self.bw_env, "BW_SESSION": session})
-                result, status = self._write(bw, req, value, col, backup, expires)
+                result, status = self._write(bw, req, value, col, backup, expires, notes)
             except Exception:  # BwError or anything unexpected: _write has undone what it could
                 result, status = "bw-error", "pending"
             finally:
@@ -308,7 +348,7 @@ class Entry:
             self.refresh(req.org)
         return result
 
-    def _write(self, bw, req, value, col, backup, expires=None):
+    def _write(self, bw, req, value, col, backup, expires=None, notes=None):
         org_id = self.org_ids[req.org]["org_id"]
         bw.sync()
         items = bw.list_items(org_id)
@@ -327,7 +367,7 @@ class Entry:
         new_id = None
         try:
             new_id = bw.create_item(req.name, org_id, col, value, req.field,
-                                    req.purpose if req.field == "password" else None, expires)
+                                    notes or (req.purpose if req.field == "password" else None), expires)
             stored = value_of(bw.get_item(new_id), req.field) or ""
             ok = hmac.compare_digest(digest(stored), digest(value))
             stored = None
@@ -366,7 +406,7 @@ def public(r, owner=False, who=None):
         flags["near_duplicate"] = True
     out = {"id": r.id, "name": r.name, "org": r.org, "project": r.project, "field": r.field,
            "purpose": r.purpose, "replace": r.replace, "status": r.status, "created": r.created,
-           "flags": flags, "result": r.result, "encode": r.encode}
+           "flags": flags, "result": r.result, "encode": r.encode, "oauth": r.oauth}
     if owner:  # who asked: the purpose text is the requester's own words
         out["requester"] = r.requester
     if who and r.access.get("routes"):
@@ -406,6 +446,8 @@ class Handler(BrokerHandler):
                 return self.deny("?", "approval", 403, "authenticated broker front required")
         if path in ("/v1/suspect", "/v1/unsuspect"):
             return self.mark(path[len("/v1/"):])
+        if path == "/v1/oauth-refresh":
+            return self.mark("oauth-refresh")
         who = ctx["whois"].machine(peer_ip(self))
         if not who:
             return self.deny(who, "entry", 403, "unknown caller")
@@ -431,6 +473,12 @@ class Handler(BrokerHandler):
             if not owner:
                 return self.deny(who, "entry", 403, "not allowed")
             return self.only("GET", who, "entry") or self.access_page(who, access.group(1))
+        start = re.fullmatch(r"/oauth/start/(r_[a-z2-7]{10})", path)
+        if start or path == "/oauth/callback":
+            if not owner:
+                return self.deny(who, "oauth", 403, "not allowed")
+            return self.only("GET", who, "oauth") or (
+                self.oauth_start(who, start.group(1), parts.query) if start else self.oauth_callback(who, parts.query))
         m = REQ_PATH.match(path)
         if path == "/v1/requests" and self.command == "POST":
             return self.create(who)
@@ -527,9 +575,10 @@ class Handler(BrokerHandler):
                           if spec.get("tools") else []),
                         *([("Already used by", "".join(f'<span class="chip">{e(n)}</span>' for n in spec["nodes"]))]
                           if "join" in spec else []),
-                        ("Key sent as", e(auth_label(spec.get("auth_header", "Authorization"),
-                                                     AUTH_FORMATS.get(spec.get("auth"), spec.get("auth"))
-                                                     or "Bearer {}"))),
+                        ("Key sent as", "Bearer token from your sign-in, renewed by the broker"
+                         if spec.get("auth") == "oauth" else
+                         e(auth_label(spec.get("auth_header", "Authorization"),
+                                      AUTH_FORMATS.get(spec.get("auth"), spec.get("auth")) or "Bearer {}"))),
                         ("Status", f'<span class="pill {pill[0]}">{e(pill[1])}</span>')]
                 card += ('<dl class="spec">' + "".join(f"<div><dt>{k}</dt><dd>{v}</dd></div>" for k, v in rows)
                          + "</dl>")
@@ -606,9 +655,56 @@ class Handler(BrokerHandler):
         name, org = b.get("name"), b.get("org")
         if org not in routes_mod.ORGS or not isinstance(name, str) or not routes_mod.NAME_RE.match(name):
             return self.deny("loopback", kind, 400, "bad mark")
+        if kind == "oauth-refresh":
+            result = ctx["entry"].oauth_refresh(name, org)
+            self.send_json(200, {"result": result})
+            return self.audit("loopback", kind, 200, f"{org}/{name} {result}")
         ctx["store"].mark_suspect(name, org, kind == "suspect")
         self.send_empty(204)
         self.audit("loopback", kind, 204, f"{org}/{name}")
+
+    # --- sign-in to a service (OAuth), owner side ---
+
+    def oauth_start(self, who, rid, query):
+        """Send the owner's browser to the service's own sign-in page."""
+        ctx, route = self.server.ctx, f"request/{rid}"
+        sig = urllib.parse.parse_qs(query).get("sig", [""])[0]
+        if not hmac.compare_digest(sig.encode(), oauth_sig(ctx, rid).encode()):
+            return self.deny(who, route, 403, "reload the page and try again", "bad-token")
+        r = ctx["store"].get(rid)
+        if not r or r.status != "pending" or not r.oauth:
+            return self.deny(who, route, 409, "this request is not waiting for a sign-in")
+        try:
+            address, ticket, pending = ctx["entry"].oauth.start(r.oauth, ctx["public_url"] + "/oauth/callback")
+        except oauth.Failed as exc:
+            return self.redirect(who, route, str(exc), "sign-in not started", rid)
+        now, waiting = ctx["clock"](), ctx["oauth_pending"]
+        for old in [t for t, p in waiting.items() if p["until"] <= now] + list(waiting)[:-20]:
+            waiting.pop(old, None)
+        waiting[ticket] = dict(pending, rid=rid, who=who, until=now + oauth.PENDING_FOR)
+        self.see_other(who, route, address, "sign-in started")
+
+    def oauth_callback(self, who, query):
+        """The service sent the owner back: swap the code for tokens and store them."""
+        ctx = self.server.ctx
+        q = {k: v[0] for k, v in urllib.parse.parse_qs(query).items()}
+        pending = ctx["oauth_pending"].pop(q.get("state", ""), None)
+        if not pending or pending["until"] <= ctx["clock"]() or pending["who"] != who:
+            return self.deny(who, "oauth", 400, "this sign-in was not started from this device, or took longer "
+                             "than ten minutes; start it again from the entry page")
+        rid = pending["rid"]
+        route = f"request/{rid}"
+        if not q.get("code"):
+            return self.redirect(who, route, "the service did not complete the sign-in", "sign-in refused", rid)
+        try:
+            token, state = ctx["entry"].oauth.finish(pending, q["code"], ctx["clock"]())
+        except oauth.Failed as exc:
+            return self.redirect(who, route, str(exc), "sign-in failed", rid)
+        _, result = self.submit(rid, token, None, json.dumps(state))
+        token = state = None
+        if outcome(result) in ("stored", "replaced"):
+            return self.see_other(who, route, f"{ctx['prefix']}/access/{rid}", outcome(result))
+        self.redirect(who, route, result, outcome(result), rid)
 
     # --- agent side ---
 
@@ -617,13 +713,16 @@ class Handler(BrokerHandler):
         if b is None:
             return
         purpose, replace, encode = b.get("purpose") or "", b.get("replace", False), b.get("encode", "")
+        sign_in = b.get("oauth") or ""
+        if not isinstance(sign_in, str):
+            return self.deny(who, "request", 400, "oauth must be the address of the service")
         if not isinstance(purpose, str) or len(purpose) > MAX_PURPOSE:
             return self.deny(who, "request", 400, f"purpose must be text up to {MAX_PURPOSE} characters")
         if not isinstance(replace, bool):
             return self.deny(who, "request", 400, "replace must be true or false")
         status, r = self.server.ctx["entry"].create(
             b.get("name"), b.get("org"), b.get("project"), b.get("field", "password"), purpose, replace,
-            who, encode)
+            who, encode, sign_in)
         if status != 201:
             return self.deny(who, "request", status, r)
         self.send_json(201, public(r))
@@ -648,7 +747,7 @@ class Handler(BrokerHandler):
                                           for n, o, s in store.suspects_since()]})
         self.audit(who, "entry", 200)
 
-    def submit(self, rid, value, expires=None):
+    def submit(self, rid, value, expires=None, notes=None):
         """(http status, result text) for a value submission."""
         r = self.server.ctx["store"].get(rid)
         if not r:
@@ -661,7 +760,9 @@ class Handler(BrokerHandler):
         if err:
             return 400, err
         ctx = self.server.ctx
-        result = ctx["entry"].store_value(r, value, expires)
+        if bool(r.oauth) != bool(notes):
+            return 409, "this request is filled by signing in to the service, not by a pasted value"
+        result = ctx["entry"].store_value(r, value, expires, notes)
         if outcome(result) in ("stored", "replaced"):
             # Which routes this key opens, and for an MCP server its tools; the value goes only
             # to those routes' own upstreams. Never fatal: the key is already stored.
@@ -822,6 +923,11 @@ class Handler(BrokerHandler):
 AUTH_FORMATS = {"bearer": "Bearer {}", "basic": "Basic {}"}  # a proposed route names its format
 
 
+def oauth_sig(ctx, rid):
+    """Ties a Sign in link to this page, so no other site can start a sign-in."""
+    return hmac.digest(ctx["page_token"].encode(), f"oauth/{rid}".encode(), "sha256").hex()
+
+
 def auth_label(header, auth):
     """How a route sends its key, in words: "Bearer token", "Basic (stored value)", "X-Api-Key header"."""
     if header.lower() == "authorization":
@@ -960,6 +1066,20 @@ def render_lists(ctx, result="", rid=""):
             flags += '<p class="flag">Could not check existing names.</p>'
         if r.result:
             flags += f'<p class="flag">Last attempt: {e(r.result)}</p>'
+        if r.oauth:  # nothing to paste: the owner signs in at the service itself
+            host = urllib.parse.urlsplit(r.oauth).hostname or ""
+            out.append(
+                f'<li><div class="head"><span class="name">{e(r.name)}</span>'
+                f'<span class="age">{e(age_text(now - r.created))} · {timer(r.created + EXPIRE_AFTER - now)}</span></div>'
+                f'<p class="meta">{e(where)}</p><p class="purpose">{e(r.purpose)}</p>{flags}'
+                f'<p class="check">You sign in at <b class="id">{e(host)}</b> with your own account. Continue '
+                'only if that is the service you expect. The broker keeps the token and renews it; '
+                'agents never see it.</p>'
+                f'<div class="actions main">{drop}<a class="button" href="{prefix}/oauth/start/{e(r.id)}'
+                f'?sig={oauth_sig(ctx, r.id)}">{"Sign in again" if r.replace else "Sign in"}</a></div>'
+                f'{drop_form}{note if r.id == rid else ""}</li>')
+            placed = placed or r.id == rid
+            continue
         fid = f"v-{e(r.id)}"
         field = (f'<textarea id="{fid}" name="value" required autocomplete="off" spellcheck="false">'
                  '</textarea>' if r.field == "notes" else
@@ -1135,6 +1255,8 @@ def build_server(args, **overrides):
         "template": template,
         "routes_path": args.routes,
         "access_check": access_check.check,
+        "public_url": f"https://{entry_conf.tailnet_name}{args.public_prefix.rstrip('/')}",
+        "oauth_pending": {},  # sign-ins under way: ticket -> what finishing needs; memory only
     }
     ctx.update(overrides)
     return BrokerServer((args.bind, args.port), Handler, ctx)
