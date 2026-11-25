@@ -35,85 +35,6 @@ sudo ./install.sh broker      # on the broker: replaces code and units, keeps /e
 
 The broker reports its installed version in `/usr/local/libexec/valetkey-broker/VERSION` and in `./install.sh doctor`.
 
-## Updating to 0.5: names on disk
-
-Before 0.5 the broker's files, users and services were named `relay` and the bellhop's were named
-`desk`. From 0.5 they are named `valetkey-broker` and `bellhop`. Each machine's installer moves an existing
-installation over the first time it runs. The commands are the usual ones. What is different:
-**this update cannot be put back by `valetkey-broker rollback`.**
-
-**Take a snapshot or a backup of each machine before you update it.** On Proxmox:
-`qm snapshot <vmid> before-names`. If the services do not come back, return to the snapshot with
-`qm rollback <vmid> before-names` and keep what the update printed.
-
-| | Before 0.5 | From 0.5 |
-|---|---|---|
-| broker configuration | `/etc/relay/` | `/etc/valetkey-broker/` |
-| broker services | `relay-front`, `relay-local`, `relay-infra`, `relay-entry`, `relay-approval`, `relay-cert.timer` | `valetkey-broker-front`, `valetkey-broker-local`, `valetkey-broker-infra`, `valetkey-broker-entry`, `valetkey-broker-approval`, `valetkey-broker-cert.timer` |
-| broker users and their folders | `relay-<name>`, `/var/lib/relay-<name>` | `valetkey-broker-<name>`, `/var/lib/valetkey-broker-<name>` |
-| broker code | `/usr/local/libexec/relay/` | `/usr/local/libexec/valetkey-broker/` |
-| bellhop configuration | `/etc/bellhop/desk.toml`, section `[desk]` | `/etc/bellhop/bellhop.toml`, section `[bellhop]` |
-| bellhop user and service | `desk`, `bellhop-desk` | `bellhop`, `bellhop` |
-| bellhop address | `https://<name>/desk` | `https://<name>/bellhop` |
-
-The move keeps the user ids, so every file keeps its owner. It keeps the vault logins, the routes
-and their approvals, the authenticator pairing, the repository deploy key and the bellhop's tool
-logins. The secret the broker's services share among themselves is made again.
-
-**broker.** Run `sudo valetkey-broker update` as usual. It warns that this update needs a manual
-step first: that step is the snapshot. It then checks that everything can be moved, stops the
-services, moves the names, installs 0.5 and starts the services under their new names. Expect a
-minute or two without the broker. Then run `sudo valetkey-broker check`.
-
-- If a check fails before the move, nothing is changed and the old services keep running.
-- `/etc/relay` and `/var/lib/relay/update` stay behind as links until the next update removes them.
-- Every name valetkey uses on the broker starts with `valetkey-broker`. A user, folder, script
-  or unit of your own called `broker` (a monitoring heartbeat, say) is never read or changed.
-- 0.5.0 used plain `broker` names and was withdrawn the same day. A broker that installed it is
-  not moved from there: restore the snapshot from before 0.5.0, then update.
-- Settings you added beside a unit (a `relay-<name>.service.d` folder) move to the new unit's
-  name. Check any path in them that says `relay`.
-
-**bellhop.** Run its installer again: `bellhop/proxmox-bellhop-run.sh bellhop/install-bellhop.sh`
-from the Proxmox host, or `sudo ./install.sh bellhop` on the machine. The old address, `.../desk`,
-keeps answering beside the new one, so agent machines keep working. Then:
-
-1. On each agent machine, run the installer again with `--bellhop-url https://<name>/bellhop`. If
-   it wrote a Claude Code policy before, remove `/etc/claude-code/managed-settings.json` first so
-   the policy is written with the new address.
-2. On the bellhop, delete `/etc/bellhop/old-address` and run its installer once more. The old
-   address stops answering.
-3. The `desk` user's old home folder stays as a link to the new one, which is the `bellhop`
-   folder beside it, for a tool that stored the old path. Remove the link once no file in the new
-   folder mentions the old one.
-
-**What the update does not change.** A bellhop that joined the tailnet as `desk` with `tag:desk`
-keeps that name and tag; new installations use `bellhop` and `tag:bellhop`. To rename an existing
-one: give the machine the new tag in the Tailscale admin console and in your tailnet policy, run
-`sudo tailscale set --hostname=bellhop` on it, run its installer again (for a certificate in the
-new name), and give each agent machine the new `--bellhop-url`. On trusted servers, a `fnox.toml`
-that calls its provider `relay` keeps working; files generated from 0.5 call it `broker`.
-
-## Updating to 0.6
-
-Nothing moves on disk and no manual step is needed: update the broker, then the agent machines, as
-usual. What 0.6 adds is optional and off until you use it:
-
-- **Sign-in (OAuth) routes**: [Services you sign in to](oauth-sign-in.md).
-- **Tool limits on MCP routes and approvals that end**: [Route approval](route-approval.md).
-- **Masking**: when a service's reply repeats the key the broker sent, the broker replaces it with
-  `*` and the audit line says `key hidden in reply`. To let the broker read replies it now asks
-  services for uncompressed ones, so large text replies use more bandwidth between the service
-  and the broker.
-
-An approval that uses one of the new limits is kept as `<route>.grant` beside the older
-`<route>.json` files. If you put the broker back to 0.5 with `valetkey-broker rollback`, 0.5 does
-not read `.grant` files: those routes stop working until you update again, and none of them
-becomes wider or permanent.
-
-Update each agent machine too (`valetkey-agent-setup`, or `valetkey-setup` on Linux), so its
-`valetkey-broker` command has the new options and its rules name the sign-in route.
-
 ## Updating the broker in one command
 
 After a one-time setup the broker fetches its own code, so nothing has to be copied to it:
@@ -147,7 +68,6 @@ first (edit `/etc/valetkey-broker`, change the vault or the tailnet). `install` 
 the installed one; the steps are listed here, newest first:
 
 - **2** (0.5): take a snapshot or backup of the broker first. Its names on disk move from
-  `relay` to `broker`, and the updater cannot put that back. See
-  [Updating to 0.5](#updating-to-05-names-on-disk).
+  `relay` to `valetkey-broker`, and `valetkey-broker rollback` cannot put that back.
 - **1** (first numbered epoch): raw routes need `[security].trusted_value_nodes`, see the
   migration procedure above.

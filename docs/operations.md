@@ -138,8 +138,7 @@ command; on agent machines it is the stand-in.
 Since 0.5 the names on disk match the commands. The broker's files and services say `valetkey-broker`
 (`/etc/valetkey-broker/routes.toml`, `valetkey-broker-front`), and the bellhop's say `bellhop`
 (`/etc/bellhop/bellhop.toml`, the `bellhop` user, the `/bellhop` address). A machine installed
-before 0.5 is moved over by its installer:
-see [Updating to 0.5](updating-valetkey.md#updating-to-05-names-on-disk).
+before 0.5 is moved over by its installer the first time it runs.
 
 | Command | Runs on | Does |
 |---|---|---|
