@@ -75,7 +75,7 @@ replace it.
     </td>
     <td width="25%" valign="top">
       <p><b>🙋 You stay in charge</b></p>
-      Agents ask for keys and routes by name. You type the value, or approve a route with an authenticator code, on your own approver device.
+      Agents ask for keys and routes by name. You type the value, or approve a route with an authenticator code, on your own approver machine.
     </td>
   </tr>
 </table>
@@ -101,7 +101,7 @@ its own ChatGPT sign-in and has no corresponding valetkey grant.
 
 ## Screenshots
 
-The pages you use on your approver device, shown at phone size. The services in them are made up.
+The pages you use on your approver machine, shown at phone size. The services in them are made up.
 
 <table>
   <tr>
@@ -142,7 +142,7 @@ brokered API routes. [Secure setup](docs/secure-setup.md)
 
 1. **Install valetkey on each machine.** Pick the setup that matches your machines.
 
-   **Setup A: macOS for the agent machine and approver device, Linux for the servers**
+   **Setup A: macOS for the agent machine and approver machine, Linux for the servers**
 
    **On each Mac** (Homebrew), add valetkey's packages:
 
@@ -159,7 +159,7 @@ brokered API routes. [Secure setup](docs/secure-setup.md)
    valetkey-agent-setup
    ```
 
-   On the **approver device** (a trusted workstation without agents, where you enter keys):
+   On the **approver machine** (a trusted workstation without agents, where you enter keys):
 
    ```sh
    brew install valetkey-approver
@@ -198,7 +198,7 @@ brokered API routes. [Secure setup](docs/secure-setup.md)
    **Proxmox VE**, with the one command shown in setup A. Otherwise install them with apt, like the
    other machines below.
 
-   **On each machine** (apt, on Debian or Ubuntu): the **agent machine**, the **approver device**
+   **On each machine** (apt, on Debian or Ubuntu): the **agent machine**, the **approver machine**
    and, without Proxmox, the three servers. One signed package covers them all. Add the repository
    and install the package:
 
@@ -252,7 +252,7 @@ Pi (arm64) is also not a tested path yet.
 | **bellhop** | Debian 12+ or Ubuntu 24.04+ with systemd and Python 3.11+, plus the MCPs/tools you want it to run. |
 | **Trusted server** (optional) | Linux with Python 3.9+ and [fnox](https://fnox.jdx.dev), for an application that must hold a key itself. No agent runs on it. |
 | **Agent machines** | macOS or Linux with Python 3.9+ and your agent, such as Claude Code or Codex. On macOS, [Homebrew](https://brew.sh) to install valetkey. |
-| **Approver device** | A phone or workstation no agent runs on, with a browser and an authenticator app (TOTP) for approving routes. For the terminal prompt instead of the browser: macOS or Linux with Python 3.9+. |
+| **Approver machine** | A phone or workstation no agent runs on, with a browser and an authenticator app (TOTP) for approving routes. For the terminal prompt instead of the browser: macOS or Linux with Python 3.9+. |
 
 Sizes and details for each role are in the
 [installation guide](docs/installation.md#requirements).
