@@ -21,7 +21,7 @@
 </p>
 
 <p align="center">
-  <a href="#what-valetkey-is">What it is</a> ·
+  <a href="#what-is-valetkey">What it is</a> ·
   <a href="#key-highlights">Key highlights</a> ·
   <a href="#how-it-works">How it works</a> ·
   <a href="#quick-start">Quick start</a> ·
@@ -40,7 +40,7 @@
 
 <br>
 
-## What valetkey is
+## What is valetkey
 
 valetkey is a **credential broker for AI agents**, a kind of agent security infrastructure. It works
 with the agent harness you already use, such as Claude Code, Codex and/or T3 Code, and does not
