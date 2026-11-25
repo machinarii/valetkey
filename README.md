@@ -43,6 +43,7 @@
 <p align="center">
   <a href="#what-valetkey-is">What it is</a> ·
   <a href="#how-it-works">How it works</a> ·
+  <a href="#prerequisites">Prerequisites</a> ·
   <a href="#get-started">Get started</a> ·
   <a href="#updating-valetkey">Updating</a> ·
   <a href="#guides">Guides</a> ·
@@ -108,6 +109,38 @@ can grant one VM its own Claude setup-token. Any process on that VM can copy it,
 grant cannot recall a copy. Native Claude web login is also available. For subscriptions, Codex uses
 its own ChatGPT sign-in and has no corresponding valetkey grant.
 [Why the subscription terms shaped this choice](docs/security-boundaries.md#should-an-agent-machine-hold-its-own-model-credential)
+
+## Prerequisites
+
+**Hardware: a machine where no agent runs.** The vault and the broker hold your keys, so they
+must sit on hardware your agents cannot log in to or administer. A mini PC such as an Intel NUC, a
+Raspberry Pi, a spare laptop or a home server will do. A second user account or a container on the
+machine where agents run does not count: everything on that machine shares its network identity.
+
+The vault, the broker and the optional bellhop each need a system of their own. Either:
+
+- **one machine with a hypervisor** that runs them as separate guests. Proxmox VE is the tested
+  path, and one command creates all three; or
+- **one small machine for each**, for example two Raspberry Pis for the vault and the broker.
+
+The broker wants 2 CPU cores, 2 GB of memory, 8 GB of disk and a TPM or virtual TPM, which
+protects the vault login it keeps on disk. Most mini PCs have a TPM and a Proxmox VM gets a virtual
+one. A Raspberry Pi has none, so there the login is protected only by a key on the same disk; the
+Pi (arm64) is also not a tested path yet.
+
+**Software and accounts:**
+
+| Where | Needs |
+|---|---|
+| **Every machine** | [Tailscale](https://tailscale.com), on one tailnet with MagicDNS and HTTPS certificates turned on. You need admin access to edit its access rules. |
+| **vault** | Linux with Docker. The installer runs [Vaultwarden](https://github.com/dani-garcia/vaultwarden) 1.37.2 or later and publishes it on the tailnet only. |
+| **broker** | Debian 12+ or Ubuntu 24.04+ with systemd 250+ and Python 3.11+. The installer adds the Bitwarden CLI, [fnox](https://fnox.jdx.dev), `jq`, `git`, `gpg` and `qrencode`. |
+| **bellhop** (optional) | Debian 12+ or Ubuntu 24.04+ with systemd and Python 3.11+, plus the tools you want it to run. |
+| **Agent machines** | macOS or Linux with Python 3.9+ and your agent, such as Claude Code or Codex. On macOS, [Homebrew](https://brew.sh) to install valetkey. |
+| **Approver device** | A phone or computer no agent runs on, with a browser and an authenticator app (TOTP) for approving routes. For the terminal prompt instead of the browser: macOS or Linux with Python 3.9+. |
+
+Sizes and details for each role are in the
+[installation guide](docs/installation.md#requirements).
 
 ## Get started
 
