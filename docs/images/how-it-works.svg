@@ -32,10 +32,10 @@
     @keyframes m1 {
       0%, 2.31% { transform: translate(0, 0); opacity: 0; }
       2.77% { opacity: 1; }
-      4.68% { transform: translate(36px, 0px); }
-      8.9% { transform: translate(36px, -64px); }
-      11.54% { transform: translate(76px, -64px); opacity: 1; }
-      12.46%, 100% { transform: translate(76px, -64px); opacity: 0; }
+      4.83% { transform: translate(36px, 0px); }
+      9.3% { transform: translate(36px, -64px); }
+      11.54% { transform: translate(68px, -64px); opacity: 1; }
+      12.46%, 100% { transform: translate(68px, -64px); opacity: 0; }
     }
     @keyframes m1-ring { 0%, 11.54% { transform: scale(0.4); opacity: 0; } 11.85% { transform: scale(0.5); opacity: 0.8; } 15.38%, 100% { transform: scale(1.4); opacity: 0; } }
     @keyframes m1-glow { 0%, 11.54% { opacity: 0; } 12.15% { opacity: 0.3; } 14.62%, 100% { opacity: 0; } }
@@ -54,8 +54,8 @@
     @keyframes m3 {
       0%, 21.54% { transform: translate(0, 0); opacity: 0; }
       22% { opacity: 1; }
-      30% { transform: translate(124px, 0px); opacity: 1; }
-      30.92%, 100% { transform: translate(124px, 0px); opacity: 0; }
+      30% { transform: translate(112px, 0px); opacity: 1; }
+      30.92%, 100% { transform: translate(112px, 0px); opacity: 0; }
     }
     @keyframes m3-ring { 0%, 30% { transform: scale(0.4); opacity: 0; } 30.31% { transform: scale(0.5); opacity: 0.8; } 33.85%, 100% { transform: scale(1.4); opacity: 0; } }
     @keyframes m3-glow { 0%, 30% { opacity: 0; } 30.62% { opacity: 0.3; } 33.08%, 100% { opacity: 0; } }
@@ -65,18 +65,18 @@
     @keyframes m4 {
       0%, 33.08% { transform: translate(0, 0); opacity: 0; }
       33.54% { opacity: 1; }
-      41.54% { transform: translate(-124px, 0px); opacity: 1; }
-      42.46%, 100% { transform: translate(-124px, 0px); opacity: 0; }
+      41.54% { transform: translate(-112px, 0px); opacity: 1; }
+      42.46%, 100% { transform: translate(-112px, 0px); opacity: 0; }
     }
     @keyframes m4-ring { 0%, 41.54% { transform: scale(0.4); opacity: 0; } 41.85% { transform: scale(0.5); opacity: 0.8; } 45.38%, 100% { transform: scale(1.4); opacity: 0; } }
     /* m5: the answer reaches the agent without the key */
     @keyframes m5 {
       0%, 42.31% { transform: translate(0, 0); opacity: 0; }
       42.77% { opacity: 1; }
-      44.95% { transform: translate(-40px, 0px); }
-      49.16% { transform: translate(-40px, 64px); }
-      51.54% { transform: translate(-76px, 64px); opacity: 1; }
-      52.46%, 100% { transform: translate(-76px, 64px); opacity: 0; }
+      44.55% { transform: translate(-32px, 0px); }
+      49.02% { transform: translate(-32px, 64px); }
+      51.54% { transform: translate(-68px, 64px); opacity: 1; }
+      52.46%, 100% { transform: translate(-68px, 64px); opacity: 0; }
     }
     @keyframes m5-ring { 0%, 51.54% { transform: scale(0.4); opacity: 0; } 51.85% { transform: scale(0.5); opacity: 0.8; } 55.38%, 100% { transform: scale(1.4); opacity: 0; } }
     @keyframes m5-glow { 0%, 51.54% { opacity: 0; } 52.15% { opacity: 0.3; } 54.62%, 100% { opacity: 0; } }
@@ -86,10 +86,10 @@
     @keyframes m6 {
       0%, 56.15% { transform: translate(0, 0); opacity: 0; }
       56.62% { opacity: 1; }
-      58.69% { transform: translate(36px, 0px); }
-      61.79% { transform: translate(36px, 44px); }
-      64.62% { transform: translate(76px, 44px); opacity: 1; }
-      65.54%, 100% { transform: translate(76px, 44px); opacity: 0; }
+      58.87% { transform: translate(36px, 0px); }
+      62.2% { transform: translate(36px, 44px); }
+      64.62% { transform: translate(68px, 44px); opacity: 1; }
+      65.54%, 100% { transform: translate(68px, 44px); opacity: 0; }
     }
     @keyframes m6-ring { 0%, 64.62% { transform: scale(0.4); opacity: 0; } 64.92% { transform: scale(0.5); opacity: 0.8; } 68.46%, 100% { transform: scale(1.4); opacity: 0; } }
     @keyframes m6-glow { 0%, 64.62% { opacity: 0; } 65.23% { opacity: 0.3; } 67.69%, 100% { opacity: 0; } }
@@ -97,8 +97,8 @@
     @keyframes m7 {
       0%, 66.92% { transform: translate(0, 0); opacity: 0; }
       67.38% { opacity: 1; }
-      75.38% { transform: translate(124px, 0px); opacity: 1; }
-      76.31%, 100% { transform: translate(124px, 0px); opacity: 0; }
+      75.38% { transform: translate(112px, 0px); opacity: 1; }
+      76.31%, 100% { transform: translate(112px, 0px); opacity: 0; }
     }
     @keyframes m7-ring { 0%, 75.38% { transform: scale(0.4); opacity: 0; } 75.69% { transform: scale(0.5); opacity: 0.8; } 79.23%, 100% { transform: scale(1.4); opacity: 0; } }
     @keyframes m7-glow { 0%, 75.38% { opacity: 0; } 76% { opacity: 0.3; } 78.46%, 100% { opacity: 0; } }
@@ -106,10 +106,10 @@
     @keyframes m8 {
       0%, 79.23% { transform: translate(0, 0); opacity: 0; }
       79.69% { opacity: 1; }
-      82.05% { transform: translate(-40px, 0px); }
-      85.15% { transform: translate(-40px, -44px); }
-      87.69% { transform: translate(-76px, -44px); opacity: 1; }
-      88.62%, 100% { transform: translate(-76px, -44px); opacity: 0; }
+      81.65% { transform: translate(-32px, 0px); }
+      84.97% { transform: translate(-32px, -44px); }
+      87.69% { transform: translate(-68px, -44px); opacity: 1; }
+      88.62%, 100% { transform: translate(-68px, -44px); opacity: 0; }
     }
     @keyframes m8-ring { 0%, 87.69% { transform: scale(0.4); opacity: 0; } 88% { transform: scale(0.5); opacity: 0.8; } 91.54%, 100% { transform: scale(1.4); opacity: 0; } }
     @keyframes m8-glow { 0%, 87.69% { opacity: 0; } 88.31% { opacity: 0.3; } 90.77%, 100% { opacity: 0; } }
@@ -129,25 +129,25 @@
   <text class="t-title" x="28" y="42">valetkey: how it works</text>
 
   <!-- where the keys and logins live: no agent runs on these machines -->
-  <rect x="220" y="88" width="172" height="364" rx="12" fill="none" stroke="#363840" stroke-dasharray="4 4"/>
-  <text class="t-zone" x="236" y="110">no agent runs here</text>
+  <rect x="212" y="88" width="192" height="364" rx="12" fill="none" stroke="#363840" stroke-dasharray="4 4"/>
+  <text class="t-zone" x="228" y="110">no agent runs here</text>
 
   <!-- connectors: drawn before nodes so they sit behind -->
   <g stroke="#363840">
-    <path d="M160,336 H188 Q196,336 196,328 V280 Q196,272 204,272 H236"/>
-    <path d="M160,360 H188 Q196,360 196,368 V396 Q196,404 204,404 H236"/>
+    <path d="M160,336 H188 Q196,336 196,328 V280 Q196,272 204,272 H228"/>
+    <path d="M160,360 H188 Q196,360 196,368 V396 Q196,404 204,404 H228"/>
     <line x1="308" y1="208" x2="308" y2="240"/>
-    <line x1="376" y1="316" x2="500" y2="316"/>
-    <line x1="376" y1="404" x2="500" y2="404"/>
+    <line x1="388" y1="316" x2="500" y2="316"/>
+    <line x1="388" y1="404" x2="500" y2="404"/>
   </g>
   <g fill="#363840">
-    <polygon points="230,269 236,272 230,275"/>
+    <polygon points="222,269 228,272 222,275"/>
     <polygon points="166,333 160,336 166,339"/>
-    <polygon points="230,401 236,404 230,407"/>
+    <polygon points="222,401 228,404 222,407"/>
     <polygon points="166,357 160,360 166,363"/>
     <polygon points="305,234 308,240 311,234"/>
     <polygon points="494,313 500,316 494,319"/>
-    <polygon points="382,313 376,316 382,319"/>
+    <polygon points="394,313 388,316 394,319"/>
     <polygon points="494,401 500,404 494,407"/>
   </g>
   <text class="t-small" x="320" y="228">master key</text>
@@ -158,23 +158,23 @@
   <text class="t-name" x="56" y="336.5">agent</text>
   <text class="t-desc" x="44" y="352.5">agent machine</text>
   <text class="t-desc" x="44" y="364.5">holds no keys/credentials</text>
-  <rect x="236" y="144" width="140" height="64" rx="7" fill="#141416" stroke="#363840"/>
-  <circle cx="250" cy="161.5" r="2.5" fill="#4CF490" class="tick" style="animation-delay:-0.35s"/>
-  <text class="t-name" x="260" y="164.5">vault</text>
-  <text class="t-desc" x="248" y="180.5">Proxmox container</text>
-  <text class="t-desc" x="248" y="192.5">every key, encrypted</text>
-  <rect x="236" y="240" width="140" height="106" rx="7" fill="#141416" stroke="#363840"/>
-  <circle cx="250" cy="257" r="2.5" fill="#4CF490" class="tick" style="animation-delay:-0.7s"/>
-  <text class="t-name" x="260" y="260">broker</text>
-  <text class="t-desc" x="248" y="276">Proxmox VM</text>
-  <text class="t-desc" x="248" y="288">checks the calling machine</text>
-  <rect x="248" y="300" width="116" height="32" rx="6" fill="#0D0D0E" stroke="#363840"/>
-  <text class="t-small" x="260" y="318">fnox adds the key</text>
-  <rect x="236" y="372" width="140" height="64" rx="7" fill="#141416" stroke="#363840"/>
-  <circle cx="250" cy="389.5" r="2.5" fill="#4CF490" class="tick" style="animation-delay:-1.05s"/>
-  <text class="t-name" x="260" y="392.5">bellhop</text>
-  <text class="t-desc" x="248" y="408.5">Proxmox VM</text>
-  <text class="t-desc" x="248" y="420.5">runs tools, keeps credentials</text>
+  <rect x="228" y="144" width="160" height="64" rx="7" fill="#141416" stroke="#363840"/>
+  <circle cx="242" cy="161.5" r="2.5" fill="#4CF490" class="tick" style="animation-delay:-0.35s"/>
+  <text class="t-name" x="252" y="164.5">vault</text>
+  <text class="t-desc" x="240" y="180.5">Proxmox container</text>
+  <text class="t-desc" x="240" y="192.5">every key, encrypted</text>
+  <rect x="228" y="240" width="160" height="106" rx="7" fill="#141416" stroke="#363840"/>
+  <circle cx="242" cy="257" r="2.5" fill="#4CF490" class="tick" style="animation-delay:-0.7s"/>
+  <text class="t-name" x="252" y="260">broker</text>
+  <text class="t-desc" x="240" y="276">Proxmox VM</text>
+  <text class="t-desc" x="240" y="288">checks the calling machine</text>
+  <rect x="240" y="300" width="136" height="32" rx="6" fill="#0D0D0E" stroke="#363840"/>
+  <text class="t-small" x="252" y="318">fnox adds the key</text>
+  <rect x="228" y="372" width="160" height="64" rx="7" fill="#141416" stroke="#363840"/>
+  <circle cx="242" cy="389.5" r="2.5" fill="#4CF490" class="tick" style="animation-delay:-1.05s"/>
+  <text class="t-name" x="252" y="392.5">bellhop</text>
+  <text class="t-desc" x="240" y="408.5">Proxmox VM</text>
+  <text class="t-desc" x="240" y="420.5">runs MCPs/tools, keeps credentials</text>
   <rect x="500" y="284" width="128" height="64" rx="7" fill="#0D0D0E" stroke="#363840"/>
   <text class="t-name" x="512" y="304.5">service API/CLI</text>
   <text class="t-desc" x="512" y="320.5">gets the request</text>
@@ -190,24 +190,24 @@
     <circle cx="160" cy="336" r="4" fill="#4CF490"/>
     <text class="t-tag" x="160" y="324" text-anchor="middle" fill="#4CF490">request</text>
   </g>
-  <circle cx="236" cy="272" r="10" fill="none" stroke="#4CF490" stroke-width="1.5" class="ring" style="animation-name:m1-ring"/>
-  <rect x="236" y="240" width="140" height="106" rx="7" fill="#4CF490" class="glow" style="animation-name:m1-glow"/>
+  <circle cx="228" cy="272" r="10" fill="none" stroke="#4CF490" stroke-width="1.5" class="ring" style="animation-name:m1-ring"/>
+  <rect x="228" y="240" width="160" height="106" rx="7" fill="#4CF490" class="glow" style="animation-name:m1-glow"/>
   <text class="t-tag story" x="28" y="66" text-anchor="start" fill="#FBDC8E" style="animation-name:ph2;opacity:0">2 · the broker checks, fnox adds the key</text>
   <circle cx="308" cy="208" r="4" fill="#FBDC8E" class="pkt" style="animation-name:m2"/>
   <circle cx="308" cy="240" r="10" fill="none" stroke="#FBDC8E" stroke-width="1.5" class="ring" style="animation-name:m2-ring"/>
-  <rect x="248" y="300" width="116" height="32" rx="6" fill="#FBDC8E" class="glow" style="animation-name:m2-glow"/>
+  <rect x="240" y="300" width="136" height="32" rx="6" fill="#FBDC8E" class="glow" style="animation-name:m2-glow"/>
   <g class="pkt" style="animation-name:m3">
-    <circle cx="376" cy="316" r="4" fill="#FBDC8E"/>
-    <text class="t-tag" x="376" y="304" text-anchor="middle" fill="#FBDC8E">+ key</text>
+    <circle cx="388" cy="316" r="4" fill="#FBDC8E"/>
+    <text class="t-tag" x="388" y="304" text-anchor="middle" fill="#FBDC8E">+ key</text>
   </g>
   <circle cx="500" cy="316" r="10" fill="none" stroke="#FBDC8E" stroke-width="1.5" class="ring" style="animation-name:m3-ring"/>
   <rect x="500" y="284" width="128" height="64" rx="7" fill="#FBDC8E" class="glow" style="animation-name:m3-glow"/>
   <text class="t-tag story" x="28" y="66" text-anchor="start" fill="#4CF490" style="animation-name:ph3;opacity:0">3 · the answer returns, the key does not</text>
   <circle cx="500" cy="316" r="4" fill="#B6C0CF" class="pkt" style="animation-name:m4"/>
-  <circle cx="376" cy="316" r="10" fill="none" stroke="#B6C0CF" stroke-width="1.5" class="ring" style="animation-name:m4-ring"/>
+  <circle cx="388" cy="316" r="10" fill="none" stroke="#B6C0CF" stroke-width="1.5" class="ring" style="animation-name:m4-ring"/>
   <g class="pkt" style="animation-name:m5">
-    <circle cx="236" cy="272" r="4" fill="#B6C0CF"/>
-    <text class="t-tag" x="236" y="260" text-anchor="middle" fill="#B6C0CF">answer</text>
+    <circle cx="228" cy="272" r="4" fill="#B6C0CF"/>
+    <text class="t-tag" x="228" y="260" text-anchor="middle" fill="#B6C0CF">answer</text>
   </g>
   <circle cx="160" cy="336" r="10" fill="none" stroke="#B6C0CF" stroke-width="1.5" class="ring" style="animation-name:m5-ring"/>
   <rect x="32" y="316" width="128" height="64" rx="7" fill="#B6C0CF" class="glow" style="animation-name:m5-glow"/>
@@ -216,17 +216,17 @@
     <circle cx="160" cy="360" r="4" fill="#4CF490"/>
     <text class="t-tag" x="160" y="348" text-anchor="middle" fill="#4CF490">tool call</text>
   </g>
-  <circle cx="236" cy="404" r="10" fill="none" stroke="#4CF490" stroke-width="1.5" class="ring" style="animation-name:m6-ring"/>
-  <rect x="236" y="372" width="140" height="64" rx="7" fill="#4CF490" class="glow" style="animation-name:m6-glow"/>
+  <circle cx="228" cy="404" r="10" fill="none" stroke="#4CF490" stroke-width="1.5" class="ring" style="animation-name:m6-ring"/>
+  <rect x="228" y="372" width="160" height="64" rx="7" fill="#4CF490" class="glow" style="animation-name:m6-glow"/>
   <g class="pkt" style="animation-name:m7">
-    <circle cx="376" cy="404" r="4" fill="#02BEFA"/>
-    <text class="t-tag" x="376" y="392" text-anchor="middle" fill="#02BEFA">credential</text>
+    <circle cx="388" cy="404" r="4" fill="#02BEFA"/>
+    <text class="t-tag" x="388" y="392" text-anchor="middle" fill="#02BEFA">credential</text>
   </g>
   <circle cx="500" cy="404" r="10" fill="none" stroke="#02BEFA" stroke-width="1.5" class="ring" style="animation-name:m7-ring"/>
   <rect x="500" y="372" width="128" height="64" rx="7" fill="#02BEFA" class="glow" style="animation-name:m7-glow"/>
   <g class="pkt" style="animation-name:m8">
-    <circle cx="236" cy="404" r="4" fill="#B6C0CF"/>
-    <text class="t-tag" x="236" y="392" text-anchor="middle" fill="#B6C0CF">output</text>
+    <circle cx="228" cy="404" r="4" fill="#B6C0CF"/>
+    <text class="t-tag" x="228" y="392" text-anchor="middle" fill="#B6C0CF">output</text>
   </g>
   <circle cx="160" cy="360" r="10" fill="none" stroke="#B6C0CF" stroke-width="1.5" class="ring" style="animation-name:m8-ring"/>
   <rect x="32" y="316" width="128" height="64" rx="7" fill="#B6C0CF" class="glow" style="animation-name:m8-glow"/>
