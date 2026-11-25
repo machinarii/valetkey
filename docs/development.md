@@ -79,8 +79,9 @@ and exports an 860 px-wide GIF at 25 fps with a 256-entry palette and light orde
 2. Run `make lint` and `make test`, commit, then tag and push: `git tag v<version> && git push origin main v<version>`.
 3. **Homebrew** reads `Formula/` from `main`, so `brew upgrade` picks the release up once the tag exists.
 4. **apt:** the `apt` workflow builds the package, signs the repository and publishes it to GitHub Pages
-   when the tag is pushed. Its template and one-time setup (Pages source, the signing key secret) are in
-   [`packaging/apt/apt.workflow.yml`](../packaging/apt/apt.workflow.yml). To build locally:
+   when the tag is pushed. Its one-time setup (Pages source, the signing key secret) is described at the top of
+   [`.github/workflows/apt.yml`](../.github/workflows/apt.yml); only the owner edits workflows, in
+   GitHub's web editor (agents' git tokens have no Workflows permission). To build locally:
    `packaging/apt/build.sh` writes `dist/apt/`; set `APT_GPG_KEY=<fingerprint>` to sign it.
 
 The apt package ships the installer and what it reads, never tests or docs, and only tracked files.
