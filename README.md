@@ -29,9 +29,9 @@
 <br>
 
 <p align="center">
-  <img src="docs/images/how-it-works.gif" width="860" alt="Animation in eleven steps, with a legend: a keyhole is a request with no key in it, a gold key is a master key (the real credential), a silver key with one tooth is a valet key (which routes a machine may use, kept on the broker), a white card is a credential. An agent machine that holds no keys sends the broker a request with an empty keyhole. The broker checks which machine is calling and whether its valet key fits the route. fnox puts the route's master key from the vault into the request and forwards it to a service API or CLI. The answer comes back without the master key. For a tool with its own login, the agent calls the bellhop, which runs the MCP server or tool with that login. A command that would print the login is refused.">
+  <img src="docs/images/how-it-works.svg" width="860" alt="Animated diagram with a legend: a green dot is a request or an answer with no key in it, a yellow dot is a master key, a blue dot is a tool's own login. An agent machine that holds no keys and no logins sends the broker a request with no key. The broker checks the calling machine and takes that route's master key from the vault; fnox adds the key and forwards the request to a service API or CLI. The answer comes back to the agent without the key. For a tool with its own login, the agent calls the bellhop, which runs the MCP server or tool with that login and returns only the output. The vault, the broker and the bellhop sit in an area marked: no agent runs here.">
   <br>
-  <sub>Agents send keyholes, never keys. The broker puts the master key in a request on its way out; the bellhop runs tools that keep their own login.</sub>
+  <sub>Agents send requests with no key in them. The broker adds the master key on the way out; the bellhop runs tools that keep their own login.</sub>
 </p>
 
 > [!WARNING]

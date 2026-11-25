@@ -39,7 +39,7 @@ valetkey/
 │   ├── credential-rules.md     instruction section for AI agents
 │   ├── claude-setup.py         asks what to block; updates Claude Code's CLAUDE.md and settings.json
 │   └── token-cost.py           measures what the setup adds to a Claude Code session, in tokens and time
-├── docs/images/                icon, how-it-works animation, and the script that draws the animation
+├── docs/images/                icon, the how-it-works animation (SVG) and its motion spec
 └── docs/                       secure setup, architecture, threat model, fnox vault-provider notes, git through the broker,
                                 keyless tool standard, recipe for adding a tool, several keys for one service
 ```
@@ -56,22 +56,28 @@ The tests cover the policy edges as well as the happy path: unknown callers, cal
 
 ### Redrawing the README animation
 
-`docs/images/how-it-works.gif` is drawn by `docs/images/make.py`. Only this script needs extra
-tools; valetkey itself, its tests and its installers do not use them.
+`docs/images/how-it-works.svg` is one self-contained file: boxes and lines drawn by hand, and
+motion as CSS keyframes, with no script in it. It plays inside an `<img>` tag, so GitHub shows it
+animated, and readers who ask for reduced motion get the still diagram.
 
-| Needs | Install |
-|---|---|
-| Python 3.9+ with [Pillow](https://pypi.org/project/pillow/) | `python3 -m pip install --user Pillow`, or `sudo apt-get install python3-pil` |
-| [ffmpeg](https://ffmpeg.org) (builds the GIF palette and file) | `sudo apt-get install ffmpeg`, or `brew install ffmpeg` |
-| DejaVu Sans fonts (falls back to macOS Arial or Pillow’s scalable default) | `sudo apt-get install fonts-dejavu-core` |
+The motion is described in `docs/images/how-it-works.spec.json`: each moving dot with its path,
+start time and label, and the four captions. The keyframes between the `@motion` markers in the
+SVG are generated from it with the [animdiagram](https://github.com/praveenvijayan/animdiagram)
+skill's scripts (Python standard library only; valetkey itself does not use them):
 
 ```sh
-python3 docs/images/make.py    # rewrites docs/images/how-it-works.gif and prints its frame count and size
+python3 ~/.agents/skills/animdiagram/scripts/timeline.py docs/images/how-it-works.spec.json \
+  --inject docs/images/how-it-works.svg      # rewrites only what is between the markers
+python3 ~/.agents/skills/animdiagram/scripts/check.py docs/images/how-it-works.svg
 ```
 
-`PAUSE` controls the hold after each step. `FADE` sets the spotlight transition in seconds, and
-`DIM` controls the contrast of boxes outside the spotlight. The script supersamples the artwork
-and exports an 860 px-wide GIF at 25 fps with a 256-entry palette and light ordered dithering.
+To move a box, edit its coordinates in the SVG and the matching `from`, `via`, `to` and `glow`
+values in the spec, then run the two commands again. The checker's one warning, about the title
+not being in capitals, is deliberate: valetkey, bellhop, vault and broker are written in lower case.
+
+The icon (`valetkey-icon.png`, `valetkey-icon-512.png`) was generated with ChatGPT's image tool
+from the brief "a close-up robotic valet in a cap, holding a key beside its head", then cut out of
+its background and resized.
 
 ## Releasing
 

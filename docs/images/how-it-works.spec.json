@@ -1,0 +1,271 @@
+{
+ "loop": 10,
+ "accent": "#4CF490",
+ "events": [
+  {
+   "id": "ph1",
+   "kind": "phase",
+   "note": "act 1",
+   "at": 0,
+   "until": 1.1,
+   "text": "1 · the agent asks, with no key",
+   "x": 632,
+   "y": 96,
+   "color": "#4CF490"
+  },
+  {
+   "id": "m1",
+   "kind": "packet",
+   "note": "the agent calls a route on the broker; the request holds no key",
+   "at": 0.3,
+   "travel": 0.7,
+   "label": "no key",
+   "from": [
+    160,
+    336
+   ],
+   "via": [
+    [
+     196,
+     336
+    ],
+    [
+     196,
+     272
+    ]
+   ],
+   "to": [
+    236,
+    272
+   ],
+   "glow": {
+    "x": 236,
+    "y": 240,
+    "w": 140,
+    "h": 104,
+    "rx": 7
+   }
+  },
+  {
+   "id": "ph2",
+   "kind": "phase",
+   "note": "act 2",
+   "at": 1.2,
+   "until": 3.1,
+   "text": "2 · the broker checks, fnox adds the key",
+   "x": 632,
+   "y": 96,
+   "color": "#FBDC8E"
+  },
+  {
+   "id": "m2",
+   "kind": "packet",
+   "note": "the broker takes that route's master key from the vault",
+   "after": "m1",
+   "travel": 0.5,
+   "color": "#FBDC8E",
+   "from": [
+    308,
+    200
+   ],
+   "to": [
+    308,
+    240
+   ],
+   "glow": {
+    "x": 248,
+    "y": 300,
+    "w": 116,
+    "h": 32,
+    "rx": 6
+   }
+  },
+  {
+   "id": "m3",
+   "kind": "packet",
+   "note": "fnox puts the key in the request and forwards it",
+   "after": "m2",
+   "travel": 0.8,
+   "color": "#FBDC8E",
+   "label": "+ key",
+   "from": [
+    376,
+    316
+   ],
+   "to": [
+    500,
+    316
+   ],
+   "glow": {
+    "x": 500,
+    "y": 288,
+    "w": 128,
+    "h": 56,
+    "rx": 7
+   }
+  },
+  {
+   "id": "ph3",
+   "kind": "phase",
+   "note": "act 3",
+   "at": 3.2,
+   "until": 5.2,
+   "text": "3 · the answer returns, the key does not",
+   "x": 632,
+   "y": 96,
+   "color": "#4CF490"
+  },
+  {
+   "id": "m4",
+   "kind": "packet",
+   "note": "the service answers the broker",
+   "after": "m3",
+   "gap": 0.4,
+   "travel": 0.8,
+   "from": [
+    500,
+    316
+   ],
+   "to": [
+    376,
+    316
+   ]
+  },
+  {
+   "id": "m5",
+   "kind": "packet",
+   "note": "the answer reaches the agent without the key",
+   "after": "m4",
+   "gap": 0.1,
+   "travel": 0.7,
+   "label": "answer",
+   "from": [
+    236,
+    272
+   ],
+   "via": [
+    [
+     196,
+     272
+    ],
+    [
+     196,
+     336
+    ]
+   ],
+   "to": [
+    160,
+    336
+   ],
+   "glow": {
+    "x": 32,
+    "y": 320,
+    "w": 128,
+    "h": 56,
+    "rx": 7
+   }
+  },
+  {
+   "id": "ph4",
+   "kind": "phase",
+   "note": "act 4",
+   "at": 5.5,
+   "until": 8.9,
+   "text": "4 · tools with a login run on the bellhop",
+   "x": 632,
+   "y": 96,
+   "color": "#02BEFA"
+  },
+  {
+   "id": "m6",
+   "kind": "packet",
+   "note": "for a tool with its own login the agent calls the bellhop",
+   "at": 5.6,
+   "travel": 0.7,
+   "label": "tool call",
+   "from": [
+    160,
+    360
+   ],
+   "via": [
+    [
+     196,
+     360
+    ],
+    [
+     196,
+     404
+    ]
+   ],
+   "to": [
+    236,
+    404
+   ],
+   "glow": {
+    "x": 236,
+    "y": 376,
+    "w": 140,
+    "h": 56,
+    "rx": 7
+   }
+  },
+  {
+   "id": "m7",
+   "kind": "packet",
+   "note": "the bellhop runs the real tool with its login",
+   "after": "m6",
+   "travel": 0.8,
+   "color": "#02BEFA",
+   "label": "login",
+   "from": [
+    376,
+    404
+   ],
+   "to": [
+    500,
+    404
+   ],
+   "glow": {
+    "x": 500,
+    "y": 376,
+    "w": 128,
+    "h": 56,
+    "rx": 7
+   }
+  },
+  {
+   "id": "m8",
+   "kind": "packet",
+   "note": "only the output comes back; the login stays on the bellhop",
+   "after": "m7",
+   "gap": 0.5,
+   "travel": 0.7,
+   "label": "output",
+   "from": [
+    236,
+    404
+   ],
+   "via": [
+    [
+     196,
+     404
+    ],
+    [
+     196,
+     360
+    ]
+   ],
+   "to": [
+    160,
+    360
+   ],
+   "glow": {
+    "x": 32,
+    "y": 320,
+    "w": 128,
+    "h": 56,
+    "rx": 7
+   }
+  }
+ ]
+}
