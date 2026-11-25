@@ -160,7 +160,7 @@ Pi (arm64) is also not a tested path yet.
 | **Every machine** | [Tailscale](https://tailscale.com), on one tailnet with MagicDNS and HTTPS certificates turned on. You need admin access to edit its access rules. |
 | **vault** | Linux with Docker. The installer runs [Vaultwarden](https://github.com/dani-garcia/vaultwarden) 1.37.2 or later and publishes it on the tailnet only. |
 | **broker** | Debian 12+ or Ubuntu 24.04+ with systemd 250+ and Python 3.11+. The installer adds the Bitwarden CLI, [fnox](https://fnox.jdx.dev), `jq`, `git`, `gpg` and `qrencode`. |
-| **bellhop** (optional) | Debian 12+ or Ubuntu 24.04+ with systemd and Python 3.11+, plus the tools you want it to run. |
+| **bellhop** (optional) | Debian 12+ or Ubuntu 24.04+ with systemd and Python 3.11+, plus the MCPs/tools you want it to run. |
 | **Agent machines** | macOS or Linux with Python 3.9+ and your agent, such as Claude Code or Codex. On macOS, [Homebrew](https://brew.sh) to install valetkey. |
 | **Approver device** | A phone or computer no agent runs on, with a browser and an authenticator app (TOTP) for approving routes. For the terminal prompt instead of the browser: macOS or Linux with Python 3.9+. |
 
