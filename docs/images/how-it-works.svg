@@ -200,7 +200,10 @@
   <circle cx="500" cy="356" r="10" fill="none" stroke="#FBDC8E" stroke-width="1.5" class="ring" style="animation-name:m3-ring"/>
   <rect x="500" y="324" width="128" height="64" rx="7" fill="#FBDC8E" class="glow" style="animation-name:m3-glow"/>
   <text class="t-tag story" x="28" y="66" text-anchor="start" fill="#4CF490" style="animation-name:ph3;opacity:0">3 · the answer returns, the key does not</text>
-  <circle cx="500" cy="356" r="4" fill="#B6C0CF" class="pkt" style="animation-name:m4"/>
+  <g class="pkt" style="animation-name:m4">
+    <circle cx="500" cy="356" r="4" fill="#B6C0CF"/>
+    <text class="t-tag" x="500" y="344" text-anchor="middle" fill="#B6C0CF">answer</text>
+  </g>
   <circle cx="388" cy="356" r="10" fill="none" stroke="#B6C0CF" stroke-width="1.5" class="ring" style="animation-name:m4-ring"/>
   <g class="pkt" style="animation-name:m5">
     <circle cx="228" cy="312" r="4" fill="#B6C0CF"/>
