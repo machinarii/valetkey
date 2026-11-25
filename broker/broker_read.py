@@ -321,7 +321,7 @@ class Handler(BrokerHandler):
         before = self.server.ctx["cache"].sync_failures
         try:
             for n in names:  # n is a ref (name or name/notes), as the shim would fetch it
-                api_allowed = any(r.item == n and who in r.nodes
+                api_allowed = any(r.item == n and r.allows(who, self.server.ctx["now"]())
                                   for r in self.server.ctx["routes"].api.values())
                 setup_token = self.server.ctx["routes"].allows_claude_setup_token(who, n)
                 if not (api_allowed or setup_token or self.allowed(who, split_ref(n)[0])):
@@ -340,6 +340,9 @@ class Handler(BrokerHandler):
         route = r.name
         if who not in r.nodes:
             return self.deny(who, route, 403, "not allowed")
+        if not r.allows(who, ctx["now"]()):
+            return self.deny(who, route, 403, "the owner's approval of this route has ended; ask again with "
+                             "valetkey-broker request-route or join-route", "approval ended")
         if self.command not in r.methods:
             return self.deny(who, route, 405, "method not allowed")
         if r.model:
@@ -474,6 +477,7 @@ def build_server(args, **overrides):
         "whois": overrides.pop("whois", None) or Whois(),
         "limiter": RateLimiter(RATE_PER_MINUTE, clock),
         "clock": clock,
+        "now": time.time,  # approvals end by the calendar, not by this service's uptime
         "loopback_secret": secret,
         "entry_url": args.entry_url,
         "upstream_scheme": args.upstream_scheme,

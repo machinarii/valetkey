@@ -12,6 +12,7 @@ import tempfile
 import time
 import urllib.parse
 
+from .approval_rpc import LASTS
 from .routes import (BINDING, join_binding, load_entry_config, load_routes, proposed_api, ROUTE_NAME_RE,
                      RoutesError)
 
@@ -50,7 +51,7 @@ class Approvals:
         self.grants = self.routes.parent / "approved-routes.d"
 
     def policy(self):
-        routes = load_routes(self.routes)
+        routes = load_routes(self.routes, self.clock())
         owners = load_entry_config(self.owners)
         routes.validate_owners(owners.owner_nodes)
         return routes, owners
@@ -103,7 +104,20 @@ class Approvals:
         self.db.execute("UPDATE owner SET active=ticket, ticket=NULL WHERE name=?", (who,))
         return "Authenticator paired"
 
+    def granted(self, stem):
+        return any((self.grants / (stem + suffix)).exists() for suffix in (".json", ".timed"))
+
+    def sweep(self):
+        """Remove approvals whose time has run out, so the route or join can be asked for again."""
+        for file in self.grants.glob("*.timed"):
+            try:
+                if json.loads(file.read_bytes())["until"] <= self.clock():
+                    file.unlink()
+            except (ValueError, KeyError, TypeError):
+                pass  # load_routes reports a damaged grant
+
     def propose(self, who, spec):
+        self.sweep()
         routes, _ = self.policy()
         if who not in routes.agent_nodes:
             raise Refused(403, "only configured agent machines can propose routes")
@@ -114,7 +128,7 @@ class Approvals:
                 route = proposed_api(spec, who)
             except RoutesError as exc:
                 raise Refused(400, str(exc)) from None
-            if route.name in routes.api or (self.grants / (route.name + ".json")).exists():
+            if route.name in routes.api or self.granted(route.name):
                 raise Refused(409, "route name already exists")
             spec = dict(spec, methods=route.methods, paths=route.paths)
         now = int(self.clock())
@@ -136,7 +150,7 @@ class Approvals:
         route = routes.api.get(name) if isinstance(name, str) and ROUTE_NAME_RE.fullmatch(name) else None
         if not route or route.model:
             raise Refused(404, "no API route with that name")
-        if who in route.nodes or (self.grants / f"{name}+{who}.json").exists():
+        if who in route.nodes or self.granted(f"{name}+{who}"):
             raise Refused(409, "this machine already uses that route")
         return dict(join_binding(route), join=name, methods=list(route.methods), paths=list(route.paths),
                     nodes=list(route.nodes))
@@ -150,12 +164,19 @@ class Approvals:
             raise Refused(404, "approval link expired or unavailable")
         return dict(node=row["node"], spec=json.loads(row["spec"]), state=row["state"], expires=row["expires"])
 
-    def grant_file(self, rid, node, spec):
+    @staticmethod
+    def stem(node, spec):
+        return f"{spec['join']}+{node}" if "join" in spec else spec["name"]
+
+    def grant_file(self, rid, node, spec, until=None):
         if "join" in spec:
             obj = {"request": rid, "node": node, "join": spec["join"], "bind": {k: spec[k] for k in BINDING}}
-            return self.grants / f"{spec['join']}+{node}.json", json.dumps(obj, sort_keys=True).encode()
-        obj = {"request": rid, "node": node, "spec": spec}
-        return self.grants / (spec["name"] + ".json"), json.dumps(obj, sort_keys=True).encode()
+        else:
+            obj = {"request": rid, "node": node, "spec": spec}
+        if until:
+            obj["until"] = until
+        path = self.grants / (self.stem(node, spec) + (".timed" if until else ".json"))
+        return path, json.dumps(obj, sort_keys=True).encode()
 
     def sync_grants(self):
         fd = os.open(self.grants, os.O_RDONLY | os.O_DIRECTORY)
@@ -165,11 +186,17 @@ class Approvals:
             os.close(fd)
 
     def restore(self, rid, node, spec):
-        path, data = self.grant_file(rid, node, spec)
-        if path.exists():
-            if path.read_bytes() != data:
-                raise Refused(409, "grant changed; broker administrator recovery required")
-            path.unlink()
+        for suffix in (".json", ".timed"):
+            path = self.grants / (self.stem(node, spec) + suffix)
+            if path.exists():
+                try:  # this proposal's own grant, with or without an end time
+                    mine = dict(json.loads(path.read_bytes()), until=0) == dict(
+                        json.loads(self.grant_file(rid, node, spec)[1]), until=0)
+                except (ValueError, TypeError):
+                    mine = False
+                if not mine:
+                    raise Refused(409, "grant changed; broker administrator recovery required")
+                path.unlink()
         self.sync_grants()
         if not self.install(spec["org"], None):
             raise Refused(503, "restoring prior configuration requires broker administrator attention")
@@ -179,7 +206,10 @@ class Approvals:
         for row in self.db.execute("SELECT * FROM proposal WHERE state IN ('installing','recovery')").fetchall():
             self.restore(row["id"], row["node"], json.loads(row["spec"]))
 
-    def approve(self, who, rid, code):
+    def approve(self, who, rid, code, lasts=0):
+        if type(lasts) is not int or lasts not in LASTS:
+            raise Refused(400, "choose how long the access lasts from the list")
+        self.sweep()
         proposal = self.review(who, rid)
         if proposal["state"] == "active":
             return "Route already active"
@@ -187,15 +217,16 @@ class Approvals:
             raise Refused(409, "proposal can no longer be approved")
         spec, node = proposal["spec"], proposal["node"]
         routes, _ = self.policy()
-        path, data = self.grant_file(rid, node, spec)
+        path, data = self.grant_file(rid, node, spec, int(self.clock()) + lasts if lasts else None)
+        taken = self.granted(self.stem(node, spec))
         if "join" in spec:
             route = routes.api.get(spec["join"])
             if (node not in routes.agent_nodes or not route or route.model or node in route.nodes
-                    or join_binding(route) != {k: spec[k] for k in BINDING} or path.exists()):
+                    or join_binding(route) != {k: spec[k] for k in BINDING} or taken):
                 raise Refused(409, "agent or route policy changed; proposal cannot be applied")
         else:
             route = proposed_api(spec, node)
-            if node not in routes.agent_nodes or route.name in routes.api or path.exists():
+            if node not in routes.agent_nodes or route.name in routes.api or taken:
                 raise Refused(409, "agent or route policy changed; proposal cannot be applied")
         owner = self.db.execute("SELECT active FROM owner WHERE name=?", (who,)).fetchone()
         if not owner or not owner["active"]:
@@ -223,4 +254,4 @@ class Approvals:
             self.restore(rid, node, spec)
             raise
         self.db.execute("UPDATE proposal SET state='active' WHERE id=?", (rid,))
-        return "Route active"
+        return "Route active" + (f" for {LASTS[lasts]}" if lasts else "")

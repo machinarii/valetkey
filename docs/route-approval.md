@@ -63,6 +63,22 @@ point the route at another address or key, the joined machine loses it until it 
 and methods you change by hand apply to every machine on the route, joined ones included. A join
 cannot add a machine to a model route.
 
+## Access that ends by itself
+
+The approval page asks how long the access lasts: until you remove it (the default), 1 hour,
+8 hours, 1 day, 7 days or 30 days. Choose a limit for a route that can write or delete, or for a
+job that is done in an afternoon.
+
+When the time is up the broker refuses the route's calls with "the owner's approval of this route
+has ended", and `valetkey-broker check` reports the key as `not-allowed` for that machine. The
+machine can ask again with the same `request-route` or `join-route` command. A limited route ends
+for every machine on it, also for machines that joined it later; a limited join ends for that
+machine only.
+
+A limited approval is kept as `<route>.timed` (or `<route>+<machine>.timed`) with its end time. A
+broker version from before 0.6 reads only the `.json` files, so if you roll back, a limited
+approval is gone rather than permanent.
+
 ## broker operations
 
 The worker installs new bearer API grants, and joins to existing API routes, for the requesting machine only. It stores grants in `/etc/valetkey-broker/approved-routes.d` and leaves the administrator's TOML in place. Bearer and Basic are supported; manual routing remains available for other authentication schemes. To revoke a web grant or a join, the administrator removes its JSON file and runs `sudo valetkey-broker routes install <org>` and verifies denial from the affected agent. Restrict root access to this directory and the broker. Keep the vault, hypervisor, broker and approver device outside agent control.

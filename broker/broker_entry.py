@@ -475,8 +475,10 @@ class Handler(BrokerHandler):
                 return
             if not hmac.compare_digest(form.get("token", "").encode(), token.encode()):
                 return self.deny(who, "approval", 403, "reload the review page")
-            result = self.approval_call(who, op="pair-confirm" if pairing else "approve",
-                                        id=rid, code=form.get("code", ""))
+            lasts = form.get("lasts", "0")
+            result = self.approval_call(who, op="pair-confirm" if pairing else "approve", id=rid,
+                                        code=form.get("code", ""),
+                                        **({} if pairing else {"lasts": int(lasts) if lasts.isdecimal() and len(lasts) < 9 else -1}))
             if result is None:
                 return
             card = f'<p class="result">{html.escape(result)}</p>'
@@ -532,6 +534,9 @@ class Handler(BrokerHandler):
                          f'<input type="hidden" name="token" value="{token}">'
                          + (f'<p class="deadline">{timer(expires - ctx["clock"](), "This link expires in ", "This link has expired")}</p>'
                             if expires else "") +
+                         ("" if pairing else '<label for="lasts">Access lasts</label><select id="lasts" name="lasts">'
+                          + "".join(f'<option value="{n}">{html.escape(text[0].upper() + text[1:])}</option>'
+                                    for n, text in approval_rpc.LASTS.items()) + "</select>") +
                          '<label id="code-label" for="code">Authenticator code</label>'
                          '<input id="code" class="code" type="password" '
                          'inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" '

@@ -10,6 +10,9 @@ LIMIT = 16384
 
 
 HEADER = "X-Broker-Approval-Front"
+# How long an approval can last, in seconds; 0 is until the owner removes it.
+LASTS = {0: "until I remove it", 3600: "1 hour", 28800: "8 hours", 86400: "1 day",
+         604800: "7 days", 2592000: "30 days"}
 
 
 def front_key():

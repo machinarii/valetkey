@@ -680,6 +680,21 @@ class BrokerReadTest(unittest.TestCase):
         self.assertEqual((status, gzip.decompress(body)), (200, masked.replace(b"*" * len(key), key.encode())))
         self.assertTrue(self.audit_has("GET /stripe-shop/v1/packed 200 reply not checked: encoded"))
 
+    def test_api_route_whose_approval_ended_is_refused(self):
+        self.start(org="local", machine="devbox")
+        self.srv.ctx["routes"].api["stripe-shop"].until = {"devbox": 5000}
+        self.srv.ctx["now"] = lambda: 5000
+        status, _, body = self.get("/stripe-shop/v1/charges")
+        self.assertEqual(status, 403)
+        self.assertIn(b"approval of this route has ended", body)
+        self.assertTrue(self.audit_has("GET /stripe-shop/v1/charges 403 approval ended"))
+        self.assertEqual(json.loads(self.get("/check?names=stripe-api-key-shop-live")[2]),
+                         {"stripe-api-key-shop-live": "not-allowed"})
+        self.srv.ctx["now"] = lambda: 4999
+        self.assertEqual(self.get("/stripe-shop/v1/charges")[0], 502)  # allowed: forwarded (nothing listens)
+        self.assertEqual(json.loads(self.get("/check?names=stripe-api-key-shop-live")[2]),
+                         {"stripe-api-key-shop-live": "missing"})
+
     def test_model_inference_forwards_only_approved_operations_and_headers(self):
         seen = []
         class Provider(BaseHTTPRequestHandler):

@@ -40,7 +40,7 @@
   .result { background: var(--card); border-left: 4px solid var(--ok); border-radius: 8px;
             padding: 10px 14px; font-weight: 600; word-break: break-word; }
   label { display: block; margin: 10px 0 4px; }
-  input[type=password], input.date, textarea { box-sizing: border-box; width: 100%; font: inherit;
+  input[type=password], input.date, textarea, select { box-sizing: border-box; width: 100%; font: inherit;
          padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px;
          background: var(--bg); color: var(--fg); }
   textarea { min-height: 8rem; font-family: ui-monospace, Menlo, monospace; }
@@ -87,7 +87,7 @@
           border-radius: 6px; font: 600 0.8rem/1.6 ui-monospace, Menlo, monospace; }
   .hint { color: var(--muted); font-size: 0.875rem; }
   p.hint { margin: 4px 0 0; }
-  input.date { min-height: 44px; }
+  input.date, select { min-height: 44px; }
   input.date:disabled { opacity: 0.5; }
   /* On a phone each field has a row of its own, at full width. */
   .expiry { display: flex; flex-direction: column; gap: 4px; }
@@ -129,7 +129,7 @@
   .code-boxes input:focus { border-color: var(--accent); outline: 2px solid var(--accent); outline-offset: 1px; }
   /* On a wider screen the short fields keep a short width, and the box sits beside the date. */
   @media (min-width: 600px) {
-    input.date, input.code { max-width: 12rem; }
+    input.date, input.code, select { max-width: 12rem; }
     .expiry { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px 20px; }
     .code-boxes { max-width: 22rem; }
   }

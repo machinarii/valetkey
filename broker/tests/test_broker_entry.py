@@ -308,11 +308,16 @@ class BrokerEntryTest(unittest.TestCase):
         self.assertIn(left(call(path, OWNER_IP)[2]), (838, 839))
         install.assert_not_called()
         token = re.search(rb'name="token" value="([0-9a-f]+)"', page)[1].decode()
-        response = call(path, OWNER_IP, "POST", form=dict(token=token, code=totp(seed, int(self.now) // 30),
-                                                          upstream="https://ignored.example"))
+        self.assertIn(b'<select id="lasts" name="lasts"><option value="0">Until I remove it</option>'
+                      b'<option value="3600">1 hour</option>', page)
+        form = dict(token=token, code=totp(seed, int(self.now) // 30), upstream="https://ignored.example")
+        for bad in ("60", "x", "-1"):  # only the listed durations; the code is not used up
+            self.assertEqual(call(path, OWNER_IP, "POST", form=dict(form, lasts=bad))[0], 400, bad)
+        response = call(path, OWNER_IP, "POST", form=dict(form, lasts="3600"))
         self.assertEqual(response[0], 200)
-        self.assertIn(b"Route active", response[2])
-        self.assertEqual(load_routes(routes).api["reports"].upstream, SPEC["upstream"])
+        self.assertIn(b"Route active for 1 hour", response[2])
+        route = load_routes(routes, self.now).api["reports"]
+        self.assertEqual((route.upstream, route.until), (SPEC["upstream"], {"*": int(self.now) + 3600}))
         install.assert_called_once()
 
     def request(self, name, org="infra", project=None, field="password", purpose="testing",

@@ -1,6 +1,7 @@
 """Load and validate /etc/valetkey-broker/routes.toml and entry.toml."""
 import json
 import re
+import time
 import urllib.parse
 import tomllib
 from dataclasses import dataclass, field
@@ -54,6 +55,12 @@ class ApiRoute:
     nodes: list
     auth_header: str = "Authorization"
     model: bool = False
+    # When an approval the owner limited in time ends: machine -> seconds, "*" for every machine.
+    until: dict = field(default_factory=dict)
+
+    def allows(self, node, now):
+        forever = float("inf")
+        return node in self.nodes and min(self.until.get(node, forever), self.until.get("*", forever)) > now
 
 
 @dataclass
@@ -244,7 +251,19 @@ def model_route(name, entry):
                     auth_header=header, model=True)
 
 
-def load_routes(path):
+def _grant(file, keys, now):
+    """A grant file's content, or None for an approval whose time has run out."""
+    grant = json.loads(file.read_bytes())
+    timed = file.suffix == ".timed"
+    if not isinstance(grant, dict) or set(grant) != keys | ({"until"} if timed else set()):
+        raise RoutesError("invalid web-approved grant")
+    if timed and type(grant["until"]) is not int:
+        raise RoutesError("invalid web-approved grant")
+    return None if timed and grant["until"] <= now else grant
+
+
+def load_routes(path, now=None):
+    now = time.time() if now is None else now
     with open(path, "rb") as f:
         conf = tomllib.load(f)
     routes = Routes()
@@ -313,20 +332,25 @@ def load_routes(path):
         if set(r.nodes) & set(routes.agent_nodes):
             raise RoutesError(f"route {r.name}: agent_nodes cannot be granted raw-value routes")
     grants = Path(path).parent / "approved-routes.d"
-    files = sorted(grants.glob("*.json"))
+    # <name>.timed is an approval with an end ("until"). A version from before these reads only
+    # *.json, so after a rollback a limited approval is gone, never permanent.
+    files = sorted([*grants.glob("*.json"), *grants.glob("*.timed")])
     for file in (f for f in files if "+" not in f.stem):  # new routes: <route>.json
-        grant = json.loads(file.read_bytes())
-        if not isinstance(grant, dict) or set(grant) != {"spec", "node", "request"}:
-            raise RoutesError("invalid web-approved grant")
+        grant = _grant(file, {"spec", "node", "request"}, now)
+        if grant is None:
+            continue
         route = proposed_api(grant["spec"], grant["node"])
         if file.stem != route.name or route.name in routes.api:
             raise RoutesError("web-approved route name conflicts with another route")
+        if "until" in grant:  # the route itself is temporary, also for machines that join it
+            route.until["*"] = grant["until"]
         if grant["node"] in routes.agent_nodes:
             routes.api[route.name] = route
     for file in (f for f in files if "+" in f.stem):  # joins: <route>+<machine>.json
-        grant = json.loads(file.read_bytes())
-        if (not isinstance(grant, dict) or set(grant) != {"join", "node", "request", "bind"}
-                or not all(isinstance(grant[k], str) and ROUTE_NAME_RE.fullmatch(grant[k]) for k in ("join", "node"))
+        grant = _grant(file, {"join", "node", "request", "bind"}, now)
+        if grant is None:
+            continue
+        if (not all(isinstance(grant[k], str) and ROUTE_NAME_RE.fullmatch(grant[k]) for k in ("join", "node"))
                 or file.stem != f"{grant['join']}+{grant['node']}"):
             raise RoutesError("invalid web-approved join")
         route = routes.api.get(grant["join"])
@@ -334,6 +358,8 @@ def load_routes(path):
         if (route and not route.model and grant["node"] in routes.agent_nodes
                 and grant["node"] not in route.nodes and join_binding(route) == grant["bind"]):
             route.nodes = [*route.nodes, grant["node"]]
+            if "until" in grant:
+                route.until[grant["node"]] = grant["until"]
     return routes
 
 

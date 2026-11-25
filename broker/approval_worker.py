@@ -57,7 +57,7 @@ def dispatch(store, identity, msg, admin):
     if op == "pair-confirm":
         return store.pair(who, rid, msg["code"])
     if op == "approve":
-        return store.approve(who, rid, msg["code"])
+        return store.approve(who, rid, msg["code"], msg.get("lasts", 0))
     raise Refused(400, "unknown operation")
 
 

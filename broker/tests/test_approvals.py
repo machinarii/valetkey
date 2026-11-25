@@ -109,6 +109,57 @@ class ApprovalTests(unittest.TestCase):
         self.routes.write_text(route.replace("motion.example.com", "elsewhere.example.com"))
         self.assertEqual(load_routes(self.routes).api["motion"].nodes, ["devbox"])
 
+    def test_an_approval_limited_in_time_ends_and_can_be_asked_for_again(self):
+        seed = self.enroll()
+        grants = self.root / "approved-routes.d"
+        rid = self.store.propose("devbox", SPEC)
+        self.now += 30
+        for bad in (60, "3600", True, None):
+            with self.assertRaises(Refused) as exc:
+                self.store.approve("laptop", rid, totp(seed, self.now // 30), bad)
+            self.assertEqual(exc.exception.status, 400)
+        self.assertEqual(self.store.approve("laptop", rid, totp(seed, self.now // 30), 3600),
+                         "Route active for 1 hour")
+        self.assertEqual([f.name for f in grants.iterdir()], ["reports.timed"])  # an older version never reads it
+        end = self.now + 3600
+        route = load_routes(self.routes, self.now).api["reports"]
+        self.assertEqual((route.allows("devbox", end - 1), route.allows("devbox", end), route.allows("x", 0)),
+                         (True, False, False))
+        with self.assertRaises(Refused):  # still in force: the name is taken
+            self.store.propose("devbox", SPEC)
+        self.now = end
+        self.assertNotIn("reports", load_routes(self.routes, self.now).api)
+        again = self.store.propose("devbox", SPEC)  # the ended grant is removed
+        self.assertEqual(list(grants.iterdir()), [])
+        self.now += 30
+        self.assertEqual(self.store.approve("laptop", again, totp(seed, self.now // 30)), "Route active")
+        self.assertEqual(load_routes(self.routes, self.now + 10 ** 9).api["reports"].until, {})
+
+    def test_a_join_limited_in_time_ends_for_that_machine_only(self):
+        self.routes.write_text('[security]\nagent_nodes=["devbox","kls5"]\n[api.motion]\norg="local"\n'
+                               'item="motion-api-key"\nupstream="https://motion.example.com"\nauth="Bearer {}"\n'
+                               'methods=["POST"]\npaths=["/graphql"]\nnodes=["devbox"]\n')
+        seed = self.enroll()
+        rid = self.store.propose("kls5", {"join": "motion"})
+        self.now += 30
+        self.store.approve("laptop", rid, totp(seed, self.now // 30), 28800)
+        route = load_routes(self.routes, self.now).api["motion"]
+        self.assertEqual(route.until, {"kls5": self.now + 28800})
+        later = self.now + 28800
+        self.assertEqual((route.allows("kls5", later - 1), route.allows("kls5", later), route.allows("devbox", later)),
+                         (True, False, True))
+        self.assertEqual(load_routes(self.routes, later).api["motion"].nodes, ["devbox"])
+
+    def test_a_failed_activation_removes_a_time_limited_grant_too(self):
+        seed = self.enroll()
+        rid = self.store.propose("devbox", SPEC)
+        self.now += 30
+        self.install.side_effect = [False, True]
+        with self.assertRaises(Refused):
+            self.store.approve("laptop", rid, totp(seed, self.now // 30), 86400)
+        self.assertEqual(list((self.root / "approved-routes.d").iterdir()), [])
+        self.assertEqual(self.store.review("laptop", rid)["state"], "failed")
+
     def test_join_refused_when_the_route_changed_before_approval(self):
         route = ('[security]\nagent_nodes=["devbox","kls5"]\n[api.motion]\norg="local"\nitem="motion-api-key"\n'
                  'upstream="https://motion.example.com"\nauth="Bearer {}"\nmethods=["POST"]\npaths=["/graphql"]\n'
