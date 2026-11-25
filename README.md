@@ -142,7 +142,7 @@ brokered API routes. [Secure setup](docs/secure-setup.md)
 
 1. **Install valetkey on each machine**, with the package manager of its system.
 
-   **macOS: Homebrew.** For an agent machine or an approver device only. On the Mac, add the tap
+   **macOS: Homebrew.** For an agent machine and an approver device only. On the Mac, add the tap
    first:
 
    ```sh
