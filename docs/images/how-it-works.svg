@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="660" height="496" viewBox="0 0 660 496" fill="none" role="img" aria-label="An agent machine that holds no keys sends the broker a request; the broker takes the master key from the vault, fnox adds it on the way to the service, and the answer returns without it. A tool that keeps its own login runs on the bellhop, which returns only the output.">
+<svg xmlns="http://www.w3.org/2000/svg" width="660" height="496" viewBox="0 0 660 496" fill="none" role="img" aria-label="An agent machine that holds no keys sends the broker a key request; the broker checks that the machine's valet key fits the route, takes the master key from the vault, and fnox adds it on the way to the service. The answer returns without the key. A tool that keeps its own credential runs on the bellhop, which returns only the output.">
   <style>
     /* ---- type ramp (dark skin) --------------------------------------- */
     text { font-family: 'Source Code Pro', ui-monospace, Menlo, Consolas, monospace; }
@@ -41,6 +41,8 @@
     @keyframes m1-glow { 0%, 10% { opacity: 0; } 10.8% { opacity: 0.3; } 14%, 100% { opacity: 0; } }
     /* ph2: act 2 */
     @keyframes ph2 { 0%, 11% { opacity: 0; } 12%, 31% { opacity: 1; } 32%, 100% { opacity: 0; } }
+    /* vk: the broker checks that the caller's valet key fits this route */
+    @keyframes vk { 0%, 10.5% { transform: scale(0.4); opacity: 0; } 10.98% { transform: scale(0.5); opacity: 0.8; } 16.5%, 100% { transform: scale(1.4); opacity: 0; } }
     /* m2: the broker takes that route's master key from the vault */
     @keyframes m2 {
       0%, 13% { transform: translate(0, 0); opacity: 0; }
@@ -168,7 +170,8 @@
   <circle cx="250" cy="257" r="2.5" fill="#4CF490" class="tick" style="animation-delay:-0.7s"/>
   <text class="t-name" x="260" y="260">broker</text>
   <text class="t-desc" x="248" y="276">Proxmox VM</text>
-  <text class="t-desc" x="248" y="288">checks the calling machine</text>
+  <text class="t-desc" x="248" y="288">checks the caller's valet key</text>
+  <circle cx="360" cy="257" r="4" fill="#A880FF"/>
   <rect x="248" y="300" width="116" height="32" rx="6" fill="#0D0D0E" stroke="#363840"/>
   <text class="t-small" x="260" y="320">fnox adds the key</text>
   <rect x="236" y="376" width="140" height="56" rx="7" fill="#141416" stroke="#363840"/>
@@ -193,7 +196,8 @@
   </g>
   <circle cx="236" cy="272" r="10" fill="none" stroke="#4CF490" stroke-width="1.5" class="ring" style="animation-name:m1-ring"/>
   <rect x="236" y="240" width="140" height="104" rx="7" fill="#4CF490" class="glow" style="animation-name:m1-glow"/>
-  <text class="t-tag story" x="632" y="96" text-anchor="end" fill="#FBDC8E" style="animation-name:ph2;opacity:0">2 · the broker checks, fnox adds the key</text>
+  <text class="t-tag story" x="632" y="96" text-anchor="end" fill="#FBDC8E" style="animation-name:ph2;opacity:0">2 · the valet key fits, fnox adds the key</text>
+  <circle cx="360" cy="257" r="10" fill="none" stroke="#A880FF" stroke-width="1.5" class="ring" style="animation-name:vk"/>
   <circle cx="308" cy="200" r="4" fill="#FBDC8E" class="pkt" style="animation-name:m2"/>
   <circle cx="308" cy="240" r="10" fill="none" stroke="#FBDC8E" stroke-width="1.5" class="ring" style="animation-name:m2-ring"/>
   <rect x="248" y="300" width="116" height="32" rx="6" fill="#FBDC8E" class="glow" style="animation-name:m2-glow"/>
@@ -204,14 +208,14 @@
   <circle cx="500" cy="316" r="10" fill="none" stroke="#FBDC8E" stroke-width="1.5" class="ring" style="animation-name:m3-ring"/>
   <rect x="500" y="288" width="128" height="56" rx="7" fill="#FBDC8E" class="glow" style="animation-name:m3-glow"/>
   <text class="t-tag story" x="632" y="96" text-anchor="end" fill="#4CF490" style="animation-name:ph3;opacity:0">3 · the answer returns, the key does not</text>
-  <circle cx="500" cy="316" r="4" fill="#4CF490" class="pkt" style="animation-name:m4"/>
-  <circle cx="376" cy="316" r="10" fill="none" stroke="#4CF490" stroke-width="1.5" class="ring" style="animation-name:m4-ring"/>
+  <circle cx="500" cy="316" r="4" fill="#B6C0CF" class="pkt" style="animation-name:m4"/>
+  <circle cx="376" cy="316" r="10" fill="none" stroke="#B6C0CF" stroke-width="1.5" class="ring" style="animation-name:m4-ring"/>
   <g class="pkt" style="animation-name:m5">
-    <circle cx="236" cy="272" r="4" fill="#4CF490"/>
-    <text class="t-tag" x="236" y="260" text-anchor="middle" fill="#4CF490">answer</text>
+    <circle cx="236" cy="272" r="4" fill="#B6C0CF"/>
+    <text class="t-tag" x="236" y="260" text-anchor="middle" fill="#B6C0CF">answer</text>
   </g>
-  <circle cx="160" cy="336" r="10" fill="none" stroke="#4CF490" stroke-width="1.5" class="ring" style="animation-name:m5-ring"/>
-  <rect x="32" y="320" width="128" height="56" rx="7" fill="#4CF490" class="glow" style="animation-name:m5-glow"/>
+  <circle cx="160" cy="336" r="10" fill="none" stroke="#B6C0CF" stroke-width="1.5" class="ring" style="animation-name:m5-ring"/>
+  <rect x="32" y="320" width="128" height="56" rx="7" fill="#B6C0CF" class="glow" style="animation-name:m5-glow"/>
   <text class="t-tag story" x="632" y="96" text-anchor="end" fill="#02BEFA" style="animation-name:ph4;opacity:0">4 · tools with a login run on the bellhop</text>
   <g class="pkt" style="animation-name:m6">
     <circle cx="160" cy="360" r="4" fill="#4CF490"/>
@@ -221,23 +225,25 @@
   <rect x="236" y="376" width="140" height="56" rx="7" fill="#4CF490" class="glow" style="animation-name:m6-glow"/>
   <g class="pkt" style="animation-name:m7">
     <circle cx="376" cy="404" r="4" fill="#02BEFA"/>
-    <text class="t-tag" x="376" y="392" text-anchor="middle" fill="#02BEFA">login</text>
+    <text class="t-tag" x="376" y="392" text-anchor="middle" fill="#02BEFA">credential</text>
   </g>
   <circle cx="500" cy="404" r="10" fill="none" stroke="#02BEFA" stroke-width="1.5" class="ring" style="animation-name:m7-ring"/>
   <rect x="500" y="376" width="128" height="56" rx="7" fill="#02BEFA" class="glow" style="animation-name:m7-glow"/>
   <g class="pkt" style="animation-name:m8">
-    <circle cx="236" cy="404" r="4" fill="#4CF490"/>
-    <text class="t-tag" x="236" y="392" text-anchor="middle" fill="#4CF490">output</text>
+    <circle cx="236" cy="404" r="4" fill="#B6C0CF"/>
+    <text class="t-tag" x="236" y="392" text-anchor="middle" fill="#B6C0CF">output</text>
   </g>
-  <circle cx="160" cy="360" r="10" fill="none" stroke="#4CF490" stroke-width="1.5" class="ring" style="animation-name:m8-ring"/>
-  <rect x="32" y="320" width="128" height="56" rx="7" fill="#4CF490" class="glow" style="animation-name:m8-glow"/>
+  <circle cx="160" cy="360" r="10" fill="none" stroke="#B6C0CF" stroke-width="1.5" class="ring" style="animation-name:m8-ring"/>
+  <rect x="32" y="320" width="128" height="56" rx="7" fill="#B6C0CF" class="glow" style="animation-name:m8-glow"/>
   <!-- @/motion:elements -->
 
   <!-- legend strip -->
   <circle cx="36" cy="472" r="4" fill="#4CF490"/>
-  <text class="t-name" x="46" y="476">request or answer, no key in it</text>
-  <circle cx="300" cy="472" r="4" fill="#FBDC8E"/>
-  <text class="t-name" x="310" y="476">master key</text>
-  <circle cx="432" cy="472" r="4" fill="#02BEFA"/>
-  <text class="t-name" x="442" y="476">a tool's own login</text>
+  <text class="t-name" x="46" y="476">key request</text>
+  <circle cx="188" cy="472" r="4" fill="#FBDC8E"/>
+  <text class="t-name" x="198" y="476">master key</text>
+  <circle cx="336" cy="472" r="4" fill="#A880FF"/>
+  <text class="t-name" x="346" y="476">valet key</text>
+  <circle cx="476" cy="472" r="4" fill="#02BEFA"/>
+  <text class="t-name" x="486" y="476">credential</text>
 </svg>

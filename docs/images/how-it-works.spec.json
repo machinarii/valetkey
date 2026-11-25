@@ -52,10 +52,20 @@
    "note": "act 2",
    "at": 1.2,
    "until": 3.1,
-   "text": "2 · the broker checks, fnox adds the key",
+   "text": "2 · the valet key fits, fnox adds the key",
    "x": 632,
    "y": 96,
    "color": "#FBDC8E"
+  },
+  {
+   "id": "vk",
+   "kind": "pulse",
+   "note": "the broker checks that the caller's valet key fits this route",
+   "at": 1.05,
+   "x": 360,
+   "y": 257,
+   "color": "#A880FF",
+   "dur": 0.6
   },
   {
    "id": "m2",
@@ -129,7 +139,8 @@
    "to": [
     376,
     316
-   ]
+   ],
+   "color": "#B6C0CF"
   },
   {
    "id": "m5",
@@ -163,7 +174,8 @@
     "w": 128,
     "h": 56,
     "rx": 7
-   }
+   },
+   "color": "#B6C0CF"
   },
   {
    "id": "ph4",
@@ -216,7 +228,7 @@
    "after": "m6",
    "travel": 0.8,
    "color": "#02BEFA",
-   "label": "login",
+   "label": "credential",
    "from": [
     376,
     404
@@ -265,7 +277,8 @@
     "w": 128,
     "h": 56,
     "rx": 7
-   }
+   },
+   "color": "#B6C0CF"
   }
  ]
 }
