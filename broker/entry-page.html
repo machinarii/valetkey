@@ -145,8 +145,9 @@
   }
   /* Route approval opens with a small diagram: the machine that calls, the key the broker adds,
      and where the call goes. Boxes stack on a phone and sit in a row from 600px. */
-  .flow { display: flex; flex-direction: column; margin: 0 0 16px; }
-  .flow > div { min-width: 0; padding: 8px 14px; background: var(--card); border: 1px solid var(--line);
+  .flow { display: flex; flex-direction: column; margin: 0 0 16px; padding: 16px; background: var(--card);
+          border: 1px solid var(--line); border-radius: 12px; }
+  .flow > div { min-width: 0; padding: 8px 14px; background: var(--bg); border: 1px solid var(--line);
                 border-radius: 10px; }
   .flow > .adds { border-color: var(--accent); }
   .flow .hint, .flow .id { display: block; }
