@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/images/valetkey-icon.png" width="128" height="128" alt="valetkey icon: a smiling robot valet in a green cap holds up a gold key, on a light blue tile">
+  <img src="docs/images/valetkey-icon.png" width="128" height="128" alt="valetkey icon: a smiling robot valet in a green cap holds up a gold key, on a blue tile">
 </p>
 
 <p align="center"><b>valetkey</b></p>

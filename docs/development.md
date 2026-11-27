@@ -93,8 +93,7 @@ reader's theme.
 
 The icon (`valetkey-icon.png`, `valetkey-icon-512.png`) was generated with ChatGPT's image tool
 from the brief "a close-up robotic valet in a cap, holding a key beside its head", then cut out of
-its background and resized. Its tile was dark blue at first; the light blue was put in afterwards by
-recolouring the tile's pixels, so the robot itself is the original drawing.
+its background and resized.
 
 ## Releasing
 
