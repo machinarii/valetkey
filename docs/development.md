@@ -91,9 +91,10 @@ Open each file in a browser window 390 px wide, once in light and once in dark m
 full-page screenshot as `page-<name>-<light|dark>.png`. The README picks the one that matches the
 reader's theme.
 
-The icon (`valetkey-icon.png`, `valetkey-icon-512.png`) was generated with ChatGPT's image tool
-from the brief "a close-up robotic valet in a cap, holding a key beside its head", then cut out of
-its background and resized.
+The icon (`valetkey-icon.png`, `valetkey-icon-512.png`) is a flat drawing in the wordmark's colours: an
+ink tile and a gold key. Codex's image tool redrew it from the first, glossy icon, which ChatGPT's
+image tool made from the brief "a close-up robotic valet in a cap, holding a key beside its head".
+The fills were then set to the exact colours and the corners cut round.
 
 The wordmark (`valetkey-wordmark-light.svg` for a light page, `-dark.svg` for a dark one) is drawn by
 hand as strokes, with no font; "key" is in gold. The same paths are inline in
