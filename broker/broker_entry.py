@@ -550,18 +550,19 @@ class Handler(BrokerHandler):
                 spec, state, e = data["spec"], data["state"], html.escape
                 show_form = state == "pending"
                 key = e(spec["org"] + "/" + spec["item"])
-                if "join" in spec:
-                    card = (f'<p class="lead"><b class="id">{e(data["node"])}</b> asks to join route '
-                            f'<b class="id">{e(spec["join"])}</b>, which sends the key <b class="id">{key}</b> '
-                            f'to <b class="id">{e(spec["upstream"])}</b>.</p>')
-                    check = ('Approve only if this machine should use that key the way the machines below '
-                             'already do. Nothing else about the route changes.')
-                else:
-                    card = (f'<p class="lead"><b class="id">{e(data["node"])}</b> asks to use the key '
-                            f'<b class="id">{key}</b> on <b class="id">{e(spec["upstream"])}</b>.</p>')
-                    check = 'Approve only if this address belongs to the provider that issued the key.'
-                if show_form:
-                    card += f'<p class="check">{check}</p>'
+                # Who calls, the key the broker adds and where the call goes, as a small diagram.
+                # A screen reader gets it as one sentence.
+                raw_key, joins = spec["org"] + "/" + spec["item"], "join" in spec
+                sentence = (f'{data["node"]} asks to join route {spec["join"]}, which sends the key {raw_key} '
+                            f'to {spec["upstream"]}.' if joins else
+                            f'{data["node"]} asks to use the key {raw_key} on {spec["upstream"]}.')
+                card = (f'<div class="flow" role="img" aria-label="{e(sentence)}">'
+                        f'<div><span class="hint">{"Machine joining the route" if joins else "Agent machine"}</span>'
+                        f'<b class="id">{e(data["node"])}</b></div><span class="to"></span>'
+                        f'<div class="adds"><span class="hint">broker adds the key</span><b class="id">{key}</b></div>'
+                        '<span class="to"></span>'
+                        f'<div><span class="hint">and sends the call to</span><b class="id">{e(spec["upstream"])}</b>'
+                        '</div></div>')
                 pill = {"pending": ("pending", "Waiting for approval"), "active": ("active", "Active")}.get(
                     state, ("", state.capitalize()))
                 rows = [("Route", f'<code>{e(spec.get("join") or spec["name"])}</code>'),
@@ -573,7 +574,8 @@ class Handler(BrokerHandler):
                             else "".join(f'<span class="chip">{e(t)}</span>' for t in spec["tools"])
                             + '<span class="hint">no other tool can be called</span>')]
                           if spec.get("tools") else []),
-                        *([("Already used by", "".join(f'<span class="chip">{e(n)}</span>' for n in spec["nodes"]))]
+                        *([("Already used by", "".join(f'<span class="chip">{e(n)}</span>' for n in spec["nodes"])
+                            + '<br><span class="hint">Nothing else about the route changes</span>')]
                           if "join" in spec else []),
                         ("Key sent as", "Bearer token from your sign-in, renewed by the broker"
                          if spec.get("auth") == "oauth" else
