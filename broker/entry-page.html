@@ -138,6 +138,28 @@
     .expiry { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px 20px; }
     .code-boxes { max-width: 22rem; }
   }
+  /* Approval and pairing. From 600px the three controls share one width and one left edge. From
+     900px the page widens to two columns: what is asked on the left, and on the right one panel
+     with the warning, the time limit, the code and the button, so the decision is in one place. */
+  @media (min-width: 600px) {
+    .approve > form select, .approve > form button.wide { width: 100%; max-width: 22rem; margin-left: 0; }
+  }
+  @supports selector(:has(*)) {
+    @media (min-width: 900px) {
+      main:has(> .approve) { max-width: 60rem; }
+      .approve { display: grid; grid-template-columns: minmax(0, 1fr) 23rem; grid-template-rows: auto auto 1fr;
+                 grid-template-areas: "lead lead" "what check" "what form"; column-gap: 32px; align-items: start; }
+      .approve > p:first-child { grid-area: lead; font-size: 1.25rem; margin: 0 0 20px; max-width: 46rem; }
+      .approve > .spec, .approve > img { grid-area: what; margin: 0; }
+      .approve > .check { grid-area: check; margin: 0 0 12px; }
+      .approve > form { grid-area: form; position: sticky; top: 16px; display: flex; flex-direction: column;
+                        padding: 8px 20px 16px; background: var(--card); border: 1px solid var(--line);
+                        border-radius: 12px; }
+      .approve > form select, .approve > form button.wide, .approve > form .code-boxes { max-width: none; }
+      .approve > form button.wide { margin-top: 16px; }
+      .approve > form .deadline { order: 1; text-align: center; }
+    }
+  }
   /* While the value is being stored (the page swaps when the broker answers). */
   button:disabled { opacity: 0.7; }
   .spin { display: none; width: 14px; height: 14px; margin-right: 8px; vertical-align: -2px;

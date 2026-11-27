@@ -584,7 +584,9 @@ class Handler(BrokerHandler):
                          + "</dl>")
             if show_form:
                 button = "Confirm pairing" if pairing else "Approve this route"
-                card += (f'<form method="post" action="{html.escape(ctx["prefix"])}/{kind}/{rid}">'
+                # One wrapper for the request and the form: on a wide screen they sit side by side.
+                card = ('<div class="approve">' + card
+                        + f'<form method="post" action="{html.escape(ctx["prefix"])}/{kind}/{rid}">'
                          f'<input type="hidden" name="token" value="{token}">'
                          + (f'<p class="deadline">{timer(expires - ctx["clock"](), "This link expires in ", "This link has expired")}</p>'
                             if expires else "") +
@@ -595,7 +597,7 @@ class Handler(BrokerHandler):
                          '<input id="code" class="code" type="password" '
                          'inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" '
                          f'name="code" required><button class="wide" type="submit" aria-live="polite">'
-                         f'<span class="spin" aria-hidden="true"></span>{button}</button></form>')
+                         f'<span class="spin" aria-hidden="true"></span>{button}</button></form></div>')
         else:
             return self.deny(who, "approval", 405, "GET or POST required")
         page = ctx["template"].replace("Credential entry", title).replace("{{result}}", "").replace("{{pending}}", card)
