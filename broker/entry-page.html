@@ -8,18 +8,19 @@
 <style>
   :root { color-scheme: light dark; --fg: #1d1d1f; --bg: #f5f5f7; --card: #fff; --muted: #6e6e73;
           --line: #d2d2d7; --accent: #0a5cd5; --warn: #9a5b00; --ok: #1a7f37;
-          --warn-bg: #fdf3e1; --ok-bg: #e6f4ea; --bad: #b42318; --bad-bg: #fdecea; }
+          --warn-bg: #fdf3e1; --ok-bg: #e6f4ea; --bad: #b42318; --bad-bg: #fdecea; --logo-key: #c98a00; }
   @media (prefers-color-scheme: dark) {
     :root { --fg: #f5f5f7; --bg: #1c1c1e; --card: #2c2c2e; --muted: #a1a1a6; --line: #48484a;
-            --accent: #5ea0ff; --warn: #f0b04a; --ok: #4ac26b; --warn-bg: #3a2e1a; --ok-bg: #1d3424; --bad: #ff8a80; --bad-bg: #3d1f1d; }
+            --accent: #5ea0ff; --warn: #f0b04a; --ok: #4ac26b; --warn-bg: #3a2e1a; --ok-bg: #1d3424; --bad: #ff8a80; --bad-bg: #3d1f1d; --logo-key: #fbc94a; }
   }
   body { margin: 0; background: var(--bg); color: var(--fg);
          font: 16px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
   img { max-width: 100%; height: auto; }
   main { max-width: 40rem; margin: 0 auto; padding: 16px; }
-  /* Every page opens with the same bar: the name, on the page's left edge. */
+  /* Every page opens with the same bar: the wordmark, on the page's left edge. */
   .top { padding: 10px 16px; background: var(--card); border-bottom: 1px solid var(--line); }
-  .top div { max-width: 40rem; margin: 0 auto; font-weight: 600; font-size: 1.05rem; }
+  .top div { max-width: 40rem; margin: 0 auto; }
+  .top svg { display: block; height: 26px; }
   h1 { font-size: 1.4rem; margin: 0.5rem 0 1rem; }
   h2 { font-size: 1.05rem; margin: 1.5rem 0 0.5rem; color: var(--muted); }
   ul { list-style: none; padding: 0; margin: 0; }
@@ -191,7 +192,8 @@
 </style>
 </head>
 <body>
-<header class="top"><div>valetkey</div></header>
+<!-- The wordmark is docs/images/valetkey-wordmark-light.svg, inline so it takes the page's colours. -->
+<header class="top"><div><svg xmlns="http://www.w3.org/2000/svg" viewBox="-6 -73 343 97" role="img" aria-label="valetkey" fill="none" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(0,0)" stroke="currentColor"><path d="M0,-40 L17,0 L34,-40"/></g><g transform="translate(43,0)" stroke="currentColor"><path d="M40,-20 A20,20 0 1 0 0,-20 A20,20 0 1 0 40,-20"/><path d="M40,-40 V0"/></g><g transform="translate(98,0)" stroke="currentColor"><path d="M0,-66 V0"/></g><g transform="translate(113,0)" stroke="currentColor"><path d="M0,-20 H40 A20,20 0 1 0 34.1,-5.9"/></g><g transform="translate(164,0)" stroke="currentColor"><path d="M8,-58 V-12 A12,12 0 0 0 20,0 H23"/><path d="M0,-40 H21"/></g><g transform="translate(210,0)" stroke="var(--logo-key)"><path d="M9,-57 A9,9 0 1 0 -9,-57 A9,9 0 1 0 9,-57"/><path d="M0,-48 V0"/><path d="M0,-15 L25,-40"/><path d="M10,-25 L28,0"/></g><g transform="translate(247,0)" stroke="currentColor"><path d="M0,-20 H40 A20,20 0 1 0 34.1,-5.9"/></g><g transform="translate(297,0)" stroke="currentColor"><path d="M0,-40 L17,0"/><path d="M34,-40 L9.35,18"/></g></svg></div></header>
 <main>
 <h1>Credential entry</h1>
 {{result}}

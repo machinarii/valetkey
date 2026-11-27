@@ -2,7 +2,12 @@
   <img src="docs/images/valetkey-icon.png" width="128" height="128" alt="valetkey icon: a smiling robot valet in a green cap holds up a gold key, on a blue tile">
 </p>
 
-<p align="center"><b>valetkey</b></p>
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/valetkey-wordmark-dark.svg">
+    <img src="docs/images/valetkey-wordmark-light.svg" width="220" alt="valetkey">
+  </picture>
+</p>
 
 <p align="center"><b>Your agents use the key, but they never see it.</b></p>
 
