@@ -90,7 +90,7 @@
    "after": "m2",
    "travel": 1.1,
    "color": "#FBDC8E",
-   "label": "+ key",
+   "label": "master key",
    "from": [
     388,
     356

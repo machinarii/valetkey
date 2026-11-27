@@ -195,7 +195,7 @@
   <rect x="240" y="340" width="136" height="32" rx="6" fill="#FBDC8E" class="glow" style="animation-name:m2-glow"/>
   <g class="pkt" style="animation-name:m3">
     <circle cx="388" cy="356" r="4" fill="#FBDC8E"/>
-    <text class="t-tag" x="388" y="344" text-anchor="middle" fill="#FBDC8E">+ key</text>
+    <text class="t-tag" x="394" y="339" text-anchor="end" fill="#FBDC8E">master key</text>
   </g>
   <circle cx="500" cy="356" r="10" fill="none" stroke="#FBDC8E" stroke-width="1.5" class="ring" style="animation-name:m3-ring"/>
   <rect x="500" y="324" width="128" height="64" rx="7" fill="#FBDC8E" class="glow" style="animation-name:m3-glow"/>
