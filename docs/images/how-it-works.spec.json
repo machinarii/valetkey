@@ -62,7 +62,7 @@
   {
    "id": "m2",
    "kind": "packet",
-   "note": "the broker takes that route's master key from the vault",
+   "note": "the broker takes that route's key from the vault",
    "after": "m1",
    "travel": 1.5,
    "color": "#FBDC8E",
@@ -81,7 +81,7 @@
     "h": 32,
     "rx": 6
    },
-   "label": "master key"
+   "label": "key"
   },
   {
    "id": "m3",
@@ -90,7 +90,7 @@
    "after": "m2",
    "travel": 1.1,
    "color": "#FBDC8E",
-   "label": "master key",
+   "label": "key",
    "from": [
     388,
     356

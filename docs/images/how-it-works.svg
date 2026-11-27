@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="660" height="520" viewBox="0 0 660 520" fill="none" role="img" aria-label="An agent machine that holds no keys sends the broker a request; the broker checks the calling machine, takes the master key from the vault, and fnox adds it on the way to the service. The answer returns without the key. A tool that keeps its own credential runs on the bellhop, which returns only the output.">
+<svg xmlns="http://www.w3.org/2000/svg" width="660" height="520" viewBox="0 0 660 520" fill="none" role="img" aria-label="An agent machine that holds no keys sends the broker a request; the broker checks the calling machine, takes the key from the vault, and fnox adds it on the way to the service. The answer returns without the key. A tool that keeps its own credential runs on the bellhop, which returns only the output.">
   <style>
     /* ---- type ramp (dark skin) --------------------------------------- */
     text { font-family: 'Source Code Pro', ui-monospace, Menlo, Consolas, monospace; }
@@ -41,7 +41,7 @@
     @keyframes m1-glow { 0%, 10.71% { opacity: 0; } 11.29% { opacity: 0.3; } 13.57%, 100% { opacity: 0; } }
     /* ph2: act 2 */
     @keyframes ph2 { 0%, 11.43% { opacity: 0; } 12.14%, 35% { opacity: 1; } 35.71%, 100% { opacity: 0; } }
-    /* m2: the broker takes that route's master key from the vault */
+    /* m2: the broker takes that route's key from the vault */
     @keyframes m2 {
       0%, 12.86% { transform: translate(0, 0); opacity: 0; }
       13.29% { opacity: 1; }
@@ -189,13 +189,13 @@
   <text class="t-tag story" x="28" y="66" text-anchor="start" fill="#FBDC8E" style="animation-name:ph2;opacity:0">2 · the broker checks, fnox adds the key</text>
   <g class="pkt" style="animation-name:m2">
     <circle cx="308" cy="208" r="4" fill="#FBDC8E"/>
-    <text class="t-tag" x="308" y="196" text-anchor="middle" fill="#FBDC8E">master key</text>
+    <text class="t-tag" x="308" y="196" text-anchor="middle" fill="#FBDC8E">key</text>
   </g>
   <circle cx="308" cy="280" r="10" fill="none" stroke="#FBDC8E" stroke-width="1.5" class="ring" style="animation-name:m2-ring"/>
   <rect x="240" y="340" width="136" height="32" rx="6" fill="#FBDC8E" class="glow" style="animation-name:m2-glow"/>
   <g class="pkt" style="animation-name:m3">
     <circle cx="388" cy="356" r="4" fill="#FBDC8E"/>
-    <text class="t-tag" x="394" y="339" text-anchor="end" fill="#FBDC8E">master key</text>
+    <text class="t-tag" x="388" y="344" text-anchor="middle" fill="#FBDC8E">key</text>
   </g>
   <circle cx="500" cy="356" r="10" fill="none" stroke="#FBDC8E" stroke-width="1.5" class="ring" style="animation-name:m3-ring"/>
   <rect x="500" y="324" width="128" height="64" rx="7" fill="#FBDC8E" class="glow" style="animation-name:m3-glow"/>
@@ -232,7 +232,7 @@
   <rect x="32" y="356" width="128" height="64" rx="7" fill="#B6C0CF" class="glow" style="animation-name:m8-glow"/>
   <!-- @/motion:elements -->
 
-  <!-- the vault, on top of the moving parts: the master key emerges from under it -->
+  <!-- the vault, on top of the moving parts: the key emerges from under it -->
   <rect x="228" y="144" width="160" height="64" rx="7" fill="#141416" stroke="#363840"/>
   <circle cx="242" cy="161.5" r="2.5" fill="#F4F6FC" class="tick" style="animation-delay:-0.35s"/>
   <text class="t-name" x="252" y="164.5">vault</text>
@@ -244,7 +244,7 @@
   <circle cx="559" cy="32" r="4" fill="#4CF490"/>
   <text class="t-name" x="569" y="36">request</text>
   <circle cx="559" cy="52" r="4" fill="#FBDC8E"/>
-  <text class="t-name" x="569" y="56">master key</text>
+  <text class="t-name" x="569" y="56">key</text>
   <circle cx="559" cy="72" r="4" fill="#02BEFA"/>
   <text class="t-name" x="569" y="76">credential</text>
 </svg>
