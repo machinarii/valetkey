@@ -164,7 +164,8 @@
      600px the three controls share one width and one left edge. From 900px the page widens to two
      columns: what is asked on the left, and on the right one panel with the time limit, the code
      and the button, so the decision is in one place. */
-  .approve > form select + label { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+  .approve > form label { color: var(--muted); font-size: 0.875rem; }  /* as the labels in the table */
+  .approve > form select + label { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); }
   @media (min-width: 600px) {
     .approve > form select, .approve > form button.wide { width: 100%; max-width: 22rem; margin-left: 0; }
   }
@@ -177,7 +178,7 @@
       .approve > p:first-child { font-size: 1.25rem; max-width: 46rem; }
       .approve > .spec, .approve > img { grid-area: what; margin: 0; }
       .approve > form { grid-area: form; position: sticky; top: 16px; display: flex; flex-direction: column;
-                        padding: 8px 20px 16px; background: var(--card); border: 1px solid var(--line);
+                        padding: 2px 16px 16px; background: var(--card); border: 1px solid var(--line);
                         border-radius: 12px; }
       .approve > form select, .approve > form button.wide, .approve > form .code-boxes { max-width: none; }
       .approve > form button.wide { margin-top: 16px; }
