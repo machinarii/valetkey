@@ -96,7 +96,7 @@ from the brief "a close-up robotic valet in a cap, holding a key beside its head
 its background and resized.
 
 The wordmark (`valetkey-wordmark-light.svg` for a light page, `-dark.svg` for a dark one) is drawn by
-hand as strokes, with no font; its k is a key. The same paths are inline in
+hand as strokes, with no font; "key" is in gold. The same paths are inline in
 `broker/entry-page.html`, so change both together.
 
 ## Releasing
